@@ -1,3 +1,11 @@
+#!/usr/bin/python
+
+__author__ = "Jaiden Cook, Jack Line"
+__credits__ = ["Jaiden Cook","Jack Line"]
+__version__ = "0.0.0"
+__maintainer__ = "Jaiden Cook"
+__email__ = "Jaiden.Cook@student.curtin.edu"
+
 # Generic stuff:
 #%matplotlib notebook
 import os,sys
@@ -105,18 +113,22 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         amaj = t
     else:
         pass
-    
+
     # Defining the width of the Gaussians
-    sigx = amaj/np.sqrt(2.0*np.log(2.0))
-    sigy = bmin/np.sqrt(2.0*np.log(2.0))
-    
+    sigx = amaj/(2.0*np.sqrt(2.0*np.log(2.0)))
+    sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
+
     a = (np.cos(theta)**2)/(2.0*sigx**2) + (np.sin(theta)**2)/(2.0*sigy**2)
     b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
     c = (np.sin(theta)**2)/(2.0*sigx**2) + (np.cos(theta)**2)/(2.0*sigy**2)
         
     if polar == False:
         # Cartesian.
-        return A*np.exp(-(a*(X-x0)**2 + 2*b*(X-x0)*(Y-y0) + c*(Y-y0)**2))
+
+        # Deriving the peak amplitude from the integrated amplitude.
+        Amplitude = A/(sigx*sigy*2*np.pi)
+
+        return Amplitude*np.exp(-(a*(X-x0)**2 + 2*b*(X-x0)*(Y-y0) + c*(Y-y0)**2))
     
     elif polar == True:
     
@@ -152,8 +164,6 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         #sigy = 2*np.sin(sigy/2)*np.sin(np.arccos(np.sqrt(l0**2 + m0**2)))#*np.cos(np.pi/2 - np.arctan2(l0,m0)+np.pi)#*np.cos(theta)
         #sigx = 2*np.sin(sigx/2)
 
-        
-
         Az = X
         Zen = Y
         Az0 = x0
@@ -175,7 +185,9 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         #print('theta = %2.3f' % (theta))
         #print('arctan(l0,m0) = %2.3f' % (np.arctan2(m0,l0)))
         
-        
+        # Deriving the peak amplitude from the integrated amplitude.
+        Amplitude = A/(sigx*sigy*2*np.pi)
+
         # Defining x-x0 and y-y0. Defining them in spherical coordinates.
         ##x_shft = 2*np.sin(Zen)*np.cos(Az)/(1+np.cos(Zen)) - 2*np.sin(Zen0)*np.cos(Az0)/(1+np.cos(Zen0))
         ##y_shft = 2*np.sin(Zen)*np.sin(Az)/(1+np.cos(Zen)) - 2*np.sin(Zen0)*np.sin(Az0)/(1+np.cos(Zen0))
@@ -185,7 +197,7 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         y_shft = -np.sin(Zen)*np.sin(Az) + np.sin(Zen0)*np.sin(Az0)
 
     
-        return A*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
+        return Amplitude*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
 
 def Poly_func2D_old(xx,yy,*a):
     #
@@ -239,18 +251,6 @@ def Poly_func2D_nu(data_tuple,*a):
             
     return zz.ravel()
 
-def Window_blackman(x,x0,X,a):
-    
-    # This function might need to be adjusted.
-
-    Wind_arr = (1-a)/2.0 - 0.5*np.cos((2*np.pi*(x - x0 - 0.5*X))/X) + 0.5*a*np.cos((4*np.pi*(x - x0 - 0.5*X))/X)
-    
-    # Setting all values outside the window to zero:
-    Wind_arr[(x <= x0 - 0.5*X)] = 0.0
-    Wind_arr[(x >= x0 + 0.5*X)] = 0.0
-    
-    return Wind_arr
-
 def realign_polar_xticks(ax):
     for x, label in zip(ax.get_xticks(), ax.get_xticklabels()):
         if np.sin(x) > 0.1:
@@ -258,10 +258,10 @@ def realign_polar_xticks(ax):
         if np.sin(x) < -0.1:
             label.set_horizontalalignment('left')
 
-def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',**kwargs):
+def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,12),xlab=r'$l$',ylab=r'$m$',clab='Intensity',**kwargs):
 
     if projection == None:
-        fig, axs = plt.subplots(1, figsize = (14,12), dpi=75)
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         # Creating the image objects:
         
@@ -275,10 +275,10 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',**kwargs):
 
         # Setting the colour bars:
         cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
-        cb.set_label(label='Intensity')
+        cb.set_label(label=clab)
     
-        axs.set_xlabel(r'$l$')
-        axs.set_ylabel(r'$m$')
+        axs.set_xlabel(xlab)
+        axs.set_ylabel(ylab)
     
         im.set_clim(**kwargs)
 
@@ -288,9 +288,9 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',**kwargs):
         
         fig = plt.figure(figsize = (14,12), dpi = 75)
         
-        label_size = 24
+        #label_size = 24
         font_size = 22
-        thetaticks = np.arange(0,360,45)
+        #thetaticks = np.arange(0,360,45)
         
         ax1 = fig.add_subplot(111,projection='polar')
         pcm1 = ax1.pcolormesh(X_vec,Y_vec,Img, cmap = cmap)
@@ -330,14 +330,14 @@ def Plot_3D(X_arr,Y_arr,Z_arr,cmap='jet'):
     
     plt.show()
     
-def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='jet'):
+def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='jet',figsize = (14,12)):
     # Creating the plots of the real, im, phase and amplitude:
 
     # Visibilities must be normalised before plotting.
 
     Vis_power = np.abs(Vis)
     
-    fig, axs = plt.subplots(2,2, figsize = (14,12), dpi=75)
+    fig, axs = plt.subplots(2,2, figsize = figsize, dpi=75)
 
     Vis_power_std = np.std(Vis_power)
     Vis_power_mean = np.mean(Vis_power)
@@ -1037,7 +1037,6 @@ class Skymodel:
         
             self.model = self.model*S[i,:]
         
-
 
 
 """

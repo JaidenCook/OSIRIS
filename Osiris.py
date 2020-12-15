@@ -1,3 +1,11 @@
+#!/usr/bin/python
+
+__author__ = "Jaiden Cook, Jack Line"
+__credits__ = ["Jaiden Cook","Jack Line"]
+__version__ = "0.0.0"
+__maintainer__ = "Jaiden Cook"
+__email__ = "Jaiden.Cook@student.curtin.edu"
+
 # Generic stuff:
 #%matplotlib notebook
 import os,sys
@@ -258,10 +266,10 @@ def realign_polar_xticks(ax):
         if np.sin(x) < -0.1:
             label.set_horizontalalignment('left')
 
-def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',**kwargs):
+def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,12),**kwargs):
 
     if projection == None:
-        fig, axs = plt.subplots(1, figsize = (14,12), dpi=75)
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         # Creating the image objects:
         
