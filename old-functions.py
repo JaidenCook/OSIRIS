@@ -346,3 +346,239 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
 
     
         return Amplitude*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
+
+# Old Jack functions.
+
+def get_uvw(x_lamb,y_lamb,z_lamb,dec,HA):
+    '''Calculates u,v,w for a given 
+    
+    Author: J.Line
+    '''
+
+    u = np.sin(HA)*x_lamb + np.cos(HA)*y_lamb
+    v = -np.sin(dec)*np.cos(HA)*x_lamb + np.sin(dec)*np.sin(HA)*y_lamb + np.cos(dec)*z_lamb
+    w = np.cos(dec)*np.cos(HA)*x_lamb - np.cos(dec)*np.sin(HA)*y_lamb + np.sin(dec)*z_lamb
+    return u,v,w
+
+def enh2xyz(east,north,height,latitiude):
+    '''Calculates local X,Y,Z using east,north,height coords,
+    and the latitude of the array. Latitude must be in radians
+    
+    Author: J.Line
+    '''
+    sl = np.sin(latitiude)
+    cl = np.cos(latitiude)
+    X = -north*sl + height*cl
+    Y = east
+    Z = north*cl + height*sl
+    return X,Y,Z
+
+def MWA_uvw(MWA_lat=-26.7033194444,H0=0.0):
+    """
+    Returns the (u,v,w) coordinates for a given pointing centre and hour angle.
+    The default is a zenith pointing.
+    """
+    
+    ##Text file containing e,n,h coords.
+    array_layout = 'antenna_locations_MWA_phase1.txt'
+    anntenna_locs = np.loadtxt(array_layout)
+    east, north, height = anntenna_locs[:,0],anntenna_locs[:,1],anntenna_locs[:,2]
+
+    #MWA_lat = -26.7033194444
+    #H0 = 0.0
+
+    ##Do conversion from enh into XYZ
+    X,Y,Z = enh2xyz(east, north, height, np.radians(MWA_lat))
+
+    x_lengths = []
+    y_lengths = []
+    z_lengths = []
+
+    # Calculating for each baseline.
+    for tile1 in range(0,len(X)):
+        for tile2 in range(tile1+1,len(X)):
+            x_len = X[tile2] - X[tile1]
+            y_len = Y[tile2] - Y[tile1]
+            z_len = Z[tile2] - Z[tile1]
+        
+            x_lengths.append(x_len)
+            y_lengths.append(y_len)
+            z_lengths.append(z_len)
+
+    # These are in metres not wavelengths.
+    dx = np.array(x_lengths) # [m] 
+    dy = np.array(y_lengths) # [m]
+    dz = np.array(z_lengths) # [m]
+
+    # These are the general (u,v,w) values. 
+    u_m,v_m,w_m = get_uvw(dx,dy,dz,np.radians(MWA_lat),np.radians(H0)) #[m]
+
+    return u_m, v_m, w_m
+
+def uvw_lam(u_m,v_m,w_m,wave,uvmax):
+    """
+    Converts the (u,v,w) coordinates from meters to wavelengths. Additionally
+    subsets for the uvmax cooridinate.
+    """
+    
+    # Converting into wavelengths.
+    u_lam = u_m/wave 
+    v_lam = v_m/wave
+    w_lam = w_m/wave
+    
+    # Determining the uv_max boolean mask
+    uv_mask = (np.abs(u_lam) < uvmax)*(np.abs(v_lam) < uvmax)
+    
+    u_lam = u_lam[uv_mask]
+    v_lam = v_lam[uv_mask]
+    w_lam = w_lam[uv_mask]
+    
+    return u_lam, v_lam, w_lam
+
+def Plot_MWA_uv(u_lam, v_lam, uvmax,figsize=(10,10)):
+    """
+    Plots the MWA uv sample for a max uv cutoff. Units are in wavelengths.
+    """
+    
+    plt.clf()
+
+    fig = plt.figure(figsize=figsize)
+    ax1 = fig.add_subplot(111)
+    ax1.plot(u_lam,v_lam,'k.',mfc='none',ms=1)
+    #ax1.plot(-u_lam,-v_lam,'k.',mfc='none',ms=1)
+    ax1.set_xlabel(r'$u\,(\lambda)$',fontsize=24)
+    ax1.set_ylabel(r'$v\,(\lambda)$',fontsize=24)
+    ax1.set_xlim(-uvmax,uvmax)
+    ax1.set_ylim(-uvmax,uvmax)
+
+    plt.show()
+
+"""
+def Vis_Beam_Poly2D(U,V,dL,dM,l0,m0,Az0,Zen0,*a):
+    
+    a = np.array(a).ravel() # Setting the beam parameters.
+    
+    vis = np.zeros(np.shape(U),dtype=complex) # Initialising the vis array.
+    p = int(np.sqrt(len(a)) - 1) # Forcing type.
+    
+    # Shifting the U and V arrays.
+    U = fftshift(U)
+    V = fftshift(V)
+    
+    Az0 = np.radians(Az0)
+    Zen0 = np.radians(Zen0)
+    
+    #dL = dL*np.sqrt((np.sin(PA))**2 + (np.cos(PA)*np.cos(Zen0))**2)
+    #dM = dM*np.sqrt((np.cos(PA))**2 + (np.sin(PA)*np.cos(Zen0))**2)
+    
+    print(dL,dM)
+    
+    #dL = dL*np.sqrt((np.sin(Az0))**2 + (np.cos(Az0)*np.cos(Zen0))**2)
+    #dM = dM*np.sqrt((np.cos(Az0))**2 + (np.sin(Az0)*np.cos(Zen0))**2)
+    
+    print(dL,dM)
+    
+    index = 0
+    for r in range(p+1):
+        for s in range(p+1):
+            
+            # u-component:
+            FT_b_u = 0
+            for n in range(p-r+1):
+                temp_frac_u = ((-1)**n) * ( ((dL/2.0)**(p-r-n)) / ((2*np.pi*(U))**(n+1)) )
+                temp_cos_u = np.cos((np.pi/2.0)*(3*(p-r-n) + 1) - np.pi*(U)*dL)
+                
+                temp_u = temp_frac_u*temp_cos_u
+                
+                FT_b_u = FT_b_u + temp_u
+                    
+            ### There is an issue here. The limits are correct. But there is an issue
+            ### with the order in which they are assigned depending on the polynomial order.
+
+            
+            #if p-r == 0:
+            #    FT_b_u[np.isinf(FT_b_u)] = dL/2
+                
+            
+            # Taking care of the discontinuities.
+            if n==0:
+            #if r==0:
+                # Sinc function condition.
+                #FT_b_u[np.isinf(FT_b_u)] = np.max(FT_b_u[np.isinf(FT_b_u)==False])
+                FT_b_u[np.isinf(FT_b_u)] = dL/2
+            
+            if n==1:
+            #if r==1:
+                FT_b_u[np.isnan(FT_b_u)] = 0.0
+            
+            if n==2:
+            #if r==2:
+                #FT_b_u[np.isnan(FT_b_u)] = np.min(FT_b_u[np.isnan(FT_b_u)==False])
+                FT_b_u[np.isnan(FT_b_u)] = -(dL**3)/12.0
+                #FT_b_u[np.isnan(FT_b_u)] = -((dL)**3)/6
+                    
+            cond_u = True
+            if r == 0 and cond_u == True:
+                
+                print(np.max(U[0,:]),np.min(U[0,:]),FT_b_u[0,:][U[0,:]==0.0])
+                print(dL)
+                plt.clf()
+                #plt.semilogy(U[0,:],FT_b_u[0,:])
+                plt.plot(U[0,:],FT_b_u[0,:])
+                plt.xlabel(r'$u$',fontsize=24)
+                plt.ylabel(r'$\frac{\hat{b}^2_2(u)}{2i^{2}e^{-2\pi i u l_0}}$',fontsize=24)
+                plt.xlim([-25,25])
+                #plt.plot(U[0,:],temp_cos_u[0,:])
+                #plt.savefig('{0}.png'.format(n))
+                plt.show()
+                
+            # v-component:
+            FT_b_v = 0
+            for q in range(s+1):
+                temp_frac_v = ((-1)**q)*(((dM/2.0)**(s-q))/(2*np.pi*(V))**(q+1))
+                temp_cos_v = np.cos((np.pi/2.0)*(3*(s-q) + 1) - np.pi*(V)*dM)
+                
+                temp_v = temp_frac_v*temp_cos_v
+                
+                FT_b_v = FT_b_v + temp_v
+                
+                if s==0:
+                    # Sinc function condition.
+                    FT_b_v[np.isinf(FT_b_v)] = dM/2
+                
+                if s==1:
+                    FT_b_v[np.isnan(FT_b_v)] = 0.0
+                
+                if s==2:
+                    #FT_b_v[np.isnan(FT_b_v)] = np.min(FT_b_v[np.isnan(FT_b_v)==False])
+                    FT_b_v[np.isnan(FT_b_v)] = -(dM**3)/12.0
+                
+            cond_v = False
+            if s == 2 and cond_v == True:
+                
+                print(np.max(V[:,0]),np.min(V[:,0]),FT_b_v[:,0][V[:,0]==0.0])
+                print(dM)
+                plt.clf()
+                #plt.semilogy(U[0,:],FT_b_u[0,:])
+                plt.plot(V[:,0],FT_b_v[:,0])
+                #plt.savefig('{0}.png'.format(n))
+                plt.show()
+                
+
+            
+            vis = vis + 4*(complex(0,1)**(p-r-s))*a[index]*FT_b_u*FT_b_v
+            
+            index = index + 1
+            
+    # Exponential phase offset term.
+    phase_l0m0 = np.zeros(np.shape(U),dtype=complex)
+    #phase_l0m0.real = np.cos(-2*np.pi*(l0*U + m0*V))
+    phase_l0m0.real = np.cos(-2*np.pi*(m0*U + l0*V))
+    #phase_l0m0.imag = np.sin(-2*np.pi*(l0*U + m0*V))
+    phase_l0m0.imag = np.sin(-2*np.pi*(m0*U + l0*V))
+    
+    # shifting the phase for the off centre window.
+    vis = vis*phase_l0m0
+    return vis
+
+"""
