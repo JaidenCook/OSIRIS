@@ -560,54 +560,6 @@ def Vis_degrid(u_arr,v_arr,L,M,N_ker,u,v,vis_sky,plot_cond=False,verb_cond=False
 
 ## Interferometry functions from J.Line.
 
-def add_kernel(uv_array,u_ind,v_ind,kernel):
-    '''Takes v by u sized kernel and adds it into
-    a numpy array at the u,v point u_ind, v_ind
-    Kernel MUST be odd dimensions for symmetry purposes
-    
-    Author: J.Line
-
-    '''
-    ker_v,ker_u = kernel.shape
-    width_u = int((ker_u - 1) / 2)
-    width_v = int((ker_v - 1) / 2)
-
-    N = len(uv_array)
-    min_u_ind = u_ind - width_u
-    max_u_ind = u_ind + width_u + 1
-    min_v_ind = v_ind - width_v
-    max_v_ind = v_ind + width_v + 1
-    
-    ## Jack suggests changing this, I will have to discuss this with him.
-    if max_u_ind > N-1:
-        max_u_ind = N-1
-        kernel = kernel[:,0:max_u_ind-min_u_ind]
-    
-    if max_v_ind > N-1:
-        max_v_ind = N-1
-        kernel = kernel[0:max_v_ind-min_v_ind,:]
-
-    if min_u_ind < 0:
-        min_u_ind = 0
-        kernel = kernel[:,min_u_ind:max_u_ind]
-
-    if min_v_ind < 0:
-        min_v_ind = 0
-        kernel = kernel[min_v_ind:max_v_ind,:]
-
-    array_subsec = uv_array[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
-
-    try:
-        array_subsec += kernel
-    except ValueError:
-        print('Value Error')
-        print('kernel shape {0}'.format(kernel.shape))
-        print('kernel width u = %4i, kernel width v = %4i' % (width_u,width_v))
-        print('Kernel shape (%4i,%4i)' % (max_v_ind-min_v_ind,max_u_ind-min_u_ind))
-        print('Array size = %4i, u indexing size = %4i' % (len(uv_array), u_ind + width_u +1))
-        print('Array size = %4i, v indexing size = %4i' % (len(uv_array), u_ind + width_u +1))
-
-
 def grid(container=None,u_coords=None, v_coords=None, u_range=None, \
          v_range=None,vis=None, kernel='gaussian', kernel_params=[2.0,2.0]):
     '''A simple(ish) gridder - defaults to gridding with a gaussian 
@@ -693,8 +645,6 @@ def gaussian(sig_x=None,sig_y=None,gridsize=31,x_offset=0,y_offset=0):
 
     return gaussian
 
-
-
 def get_lm(ra=None,ra0=None,dec=None,dec0=None):
     '''Calculate l,m,n for a given phase centre ra0,dec0 and sky point ra,dec
     Enter angles in radians
@@ -713,8 +663,6 @@ def get_lm(ra=None,ra0=None,dec=None,dec0=None):
     m = sdec*cdec0 - cdec*sdec0*cdra
     n = sdec*sdec0 + cdec*cdec0*cdra
     return l,m,n
-
-
 
 def find_closet_uv(u=None,v=None,u_range=None,v_range=None):
     '''Finds the closet values to u,v in the ranges u_range,v_range
