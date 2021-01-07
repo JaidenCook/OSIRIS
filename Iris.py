@@ -468,7 +468,8 @@ def uv_grid_kernel(N,L,M,kernel='gaussian',plot_cond=False):
         Plot_img(Sky_kernel,[-L,L],[-M,M],cmap='viridis',figsize=(7,6),clab='Weights')
     
     # Fourier transform to determine the fourier sky kernel:   
-    u_ker_lam_arr,v_ker_lam_arr,Vis_ker = Visibilities_2D(Sky_kernel,L/2,M/2,N)
+    #u_ker_lam_arr,v_ker_lam_arr,Vis_ker = Visibilities_2D(Sky_kernel,L/2,M/2,N)
+    u_ker_lam_arr,v_ker_lam_arr,Vis_ker = Visibilities_2D(Sky_kernel,L,M,N)
     
     # Shifting the u, and v arrays.
     u_ker_lam_arr = (fftshift(u_ker_lam_arr)) #[lambda]
@@ -527,33 +528,30 @@ def Vis_degrid(u_arr,v_arr,L,M,N_ker,u,v,vis_sky,plot_cond=False,verb_cond=False
         # We also want to look at the error between the pixel position and the guess.
         u_err_vec[i] = np.abs(u[i] - u_vec[temp_u_ind])
         v_err_vec[i] = np.abs(v[i] - v_vec[temp_v_ind])
-    
+
         # Might have to define a visibility subset that is larger.
         # Defining the visibility subset:
         vis_sub = vis_sky[temp_u_ind - ker_len - 1:temp_u_ind + ker_len,\
                   temp_v_ind - ker_len - 1:temp_v_ind + ker_len]
         
         #
-        
         # Verbose output condition, for diagnostic purposes. Default condition is False.
-        if verb_cond == True:
+        # Replace this with a logger, and have it raised for debugging or error purposes.
+        try:
+            vis_sky_deg[i] = np.sum(vis_sub*vis_ker)
+        except ValueError:
             print('#{0}'.format(i))
             print('u[i] = %5.2f, v[i] = %5.2f' % (u[i],v[i]))
-            print('upixel scale = %5.2f, vpixelscale = %5.2f' % (u_vec[1]-u_vec[0],v_vec[1]-v_vec[0]))
+            print('upixel scale = %5.2f, vpixel scale = %5.2f' % (u_vec[1]-u_vec[0],v_vec[1]-v_vec[0]))
             print('min_u = %7.3f, min_v = %7.3f' % (np.min(u_vec),np.min(v_vec)))
             print('min_u_lam = %7.3f, min_v_lam = %7.3f' % (np.min(u),np.min(v)))
             print('u_diff = %5.2f, v_diff = %5.2f'% (np.min(np.abs(u_vec - u[i])),np.min(np.abs(v_vec - v[i]))))
             print('u_ind = %4i, v_ind = %4i' % (temp_u_ind,temp_v_ind))
             print('Kernel half width = %3i' % ker_len)
             print('u_ind -ker_len -1 : u_ind + ker_len = %3i : %3i' % \
-                  (temp_u_ind - ker_len - 1,temp_u_ind + ker_len))
+                (temp_u_ind - ker_len - 1,temp_u_ind + ker_len))
             print('v_ind -ker_len -1 : v_ind + ker_len = %3i : %3i' % \
-                  (temp_v_ind - ker_len - 1,temp_v_ind + ker_len))
-        else:
-            pass
-    
-        
-        vis_sky_deg[i] = np.sum(vis_sub*vis_ker)
+                (temp_v_ind - ker_len - 1,temp_v_ind + ker_len))
 
     return vis_sky_deg, u_err_vec, v_err_vec
 
@@ -561,7 +559,7 @@ def Vis_degrid(u_arr,v_arr,L,M,N_ker,u,v,vis_sky,plot_cond=False,verb_cond=False
 ## Interferometry functions from J.Line.
 
 def grid(container=None,u_coords=None, v_coords=None, u_range=None, \
-         v_range=None,vis=None, kernel='gaussian', kernel_params=[2.0,2.0]):
+         v_range=None,vis=None, kernel='gaussian', kernel_params=[2.0,2.0],KERNEL_SIZE = 31):
     '''A simple(ish) gridder - defaults to gridding with a gaussian 
     
     Author: J.Line
@@ -569,7 +567,6 @@ def grid(container=None,u_coords=None, v_coords=None, u_range=None, \
 
     # Weight array, we will divide the entire container array by this.
     weights_arr = np.zeros(np.shape(container),dtype=complex)
-    KERNEL_SIZE = 31
 
     for i in np.arange(len(u_coords)):
         u,v,comp = u_coords[i],v_coords[i],vis[i]
@@ -716,7 +713,172 @@ def find_closet_uv(u=None,v=None,u_range=None,v_range=None):
 
     return u_ind,v_ind,u_off,v_off 
 
-### Defining classes. Split this up into different module files.
+### Defining classes. Split this up into different module files.\
+
+class Power_spec:
+    """
+    This class defines the different power spectrums. It allows for the calculation of the cylindrical and the
+    angular averaged power spectrum. These are also referred to as the 2D and 1D power spectrums.
+    """
+    
+    # Constants
+    nu_21 = 1400 #[MHz]
+    c = 299792458.0/1000 #[km/s]
+    
+    bin_width = 2.5 # [lambda]
+    N_bins = 302.5/bin_width
+    # Specifying the radius vector:
+    k_r = np.linspace(0,302.5,int(N_bins) + 1)
+    
+    def __init__(self,Four_sky_cube,eta,u_arr,v_arr,nu_o,nu_21=nu_21,k_r=k_r):
+        
+        # Attributes will include data cube, eta, 
+        
+        self.data = Four_sky_cube
+        self.eta = eta
+        self.u_arr = u_arr # Should have units of wavelengths.
+        self.v_arr = v_arr # Should have units of wavelengths.
+        self.k_r = k_r
+        self.z = (nu_21/nu_o) - 1
+    
+    
+    def angular(self,Vis_power,k_r=k_r,nu_21=nu_21,c=c):
+        """
+        Calculate the 1D angular averaged power spectrum. This function is called for both the 1D and 2D cases.
+        For the 1D case the input Vis_power data array is 3-dimensional. For the 2D cylindrical case the input
+        array is 2-dimensional.
+        """
+        # Importing the cosmology.
+        from astropy.cosmology import Planck18
+
+        Hz = Planck18.H(self.z).value
+        h = Planck18.H(0).value/100 
+
+        # Cylindrical and non-cylindrical condition.
+        shape_data = len(np.shape(Vis_power))
+        
+        if shape_data == 3:
+            # For the non-cylindrical case, the visibilities are averaged in the time (eta) domain.
+            Vis_power = np.mean(Vis_power,axis=2)
+        else:
+            # For the cylindrical case.
+            pass
+        
+        # The u_arr and v_arr should be shifted. 
+        r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2) + 0.00001
+
+        # Initialising Power vector and Radius vector.
+        Power_spec1D = np.zeros(len(self.k_r))
+        radius = np.zeros(len(self.k_r))
+        for i in range(len(self.k_r)-1):
+    
+            radius[i] = ((self.k_r[i+1] + self.k_r[i])/2.0)
+            Power_spec1D[i] = np.mean(Vis_power[np.logical_and(r_uv >= self.k_r[i], r_uv <= self.k_r[i+1])])
+            
+        radius = np.roll(radius,1)# Can't remember what problem this fixes.
+        
+        if shape_data == 2:
+            # Cylindrical case.
+            return Power_spec1D, radius
+        else:
+            # Non-cylindrical case.
+            Dm = Planck18.comoving_distance(self.z).value #[Mpc]
+            #self.Power_spec1D = Power_spec1D # [Jy^2 str^-2]
+            self.Power_spec1D = Power_spec1D * ((c*1000)**2 / (2 * 1380.649 * nu_21**2))**2 * ((Dm/h)**2) * (h*c/Hz) # [K^2 h^-3 Mpc^3]
+            self.radius = radius
+            #self.kperp = self.radius * (2*np.pi/Dm) # [Mpc^-1]
+            self.kperp = self.radius * (2*np.pi*h/Dm) # [h Mpc^-1]
+        
+    
+    def cylindrical(self,k_r=k_r,c=c,nu_21=nu_21):
+        """
+        This code takes an input Fourier sky cube, and outputs the 2D power spectrum.
+        """
+        # Importing the cosmology.
+        from astropy.cosmology import Planck18
+    
+        Dm = Planck18.comoving_distance(self.z).value #[Mpc]
+        Hz = Planck18.H(self.z).value
+        h = Planck18.H(0).value/100 
+    
+        # Initialising th 2D power spectrum:
+        Power_spec2D = np.zeros([len(self.eta),len(k_r)])
+        Four_sky_cube_power = np.abs(self.data)
+    
+        for i in range(len(self.eta)):
+        
+            # Determining the k_perp power for each eta mode.
+            Power_spec2D[i,:], radius = self.angular(Four_sky_cube_power[:,:,i])
+        
+
+        self.Power_spec2D = Power_spec2D * ((c*1000)**2 / (2 * 1380.649 * nu_21**2))**2 * ((Dm/h)**2) * (h*c/Hz) # [K^2 h^-3 Mpc^3]
+        #self.Power_spec2D = Power_spec2D # [Jy^2 str^-2]
+        self.radius = radius
+        
+        # Calculating k_perp and k_par
+        #self.kperp = self.radius * (2*np.pi/Dm) # [Mpc^-1]
+        self.kperp = self.radius * (2*np.pi*h/Dm) # [h Mpc^-1]
+        #self.kpar = self.eta * (2*np.pi*nu_21*Hz)/(c*(1 + self.z)**2) # [Mpc^-1]
+        self.kpar = self.eta * (2*np.pi*nu_21*Hz/h)/(c*(1 + self.z)**2) # [h Mpc^-1]
+    
+    def plot_angular(self,figsize = (14,12),xlim=None,ylim=None,**kwargs):
+        """
+        Plot the 1D angular averaged power spectrum.
+        """
+        
+        # Initialising the figure object.
+        # Need fig object, code breaks otherwise, fix this in the future.
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+    
+        plt.loglog()
+
+        axs.plot(self.kperp,self.Power_spec1D,**kwargs)
+
+        if xlim:
+            axs.set_xlim(xlim)
+        if ylim:
+            axs.set_ylim(ylim)
+    
+        axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
+        #axs.set_ylabel(r'$\rm{Power}$',fontsize=24)
+        axs.set_ylabel(r'$\rm{P(k_\perp) \, [K^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
+
+        plt.legend(fontsize=24)
+        
+    
+    def plot_cylindrical(self,figsize=(10,10),cmap='viridis',**kwargs):
+        # Plot the 2D angular averagged power spectrum.
+
+        """
+        This code plots the 2D power spectrum for an input visibility cube.
+        """
+
+        fig, axs = plt.subplots(1, figsize = figsize)#, dpi=80)
+
+        im = axs.imshow(np.log10(self.Power_spec2D),cmap=cmap,origin='lower',\
+                extent=[np.min(self.kperp),np.max(self.kperp),np.min(self.kpar),np.max(self.kpar)],**kwargs,\
+                    norm=matplotlib.colors.LogNorm())
+
+        # Setting the colour bars:
+        cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+        #cb.set_label(label='log10 Power',fontsize=22)
+        cb.set_label(label=r'$\log_{10} P(k_\perp,k_{||}) \, [K^2\,h^{-3}\,Mpc^3]$',fontsize=22)
+        
+
+        axs.set_xscale('log')
+        axs.set_yscale('log')
+
+        # Determined from trial and error.
+        axs.set_xlim([self.kperp[3],np.max(self.kperp)])
+        axs.set_ylim([self.kpar[1],np.max(self.kpar)])
+
+        axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=22)
+        axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=22)
+    
+        #im.set_clim(**kwargs)
+
+        #plt.show()
+
 
 class MWA_uv:
     
