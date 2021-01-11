@@ -563,6 +563,67 @@ def Power_spec1D(Vis_power,u_arr,v_arr,r_vec=None):
 
     return Power_spec_1D, Radius
 
+def realign_polar_xticks(ax):
+    for x, label in zip(ax.get_xticks(), ax.get_xticklabels()):
+        if np.sin(x) > 0.1:
+            label.set_horizontalalignment('right')
+        if np.sin(x) < -0.1:
+            label.set_horizontalalignment('left')
+
+def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,12),xlab=r'$l$',ylab=r'$m$',clab='Intensity',**kwargs):
+
+    if projection:
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+
+        # Creating the image objects:
+        
+        if np.any(X_vec) != None and np.any(Y_vec) != None:
+            im = axs.imshow(Img,cmap=cmap,origin='upper',\
+                                 extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)])
+            
+        else:
+            im = axs.imshow(Img,cmap=cmap,origin='upper')
+            
+
+        # Setting the colour bars:
+        cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+        cb.set_label(label=clab)
+    
+        axs.set_xlabel(xlab)
+        axs.set_ylabel(ylab)
+    
+        im.set_clim(**kwargs)
+
+        plt.show()
+
+    elif projection == "polar":
+        
+        fig = plt.figure(figsize = (14,12), dpi = 75)
+        
+        #label_size = 24
+        font_size = 22
+        #thetaticks = np.arange(0,360,45)
+        
+        ax1 = fig.add_subplot(111,projection='polar')
+        pcm1 = ax1.pcolormesh(X_vec,Y_vec,Img, cmap = cmap)
+        
+        ax1.set_yticks([])
+        ax1.set_theta_offset(np.pi/2.0)
+        
+        
+        cb = fig.colorbar(pcm1, ax = ax1, fraction = 0.046, pad = 0.065)
+    
+        cb.set_label(label = 'Intensity', fontsize = font_size)
+        cb.ax.tick_params(axis = 'x', labelsize = font_size - 2)
+        
+        realign_polar_xticks(ax1)
+        
+        plt.subplots_adjust(left=-0.5)
+    
+        pcm1.set_clim(**kwargs)
+    
+        plt.show()
+
 """
 # Beam visibility code. This will need to be revisited in the future.
 def Vis_Beam_Poly2D(U,V,dL,dM,l0,m0,Az0,Zen0,*a):
