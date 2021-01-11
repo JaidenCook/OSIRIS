@@ -500,7 +500,71 @@ def add_kernel(uv_array,u_ind,v_ind,kernel):
         print('Array size = %4i, u indexing size = %4i' % (len(uv_array), u_ind + width_u +1))
         print('Array size = %4i, v indexing size = %4i' % (len(uv_array), u_ind + width_u +1))
 
+def Plot_Power_spec1D(Vis_power1D_list,radius,label_list=None,xlim=None,ylim=None,**kwargs):
+
+    # Vis_power1D can be a list of multiple 1D power spectrums.
+    # label_list should contain the same number of elements as Vis_power1D_list
+
+    #print(np.shape(Vis_power1D_list))
+    #print(label_list)
+
+    # Initialising the figure object.
+    # Need fig object, code breaks otherwise, fix this in the future.
+    fig, axs = plt.subplots(1, figsize = (14,12), dpi=75)
+    
+    plt.semilogy()
+
+    if len(np.shape(Vis_power1D_list)) < 2:
+        axs.plot(radius,Vis_power1D_list,**kwargs)
+
+    # Plotting multiple 1D power spectra if required.    
+    elif label_list != None and len(np.shape(Vis_power1D_list)) > 1:
+        for i in range(len(Vis_power1D_list)):
+            axs.plot(radius,Vis_power1D_list[i],label = label_list[i],**kwargs)
+
+    if xlim != None:
+        axs.set_xlim(xlim)
+    if ylim != None:
+        axs.set_ylim(ylim)
+    
+    axs.set_xlabel(r'$\sqrt{u^2 + v^2}$',fontsize=24)
+    axs.set_ylabel(r'$\rm{Power}$',fontsize=24)
+
+    plt.legend(fontsize=24)
+
+def Power_spec1D(Vis_power,u_arr,v_arr,r_vec=None):
+    
+    # Condition for radius vector. The default sampling is to just use
+    # the (u,v) grid. If the user inputs a u and v vector this is specifically
+    # for specifying their own sampling.    
+    if np.any(r_vec) == None:
+        u_vec = u_arr[0,:]
+        v_vec = v_arr[:,0]
+        
+        # This is for binning the radii.
+        r_vec = np.sqrt(u_vec[u_vec >= 0.0]**2 + v_vec[v_vec >= 0.0]**2)
+    else:
+        pass
+
+    # The u_arr and v_arr should be shifted. 
+    r_uv = np.sqrt(u_arr**2 + v_arr**2) + 0.00001
+
+    # Initialising Power vector and Radius vector.
+    Power_spec_1D = np.zeros(len(r_vec))
+    Radius = np.zeros(len(r_vec))
+    for i in range(len(r_vec)-1):
+    
+        Radius[i] = ((r_vec[i+1] + r_vec[i])/2.0)
+        Power_spec_1D[i] = np.mean(Vis_power[np.logical_and(r_uv >= r_vec[i], r_uv <= r_vec[i+1])])# Weight.
+        #print("#%3d, log_r[i] = %3.2f,log_r[i+1] = %3.2f, Power = %3.3e" % \
+        #          (i,r_bins[i],r_bins[i+1],Power_spec_1D[i])) 
+
+    Radius = np.roll(Radius,1)
+
+    return Power_spec_1D, Radius
+
 """
+# Beam visibility code. This will need to be revisited in the future.
 def Vis_Beam_Poly2D(U,V,dL,dM,l0,m0,Az0,Zen0,*a):
     
     a = np.array(a).ravel() # Setting the beam parameters.
