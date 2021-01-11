@@ -219,7 +219,7 @@ def realign_polar_xticks(ax):
 
 def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,12),xlab=r'$l$',ylab=r'$m$',clab='Intensity',**kwargs):
 
-    if projection == None:
+    if projection:
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         # Creating the image objects:
@@ -379,69 +379,6 @@ def Visibilities_2D(img,X,Y,N,norm=None):
     v_arr = fftshift(v_arr)[::-1,:]# For some reason these have to be flipped.
 
     return u_arr, v_arr, Vis
-
-def Power_spec1D(Vis_power,u_arr,v_arr,r_vec=None):
-    
-    # Condition for radius vector. The default sampling is to just use
-    # the (u,v) grid. If the user inputs a u and v vector this is specifically
-    # for specifying their own sampling.    
-    if np.any(r_vec) == None:
-        u_vec = u_arr[0,:]
-        v_vec = v_arr[:,0]
-        
-        # This is for binning the radii.
-        r_vec = np.sqrt(u_vec[u_vec >= 0.0]**2 + v_vec[v_vec >= 0.0]**2)
-    else:
-        pass
-
-    # The u_arr and v_arr should be shifted. 
-    r_uv = np.sqrt(u_arr**2 + v_arr**2) + 0.00001
-
-    # Initialising Power vector and Radius vector.
-    Power_spec_1D = np.zeros(len(r_vec))
-    Radius = np.zeros(len(r_vec))
-    for i in range(len(r_vec)-1):
-    
-        Radius[i] = ((r_vec[i+1] + r_vec[i])/2.0)
-        Power_spec_1D[i] = np.mean(Vis_power[np.logical_and(r_uv >= r_vec[i], r_uv <= r_vec[i+1])])# Weight.
-        #print("#%3d, log_r[i] = %3.2f,log_r[i+1] = %3.2f, Power = %3.3e" % \
-        #          (i,r_bins[i],r_bins[i+1],Power_spec_1D[i])) 
-
-    Radius = np.roll(Radius,1)
-
-    return Power_spec_1D, Radius
-
-def Plot_Power_spec1D(Vis_power1D_list,radius,label_list=None,xlim=None,ylim=None,**kwargs):
-
-    # Vis_power1D can be a list of multiple 1D power spectrums.
-    # label_list should contain the same number of elements as Vis_power1D_list
-
-    #print(np.shape(Vis_power1D_list))
-    #print(label_list)
-
-    # Initialising the figure object.
-    # Need fig object, code breaks otherwise, fix this in the future.
-    fig, axs = plt.subplots(1, figsize = (14,12), dpi=75)
-    
-    plt.semilogy()
-
-    if len(np.shape(Vis_power1D_list)) < 2:
-        axs.plot(radius,Vis_power1D_list,**kwargs)
-
-    # Plotting multiple 1D power spectra if required.    
-    elif label_list != None and len(np.shape(Vis_power1D_list)) > 1:
-        for i in range(len(Vis_power1D_list)):
-            axs.plot(radius,Vis_power1D_list[i],label = label_list[i],**kwargs)
-
-    if xlim != None:
-        axs.set_xlim(xlim)
-    if ylim != None:
-        axs.set_ylim(ylim)
-    
-    axs.set_xlabel(r'$\sqrt{u^2 + v^2}$',fontsize=24)
-    axs.set_ylabel(r'$\rm{Power}$',fontsize=24)
-
-    plt.legend(fontsize=24)
 
 def uv_grid_kernel(N,L,M,kernel='gaussian',plot_cond=False):
     """
@@ -821,7 +758,7 @@ class Power_spec:
         #self.kpar = self.eta * (2*np.pi*nu_21*Hz)/(c*(1 + self.z)**2) # [Mpc^-1]
         self.kpar = self.eta * (2*np.pi*nu_21*Hz/h)/(c*(1 + self.z)**2) # [h Mpc^-1]
     
-    def plot_angular(self,figsize = (14,12),xlim=None,ylim=None,**kwargs):
+    def plot_angular(self,figsize = (14,12),xlim=None,ylim=None,save=None,**kwargs):
         """
         Plot the 1D angular averaged power spectrum.
         """
@@ -840,13 +777,18 @@ class Power_spec:
             axs.set_ylim(ylim)
     
         axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
-        #axs.set_ylabel(r'$\rm{Power}$',fontsize=24)
         axs.set_ylabel(r'$\rm{P(k_\perp) \, [K^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
 
-        plt.legend(fontsize=24)
+        plt.tight_layout()
+        #plt.legend(fontsize=24)
+
+        if save:
+            plt.savefig('1D-powerspec.png')
+        else:
+            plt.show()
         
     
-    def plot_cylindrical(self,figsize=(10,10),cmap='viridis',**kwargs):
+    def plot_cylindrical(self,figsize=(10,10),cmap='viridis',save=None,**kwargs):
         # Plot the 2D angular averagged power spectrum.
 
         """
@@ -863,7 +805,6 @@ class Power_spec:
         cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
         #cb.set_label(label='log10 Power',fontsize=22)
         cb.set_label(label=r'$\log_{10} P(k_\perp,k_{||}) \, [K^2\,h^{-3}\,Mpc^3]$',fontsize=22)
-        
 
         axs.set_xscale('log')
         axs.set_yscale('log')
@@ -875,9 +816,12 @@ class Power_spec:
         axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=22)
         axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=22)
     
-        #im.set_clim(**kwargs)
+        #plt.tight_layout()
 
-        #plt.show()
+        if save:
+            plt.savefig('2D-powerspec.png')
+        else:
+            plt.show()
 
 
 class MWA_uv:
@@ -894,7 +838,8 @@ class MWA_uv:
     ## Zenith hour angle.
     H0 = 0.0 # [deg]
     ## Array east, north, height data.
-    array_loc = np.loadtxt('antenna_locations_MWA_phase1.txt')
+    #array_loc = np.loadtxt('antenna_locations_MWA_phase1.txt')
+    array_loc = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/antenna_locations_MWA_phase1.txt')
     
     def __init__(self,array_loc=array_loc):
         
@@ -1085,14 +1030,20 @@ class Skymodel:
     def add_Gaussian_sources(self, Az_mod, Alt_mod, Maj, Min, PA, S, window_size):
         
         # Converting the the Alt and Az into l and m coordinates:
-        l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
-        m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+        self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
+        self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
 
-        for i in range(len(l_mod)):
-    
+        for i in range(len([self.l_mod])):
+            
             # Creating temporary close l and m mask arrays:
-            temp_l_ind = np.isclose(self.l_vec,l_mod[i],atol=window_size)
-            temp_m_ind = np.isclose(self.m_vec,m_mod[i],atol=window_size)
+            if np.shape(self.l_mod):
+                # Multiple source case where shape(l_mod) is not None type.
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod[i],atol=window_size)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod[i],atol=window_size)
+            else:
+                # Single source case.
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod,atol=window_size)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod,atol=window_size)
     
             # Creating temporary index vectors:
             # Use the mask array to determin the index values.
@@ -1113,13 +1064,22 @@ class Skymodel:
             Az_temp_arr = np.arctan2(m_temp_arr,l_temp_arr) + np.pi  #arctan2() returns [-pi,pi] we want [0,2pi].
 
             # converting the major and minor axes into (l,m) coords.
-            temp_maj = np.sin(np.radians(Maj[i]))
-            temp_min = np.sin(np.radians(Min[i]))
-            
-            Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod[i]),\
-                            np.pi/2 - np.radians(Alt_mod[i]),np.radians(PA[i]),\
-                            temp_maj, temp_min)
+            if np.shape(self.l_mod):
+                # Multiple source case where shape(l_mod) is not None type.
+                temp_maj = np.sin(np.radians(Maj[i]))
+                temp_min = np.sin(np.radians(Min[i]))
 
+                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod[i]),\
+                                np.pi/2 - np.radians(Alt_mod[i]),np.radians(PA[i]),\
+                                temp_maj, temp_min)
+            else:
+                # Single source case.
+                temp_maj = np.sin(np.radians(Maj))
+                temp_min = np.sin(np.radians(Min))
+                
+                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod),\
+                                np.pi/2 - np.radians(Alt_mod),np.radians(PA),\
+                                temp_maj, temp_min)
             
             self.model[l_ind_arr,m_ind_arr,:] = self.model[l_ind_arr,m_ind_arr,:] +\
                 np.ones(np.shape(self.model[l_ind_arr,m_ind_arr,:]))*Gauss_temp[:,:,None]
@@ -1127,6 +1087,71 @@ class Skymodel:
             ## Set all NaNs and values below the horizon to zero:
             #self.model[self.r_arr > 1.0,:] = 0.0
             self.model[np.isnan(self.model)] = 0.0
-        
             self.model = self.model*S[i,:]
 
+    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',cmap='viridis',\
+        clab=None,save=None,**kwargs):
+
+        """
+        This function plots a subset of the sky-model. Particularly for a single source.
+        The main purpose of the functions in this pipeline is to plot the visibilities 
+        for a single source. Additionally there is an all-sky plotting option.
+        """
+
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+
+        if index:
+            # Case for a single source, when there is more than one model source.
+            l_mod = self.l_mod[index]
+            m_mod = self.m_mod[index]
+        else:
+            # Case for a single source, when there is more than one model source.
+            l_mod = self.l_mod
+            m_mod = self.m_mod
+
+        if window:
+            # Case for a single source image.
+            # Specifying the temporary l and m indices based on window size.
+            temp_l_ind = np.isclose(self.l_vec,l_mod,atol=window)
+            temp_m_ind = np.isclose(self.m_vec,m_mod,atol=window)
+
+            # Creating temporary index vectors:
+            # Use the mask array to determin the index values.
+            l_ind_vec = np.arange(len(self.l_vec))[temp_l_ind]
+            m_ind_vec = np.arange(len(self.m_vec))[temp_m_ind]
+
+            # Creating index arrays:
+            # Use the index vectors to create arrays
+            l_ind_arr, m_ind_arr = np.meshgrid(l_ind_vec, m_ind_vec)
+
+            # Creating temporary l and m arrays:
+            l_temp_arr = self.l_grid[l_ind_arr,m_ind_arr]
+            m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
+
+            im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='upper',\
+                extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
+        else:
+            # Case for the whole sky.
+            im = axs.imshow(self.model[:,:,100],cmap=cmap,origin='upper',\
+                extent=[np.min(self.l_arr),np.max(self.l_arr),np.min(self.m_arr),np.max(self.m_arr)])
+    
+        if clab:
+            # Find a better way to do this.
+            clab = clab
+        else:
+            # Default colour bar label.
+            clab = r'$I_{\rm{app}}\,[\rm{Jy/Str}]$'
+
+        # Setting the colour bars:
+        cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+        cb.set_label(label=clab,fontsize=24)
+
+        axs.set_xlabel(xlab,fontsize=24)
+        axs.set_ylabel(ylab,fontsize=24)
+
+        im.set_clim(**kwargs)
+
+        if save:
+            plt.savefig('Sky-model.png')
+        else:
+            plt.show()
