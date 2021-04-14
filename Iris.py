@@ -217,17 +217,41 @@ def realign_polar_xticks(ax):
         if np.sin(x) < -0.1:
             label.set_horizontalalignment('left')
 
-def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,12),xlab=r'$l$',ylab=r'$m$',clab='Intensity',**kwargs):
+def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='viridis',figsize = (14,12),\
+    xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,**kwargs):
+    """
+    Plots a 2D input image. This input image can either be in a cartesian or polar projection.
+    
+    Parameters
+    ----------
+    Img : numpy array
+        2D numpy array of the image. 
+    X_vec : numpy array
+        1D numpy array of the x-axis. Default is 'None'.
+    Y_vec : numpy array
+        1D numpy array of the y-axis. Default is 'None'.
+    title : string
+        Name of the output image. This parameters saves the image.
 
-    if projection:
+    Returns
+    -------
+    None
+    """
+
+    if lognorm:
+        norm = matplotlib.colors.LogNorm()
+    else:
+        norm = None
+
+    if projection == 'cartesian':
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         # Creating the image objects:
-        
         if np.any(X_vec) != None and np.any(Y_vec) != None:
             im = axs.imshow(Img,cmap=cmap,origin='upper',\
-                                 extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)])
+                            extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)],norm=norm)
             
+            print(X_vec)
         else:
             im = axs.imshow(Img,cmap=cmap,origin='upper')
             
@@ -241,8 +265,6 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,
     
         im.set_clim(**kwargs)
 
-        plt.show()
-
     elif projection == "polar":
         
         fig = plt.figure(figsize = (14,12), dpi = 75)
@@ -252,11 +274,10 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,
         #thetaticks = np.arange(0,360,45)
         
         ax1 = fig.add_subplot(111,projection='polar')
-        pcm1 = ax1.pcolormesh(X_vec,Y_vec,Img, cmap = cmap)
+        pcm1 = ax1.pcolormesh(X_vec,Y_vec,Img, cmap=cmap, norm=norm)
         
         ax1.set_yticks([])
         ax1.set_theta_offset(np.pi/2.0)
-        
         
         cb = fig.colorbar(pcm1, ax = ax1, fraction = 0.046, pad = 0.065)
     
@@ -269,6 +290,10 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,
     
         pcm1.set_clim(**kwargs)
     
+    if title:
+        # Option for saving figure.
+        plt.savefig('{0}'.format(title))
+    else:
         plt.show()
 
 def Plot_3D(X_arr,Y_arr,Z_arr,cmap='jet'):
@@ -289,7 +314,31 @@ def Plot_3D(X_arr,Y_arr,Z_arr,cmap='jet'):
     
     plt.show()
     
-def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='jet',figsize = (14,12)):
+def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='viridis',lognorm=True,figsize = (14,12)):
+    """
+    Visibilities diagnostic plot. Plots the visibilities amplitude, the real and 
+    imaginary values, and the phase for the uv-plane.
+    
+    Parameters
+    ----------
+    Img : numpy array
+        2D numpy array of the image. 
+    X_vec : numpy array
+        1D numpy array of the x-axis. Default is 'None'.
+    Y_vec : numpy array
+        1D numpy array of the y-axis. Default is 'None'.
+    title : string
+        Name of the output image. This parameters saves the image.
+
+    Returns
+    -------
+    None
+    """
+    if lognorm:
+        norm = matplotlib.colors.LogNorm()
+    else:
+        norm = None
+
     # Creating the plots of the real, im, phase and amplitude:
 
     # Visibilities must be normalised before plotting.
@@ -302,12 +351,12 @@ def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='jet',figsize = (14,12)):
     #Vis_power_mean = np.mean(Vis_power)
 
     # Creating the image objects:
-    im_Vis = axs[0,0].imshow(Vis_power,cmap=cmap,\
+    im_Vis = axs[0,0].imshow(Vis_power,cmap=cmap,norm=norm,\
                          extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])#,\
                              #vmin=Vis_power_mean-5*Vis_power_std,vmax=Vis_power_mean+5*Vis_power_std)
-    im_Real = axs[0,1].imshow(np.real(Vis),cmap=cmap,\
+    im_Real = axs[0,1].imshow(np.real(Vis),cmap=cmap,norm=norm,\
                           extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
-    im_Im = axs[1,0].imshow(np.imag(Vis),cmap=cmap,\
+    im_Im = axs[1,0].imshow(np.imag(Vis),cmap=cmap,norm=norm,\
                         extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
     im_Phase = axs[1,1].imshow(np.angle(Vis,deg=True),cmap=cmap,\
                            extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
@@ -370,7 +419,7 @@ def Visibilities_2D(img,X,Y,N,norm=None):
     # T is sample spacing
     u_vec = fftfreq(N,X/N)
     v_vec = fftfreq(N,Y/N)
-    
+
     # Creating the u and v plane:
     u_arr,v_arr = np.meshgrid(u_vec,v_vec)
     
@@ -415,7 +464,10 @@ def uv_grid_kernel(N,L,M,kernel='gaussian',plot_cond=False):
     return u_ker_lam_arr, v_ker_lam_arr, Vis_ker
 
 def Vis_degrid(u_arr,v_arr,L,M,N_ker,u,v,vis_sky,plot_cond=False,verb_cond=False,):
-    
+    """
+    Visibility degridding function. Uses an input kernel, and uv point list to degrid
+    visibilities.
+    """
     # Initialising the new deridded visibility array:
     vis_sky_deg = np.zeros(len(u),dtype=complex)
     u_err_vec = np.zeros(len(u))
@@ -497,7 +549,8 @@ def Vis_degrid(u_arr,v_arr,L,M,N_ker,u,v,vis_sky,plot_cond=False,verb_cond=False
 
 def grid(container=None,u_coords=None, v_coords=None, u_range=None, \
          v_range=None,vis=None, kernel='gaussian', kernel_params=[2.0,2.0],KERNEL_SIZE = 31):
-    '''A simple(ish) gridder - defaults to gridding with a gaussian 
+    '''
+    A simple(ish) gridder - defaults to gridding with a gaussian 
     
     Author: J.Line
     '''
@@ -734,9 +787,22 @@ class Power_spec:
         # Importing the cosmology.
         from astropy.cosmology import Planck18
     
-        Dm = Planck18.comoving_distance(self.z).value #[Mpc]
-        Hz = Planck18.H(self.z).value
-        h = Planck18.H(0).value/100 
+        # Constants:
+        nu_21 = 1400*1e+6 #[Hz]
+        nu_o = 183*1e+6 #[Hz]
+        lam_o = 1000*c/nu_o
+        dnu = 30.27*1e+6 #[Hz]  # [m]full bandwidth.
+        k_b = 1380.648 # [10^26 Jy m^2 K^-1] Boltzmann's constant.
+        fov = 0.076 # [sr] field of view. Approximate.
+
+        # Cosmological scaling parameter:
+        h = Planck18.H(0).value/100
+        E_z = Planck18.efunc(self.z)
+
+        # Cosmological distances:
+        Dm = Planck18.comoving_distance(self.z).value/h #[Mpc/h]
+        DH = 3000 # [Mpc/h] Hubble distance.
+        Hz = Planck18.H(self.z).value/h
     
         # Initialising th 2D power spectrum:
         Power_spec2D = np.zeros([len(self.eta),len(k_r)])
@@ -747,18 +813,32 @@ class Power_spec:
             # Determining the k_perp power for each eta mode.
             Power_spec2D[i,:], radius = self.angular(Four_sky_cube_power[:,:,i])
         
+        co_vol_factor = (Dm**2 * DH *(1+self.z)**2)/(nu_21 * E_z)
 
-        self.Power_spec2D = Power_spec2D * ((c*1000)**2 / (2 * 1380.649 * nu_21**2))**2 * ((Dm/h)**2) * (h*c/Hz) # [K^2 h^-3 Mpc^3]
-        #self.Power_spec2D = Power_spec2D # [Jy^2 str^-2]
+        # Converting from (Jy sr Hz)^2 to mK^2 Mpc^3 h^-3.
+        conv_factor = (lam_o**4/(4*k_b**2)) * (dnu/fov) * co_vol_factor * 1e+6 #[mK^2 Mpc^3 h^-3]
+
+        #self.Power_spec2D = Power_spec2D * ((c*1000)**2 / (2 * 1380.649 * nu_21**2))**2 * ((Dm/h)**2) * (h*c/Hz) # [K^2 h^-3 Mpc^3]
+        #self.Power_spec2D = Power_spec2D #* ((c*1000)**2 / (2 * 1380.649 * nu_21**2))**2 * ((Dm/h)**2) * (h*c/Hz) # [K^2 h^-3 Mpc^3]
+        self.Power_spec2D = (Power_spec2D**2)*conv_factor #* ((c*1000)**2 / (2 * 1380.649 * nu_21**2))**2 * ((Dm/h)**2) * (h*c/Hz) # [K^2 h^-3 Mpc^3]
         self.radius = radius
-        
+
+        print('max Power_spec2D = {0}'.format(np.max(self.Power_spec2D)))
+        print('min Power_spec2D = {0}'.format(np.min(self.Power_spec2D)))
+
+
         # Calculating k_perp and k_par
-        #self.kperp = self.radius * (2*np.pi/Dm) # [Mpc^-1]
-        self.kperp = self.radius * (2*np.pi*h/Dm) # [h Mpc^-1]
+        self.kperp = self.radius * (2*np.pi/Dm) # [Mpc^-1]
+        #self.kperp = self.radius * (2*np.pi*h/Dm) # [h Mpc^-1]
         #self.kpar = self.eta * (2*np.pi*nu_21*Hz)/(c*(1 + self.z)**2) # [Mpc^-1]
-        self.kpar = self.eta * (2*np.pi*nu_21*Hz/h)/(c*(1 + self.z)**2) # [h Mpc^-1]
+        #self.kpar = self.eta * (2*np.pi*nu_21*Hz/h)/(c*(1 + self.z)**2) # [h Mpc^-1]
+        self.kpar = self.eta * (2*np.pi*nu_21*E_z)/(DH*(1 + self.z)**2) # [h Mpc^-1]
+
+
+        print(self.eta)
+        print(self.kpar)
     
-    def plot_angular(self,figsize = (14,12),xlim=None,ylim=None,save=None,**kwargs):
+    def plot_angular(self,figsize = (14,12),xlim=None,ylim=None,title=None,**kwargs):
         """
         Plot the 1D angular averaged power spectrum.
         """
@@ -782,44 +862,59 @@ class Power_spec:
         plt.tight_layout()
         #plt.legend(fontsize=24)
 
-        if save:
-            plt.savefig('1D-powerspec.png')
+        if title:
+            plt.savefig('{0}.png'.format(title))
+
         else:
             plt.show()
-        
+
+    def plot_cylindrical(self,figsize=(5.5,7),cmap='viridis',title=None,**kwargs):
+
+        """
+        Plots the 2D power spectrum.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        None
+        """
+
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
+
     
-    def plot_cylindrical(self,figsize=(10,10),cmap='viridis',save=None,**kwargs):
-        # Plot the 2D angular averagged power spectrum.
+        pspec_std = np.std(np.log10(self.Power_spec2D[self.Power_spec2D > 0]))
+        pspec_min = np.min(np.log10(self.Power_spec2D[self.Power_spec2D > 0]))
+        pspec_max = np.max(np.log10(self.Power_spec2D[self.Power_spec2D > 0]))
 
-        """
-        This code plots the 2D power spectrum for an input visibility cube.
-        """
+        vmin = 10**(pspec_min + 2*pspec_std)
+        vmax = 10**pspec_max
 
-        fig, axs = plt.subplots(1, figsize = figsize)#, dpi=80)
-
-        im = axs.imshow(np.log10(self.Power_spec2D),cmap=cmap,origin='lower',\
+        im = axs.imshow(self.Power_spec2D,cmap=cmap,origin='lower',\
                 extent=[np.min(self.kperp),np.max(self.kperp),np.min(self.kpar),np.max(self.kpar)],**kwargs,\
-                    norm=matplotlib.colors.LogNorm())
+                    norm=matplotlib.colors.LogNorm(),vmin=vmin,vmax=vmax, aspect='auto')
+
+
 
         # Setting the colour bars:
-        cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
-        #cb.set_label(label='log10 Power',fontsize=22)
-        cb.set_label(label=r'$\log_{10} P(k_\perp,k_{||}) \, [K^2\,h^{-3}\,Mpc^3]$',fontsize=22)
+        cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002)
+        #cb.set_label(label='log10 Power',fontsize=20)
+        cb.set_label(label=r'$P(k_\perp,k_{||}) \, [\rm{mK^2\,h^{-3}\,Mpc^3}]$',fontsize=20)
 
         axs.set_xscale('log')
         axs.set_yscale('log')
 
         # Determined from trial and error.
         axs.set_xlim([self.kperp[3],np.max(self.kperp)])
-        axs.set_ylim([self.kpar[1],np.max(self.kpar)])
+        #axs.set_ylim([np.min(self.kpar[1:]),np.max(self.kpar)])
+        axs.set_ylim([0.01,np.max(self.kpar)])
 
-        axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=22)
-        axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=22)
-    
-        #plt.tight_layout()
+        axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
+        axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
 
-        if save:
-            plt.savefig('2D-powerspec.png')
+        if title:
+            plt.savefig('{0}.png'.format(title))
         else:
             plt.show()
 
@@ -933,12 +1028,28 @@ class MWA_uv:
 
         plt.show()
 
-
-
 class Skymodel:
     
-    """A class for defining sky-models. In this class sky-models are stored as data cubes,
-    the x and y axis correspond to the (l,m) plane, and the z axis corresponds to frequnecy."""
+    """
+    Creates a sky-model class object which can be used to calculate MWA observation visibilities.
+
+    ...
+
+    Attributes
+    ----------
+    fine : numpy array
+        ...
+
+
+    Methods
+    -------
+    Gauss2D(freqs=""):
+        ...
+    add_Gaussian_sources(freqs=""):
+        ...
+    plot_sky_mod()
+        
+    """
     
     def __init__(self,shape,l_vec,m_vec):
         self.model = np.zeros(shape)
@@ -953,7 +1064,7 @@ class Skymodel:
         self.r_grid = np.sqrt(self.l_grid**2 + self.m_grid**2)
 
         # Creating an index array, we want all pixels less than or equal to r = 1:
-        ind_arr = self.r_grid <= 1.0
+        self.ind_arr = self.r_grid <= 1.0
 
         # Here we want to create a new alt and az array that is the same size as l_arr and m_arr:
         Alt_arr = np.zeros(np.shape(self.l_grid))
@@ -961,20 +1072,42 @@ class Skymodel:
 
         # Now we want to determine the Altitude and Azimuth, but only in the region where r <= 1. 
         # Outside this region isbeyond the boundary of the horizon.
-        Alt_arr[ind_arr] = np.arccos(self.r_grid[ind_arr]) # Alt = arccos([l^2 + m^2]^(1/2))
-        Az_arr[ind_arr] = np.arctan2(self.l_grid[ind_arr],self.m_grid[ind_arr]) + np.pi #arctan2() returns [-pi,pi] we want [0,2pi].
+        Alt_arr[self.ind_arr] = np.arccos(self.r_grid[self.ind_arr]) # Alt = arccos([l^2 + m^2]^(1/2))
+        Az_arr[self.ind_arr] = np.arctan2(self.l_grid[self.ind_arr],self.m_grid[self.ind_arr]) + np.pi #arctan2() returns [-pi,pi] we want [0,2pi].
         
         # Defining the Altitude and Azimuthal grids.
         self.Alt_grid = Alt_arr
         self.Az_grid = Az_arr
         
     
-    def Gauss2D(self,Az,Zen,A,Az0,Zen0,theta_pa,amaj,bmin):
-        # Arguments
-        # Az,Zen,A,Az0,Zen0,theta,amaj,bmin
-    
+    def Gauss2D(self,Az,Zen,A_tot,Az0,Zen0,theta_pa,amaj,bmin):
+        """
+        Generates 2D Gaussian array.
+
+        Parameters
+        ----------
+        Az : numpy array, float
+            2D azimuth numpy array. [deg]
+        Az0 : numpy array, float
+            Azimuth angle of the Gaussian centre. [deg]
+        Zen : numpy array, float
+            2D zenith numpy array. [deg]
+        Zen0 : numpy array, float
+            Zenith angle of the centre of the Gaussian. [deg]
+        amaj : numpy array, float
+            Gaussian major axis. [deg]
+        bmin : numpy array, float
+            Gaussian minor axis. [deg]
+        theta_pa : numpy array, float
+            Gaussian position angle. [deg]
+        A_tot : numpy array, float
+            Source integrated flux density.
+
+        Returns
+        -------
+        2D Gaussian array.
+        """        
         # General 2D Gaussian function.
-        # Stereographic projection.
         # 
         # https://www.aanda.org/articles/aa/full/2002/45/aah3860/node5.html
         #
@@ -989,7 +1122,7 @@ class Skymodel:
         #
         # Zen in [0,pi]
         # Az in [0,2pi]
-        # By definition the semi-major axis is larger than the semi-minor axis:
+        # By definition the major axis is larger than the minor axis:
         #
         # FWHM = amaj = 2 sqrt(2 ln(2)) sigma
     
@@ -1002,10 +1135,6 @@ class Skymodel:
             pass
 
         # Defining the width of the Gaussians
-        sigx = amaj/np.sqrt(2.0*np.log(2.0))
-        sigy = bmin/np.sqrt(2.0*np.log(2.0))
-
-        # Defining the width of the Gaussians
         sigx = amaj/(2.0*np.sqrt(2.0*np.log(2.0)))
         sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
 
@@ -1013,7 +1142,7 @@ class Skymodel:
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
 
         # Deriving the peak amplitude from the integrated amplitude.
-        Amplitude = A/(sigx*sigy*2*np.pi)
+        Amplitude = A_tot/(sigx*sigy*2*np.pi)
 
         theta = theta_pa + Az0
         
@@ -1024,17 +1153,44 @@ class Skymodel:
         x_shft = np.sin(Zen)*np.cos(Az) - np.sin(Zen0)*np.cos(Az0)
         y_shft = -np.sin(Zen)*np.sin(Az) + np.sin(Zen0)*np.sin(Az0)
         
-        #return A*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
         return Amplitude*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
     
     def add_Gaussian_sources(self, Az_mod, Alt_mod, Maj, Min, PA, S, window_size):
-        
+        """
+        Adds 'N' number of Gaussian objects to a sky-model object. 
+
+        Parameters
+        ----------
+        Az_mod : numpy array, float
+            1D numpy array of the source azimuth. [deg]
+        Alt_mod : numpy array, float
+            1D numpy array of the source altitude. [deg]
+        Maj : numpy array, float
+            1D numpy array of the source major axis. [deg]
+        Min : numpy array, float
+            1D numpy array of the source minor axis. [deg]
+        PA : numpy array, float
+            1D numpy array of the source position angle. [deg]
+        S : numpy array, float
+            1D or 2D numpy array of Gaussian amplitudes.
+        window_size : float
+            Size of the Gaussian window, N*pixel_size.
+
+        Returns
+        -------
+        None
+        """
         # Converting the the Alt and Az into l and m coordinates:
         self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
         self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
 
-        for i in range(len([self.l_mod])):
-            
+        if np.shape(self.l_mod):
+            n_sources = len(self.l_mod)
+        else:
+            n_sources = 1
+
+        for i in range(n_sources):
+
             # Creating temporary close l and m mask arrays:
             if np.shape(self.l_mod):
                 # Multiple source case where shape(l_mod) is not None type.
@@ -1053,7 +1209,7 @@ class Skymodel:
             # Creating index arrays:
             # Use the index vectors to create arrays
             l_ind_arr, m_ind_arr = np.meshgrid(l_ind_vec, m_ind_vec)
-    
+
             # Creating temporary l and m arrays:
             l_temp_arr = self.l_grid[l_ind_arr,m_ind_arr]
             m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
@@ -1090,8 +1246,7 @@ class Skymodel:
             self.model = self.model*S[i,:]
 
     def plot_sky_mod(self,window=None,index=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',cmap='viridis',\
-        clab=None,save=None,**kwargs):
-
+        clab=None,title=None,**kwargs):
         """
         This function plots a subset of the sky-model. Particularly for a single source.
         The main purpose of the functions in this pipeline is to plot the visibilities 
@@ -1132,9 +1287,9 @@ class Skymodel:
                 extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
         else:
             # Case for the whole sky.
-            im = axs.imshow(self.model[:,:,100],cmap=cmap,origin='upper',\
-                extent=[np.min(self.l_arr),np.max(self.l_arr),np.min(self.m_arr),np.max(self.m_arr)])
-    
+            im = axs.imshow(self.model[:,:,100],cmap=cmap,origin='lower',\
+                extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)])
+
         if clab:
             # Find a better way to do this.
             clab = clab
@@ -1151,7 +1306,7 @@ class Skymodel:
 
         im.set_clim(**kwargs)
 
-        if save:
-            plt.savefig('Sky-model.png')
+        if title:
+            plt.savefig('{0}.png'.format(title))
         else:
             plt.show()
