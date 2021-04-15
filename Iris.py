@@ -250,8 +250,6 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='viridis',fig
         if np.any(X_vec) != None and np.any(Y_vec) != None:
             im = axs.imshow(Img,cmap=cmap,origin='upper',\
                             extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)],norm=norm)
-            
-            print(X_vec)
         else:
             im = axs.imshow(Img,cmap=cmap,origin='upper')
             
@@ -888,14 +886,17 @@ class Power_spec:
         pspec_min = np.min(np.log10(self.Power_spec2D[self.Power_spec2D > 0]))
         pspec_max = np.max(np.log10(self.Power_spec2D[self.Power_spec2D > 0]))
 
-        vmin = 10**(pspec_min + 2*pspec_std)
+        #vmin = 10**(pspec_min + 2*pspec_std)
+        #vmin = 10**(pspec_min + 1*pspec_std)
+        vmin = 10#**pspec_min
         vmax = 10**pspec_max
+
+        print('Min = %5.3e' % vmin)
+        print('DC mode = %5.3e' % vmax)
 
         im = axs.imshow(self.Power_spec2D,cmap=cmap,origin='lower',\
                 extent=[np.min(self.kperp),np.max(self.kperp),np.min(self.kpar),np.max(self.kpar)],**kwargs,\
                     norm=matplotlib.colors.LogNorm(),vmin=vmin,vmax=vmax, aspect='auto')
-
-
 
         # Setting the colour bars:
         cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002)
@@ -1242,6 +1243,60 @@ class Skymodel:
         
             ## Set all NaNs and values below the horizon to zero:
             #self.model[self.r_arr > 1.0,:] = 0.0
+            self.model[np.isnan(self.model)] = 0.0
+            self.model = self.model*S[i,:]
+
+    def add_point_sources(self, Az_mod, Alt_mod, S):
+        """
+        Adds 'N' number of point source objects to a sky-model object. 
+
+        Parameters
+        ----------
+        Az_mod : numpy array, float
+            1D numpy array of the source azimuth. [deg]
+        Alt_mod : numpy array, float
+            1D numpy array of the source altitude. [deg]
+        S : numpy array, float
+            1D or 2D numpy array of point source amplitudes.
+
+        Returns
+        -------
+        None
+        """
+        # Converting the the Alt and Az into l and m coordinates:
+        self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
+        self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+
+        # For the point source location.
+        L = (np.max(self.l_vec) - np.min(self.l_vec))
+        tol = 0.5*L/len(self.l_vec)
+
+        if np.shape(self.l_mod):
+            n_sources = len(self.l_mod)
+        else:
+            n_sources = 1
+
+        for i in range(n_sources):
+
+            # Creating temporary close l and m mask arrays:
+            if np.shape(self.l_mod):
+                # Multiple source case where shape(l_mod) is not None type.
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod[i],atol=tol)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod[i],atol=tol)
+            else:
+                # Single source case.
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod,atol=tol)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod,atol=tol)
+    
+            # Creating temporary index vectors:
+            # Use the mask array to determin the index values.
+            l_ind_vec = np.arange(len(self.l_vec))[temp_l_ind]
+            m_ind_vec = np.arange(len(self.m_vec))[temp_m_ind]
+
+            # Setting point source value:
+            self.model[l_ind_vec,m_ind_vec,:] = 1.0
+        
+            ## Set all NaNs and values below the horizon to zero:
             self.model[np.isnan(self.model)] = 0.0
             self.model = self.model*S[i,:]
 
