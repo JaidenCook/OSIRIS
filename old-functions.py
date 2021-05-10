@@ -624,6 +624,355 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,
     
         plt.show()
 
+
+def grid_old(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, weighting='natural'):
+    '''
+    Natural and Gaussian kernel gridder. Will generalise in future.
+
+        Parameters
+        ----------
+        grid_arr : numpy array, float
+            Empty grid array.
+        u_coords : numpy array, float
+            1D array of visibilities u coordinates.
+        v_coords : numpy array, float
+            1D array of visibilities v coordinates.
+        vis : numpy array, float
+            1D array of complex visibilities.
+        u_arr : numpy array, float
+            2D Visibilities u array.
+        v_arr : numpy array, float
+            2D Visibilities u array.
+        weighting : , string
+            Default mode is natural, can also select a Gaussian Kernel.
+
+        Returns
+        -------
+        2D Gridded visibility array and the corresponding weights array.
+    '''
+
+    start_temp = time.perf_counter()
+
+    # Weight array, we will divide the entire container array by this.
+    weights_arr = np.zeros(np.shape(grid_arr),dtype=complex)
+
+    # Resolution required for both weighting cases.
+    delta_u = np.abs(u_arr[0,1] - u_arr[0,0])
+    delta_v = np.abs(v_arr[1,0] - v_arr[0,0])
+
+    if weighting == 'natural':
+        # Default case.
+        u_vec = u_arr[0,:] 
+        v_vec = v_arr[:,0]
+
+    elif weighting == 'gaussian':
+
+        # Initialiasing Gaussian kernel size.
+        sig_x = 2 # Size in pixel space. 
+        sig_y = 2
+        
+        # Converting to u,v coordinates.
+        sig_u = sig_x * delta_u # Size in u,v space.
+        sig_v = sig_y * delta_v
+    else:
+        pass
+
+    # Looping through each visibility.
+    for i in np.arange(len(vis)):
+        
+        if weighting == 'natural':
+
+            # Determining the index location for each visibility.
+            u_cent_ind = np.isclose(u_vec,u_coords[i],atol=delta_u/2.0)
+            v_cent_ind = np.isclose(v_vec,v_coords[i],atol=delta_v/2.0)
+
+            weights_arr[u_cent_ind,v_cent_ind] = weights_arr[u_cent_ind,v_cent_ind] + np.complex(1,0)
+
+            grid_arr[u_cent_ind,v_cent_ind] = grid_arr[u_cent_ind,v_cent_ind] + vis[i]
+
+
+        elif weighting == 'gaussian':
+
+            temp_gauss_weights = gaussian(u_arr, v_arr, sig_u, sig_v, u_coords[i], v_coords[i])
+
+            weights_arr =+ temp_gauss_weights # Adding Gaussian weights to weights arr.
+
+            grid_arr =+ vis[i]*temp_gauss_weights # Adding gridded visibilities.
+
+    
+    end_temp = time.perf_counter()
+    print('Grid time = %6.3f s' %  (end_temp - start_temp))
+
+    if weighting == 'gaussian':
+        # Checking that the weights sum to one. They should be normalised.
+        print(np.sum(temp_gauss_weights))
+
+    elif weighting == 'natural':
+        print(np.sum(weights_arr),np.sum(grid_arr))
+
+    # The weight array should always be positive in this context. 
+    grid_arr[weights_arr > 0.0] /= weights_arr[weights_arr > 0.0]
+
+    return grid_arr, weights_arr
+
+def uv_grid_kernel(N,L,M,kernel='gaussian',plot_cond=False):
+    """
+    This function outputs the uv degridding kernel.
+    """
+    
+    # Defining the l and m kernel grid across the sky.
+    l_ker_vec = np.linspace(-L/2,L/2,N)
+    m_ker_vec = np.linspace(-M/2,M/2,N)
+
+    l_ker_arr, m_ker_arr = np.meshgrid(l_ker_vec, m_ker_vec)
+
+    # Initialising:
+    Sky_kernel = np.zeros(np.shape(l_ker_arr))
+    
+    if kernel == 'gaussian':
+        Sky_kernel = Gauss2D(l_ker_arr,m_ker_arr,1,0.0,0.0,0.0,0.15,0.15)
+        
+        # Sky kernel should sum to one. This means peak of the vis kernel will be one.
+        Sky_kernel /= np.sum(Sky_kernel)
+    
+    if plot_cond:
+        # Diagnostic plot.
+        Plot_img(Sky_kernel,[-L,L],[-M,M],cmap='viridis',figsize=(7,6),clab='Weights')
+    
+    # Fourier transform to determine the fourier sky kernel:   
+    #u_ker_lam_arr,v_ker_lam_arr,Vis_ker = Visibilities_2D(Sky_kernel,L/2,M/2,N)
+    u_ker_lam_arr,v_ker_lam_arr,Vis_ker = Visibilities_2D(Sky_kernel,L,M,N)
+    
+    # Shifting the u, and v arrays.
+    u_ker_lam_arr = (fftshift(u_ker_lam_arr)) #[lambda]
+    v_ker_lam_arr = (fftshift(v_ker_lam_arr)) #[lambda]
+    
+    return u_ker_lam_arr, v_ker_lam_arr, Vis_ker
+
+def Vis_degrid(u_arr,v_arr,L,M,N_ker,u,v,vis_sky,plot_cond=False,verb_cond=False,):
+    """
+    Visibility degridding function. Uses an input kernel, and uv point list to degrid
+    visibilities.
+    """
+    # Initialising the new deridded visibility array:
+    vis_sky_deg = np.zeros(len(u),dtype=complex)
+    u_err_vec = np.zeros(len(u))
+    v_err_vec = np.zeros(len(v))
+    
+    # might have to specify different cases. One for odd and even arrays.
+    u_vec = u_arr[0,:]
+    v_vec = v_arr[:,0]
+
+    # Creating an index vector.
+    ind_vec = np.arange(len(u_arr))
+        
+    u_pixel_size = np.abs(u_vec[0] - u_vec[1])# These should be in units of wavelengths.
+    v_pixel_size = np.abs(v_vec[0] - v_vec[1])
+    
+    u_ker_arr, v_ker_arr, vis_ker = uv_grid_kernel(N_ker,L,M,plot_cond=plot_cond)
+    
+    if plot_cond == True:
+        Plot_img(vis_ker.real,u_ker_arr,v_ker_arr,cmap='viridis',figsize=(7,6),xlab=r'$u(\lambda)$',\
+                      ylab=r'$v(\lambda)$',clab='Weights')
+    
+    u_ker_pixel_size = np.abs(u_ker_arr[0,0] - u_ker_arr[0,1])# These should be in untis of wavelengths.
+    v_ker_pixel_size = np.abs(v_ker_arr[0,0] - v_ker_arr[1,0])
+    
+    # Catch condition for degridding. Make sure pixel sizes for the kernel and the sky_vis are the same.
+    if u_ker_pixel_size != u_pixel_size or v_ker_pixel_size != v_pixel_size:
+        # Change this to a logger.
+        print("Kernel pixel size and visibilty pixel size don't match.")
+        print('du_pix = %5.2f, du_ker_pix = %5.2f' % (u_pixel_size,u_ker_pixel_size))
+        print('dv_pix = %5.2f, dv_ker_pix = %5.2f' % (v_pixel_size,v_ker_pixel_size))
+
+        return None
+
+    # The kernel sum should equal 1.
+    vis_ker = vis_ker/(np.sum(vis_ker))
+    
+    # Integer size of the kernel.
+    ker_len = int(N_ker/2)
+    
+    for i in range(len(u)):
+    
+        # These should be the indices of the coordinates closest to the baseline. These coordinates
+        # should line up with the kernel.
+        temp_u_ind = ind_vec[np.isclose(u_vec,u[i],atol=u_pixel_size/2)][0]
+        temp_v_ind = ind_vec[np.isclose(v_vec,v[i],atol=v_pixel_size/2)][0]
+
+        # We also want to look at the error between the pixel position and the guess.
+        u_err_vec[i] = np.abs(u[i] - u_vec[temp_u_ind])
+        v_err_vec[i] = np.abs(v[i] - v_vec[temp_v_ind])
+
+        # Might have to define a visibility subset that is larger.
+        # Defining the visibility subset:
+        vis_sub = vis_sky[temp_u_ind - ker_len - 1:temp_u_ind + ker_len,\
+                  temp_v_ind - ker_len - 1:temp_v_ind + ker_len]
+        
+        #
+        # Verbose output condition, for diagnostic purposes. Default condition is False.
+        # Replace this with a logger, and have it raised for debugging or error purposes.
+        try:
+            vis_sky_deg[i] = np.sum(vis_sub*vis_ker)
+            #vis_sky_deg[i] = np.sum(vis_sub*vis_ker)/np.sum(vis_ker)
+        except ValueError:
+            print('#{0}'.format(i))
+            print('u[i] = %5.2f, v[i] = %5.2f' % (u[i],v[i]))
+            print('upixel scale = %5.2f, vpixel scale = %5.2f' % (u_vec[1]-u_vec[0],v_vec[1]-v_vec[0]))
+            print('min_u = %7.3f, min_v = %7.3f' % (np.min(u_vec),np.min(v_vec)))
+            print('min_u_lam = %7.3f, min_v_lam = %7.3f' % (np.min(u),np.min(v)))
+            print('u_diff = %5.2f, v_diff = %5.2f'% (np.min(np.abs(u_vec - u[i])),np.min(np.abs(v_vec - v[i]))))
+            print('u_ind = %4i, v_ind = %4i' % (temp_u_ind,temp_v_ind))
+            print('Kernel half width = %3i' % ker_len)
+            print('u_ind -ker_len -1 : u_ind + ker_len = %3i : %3i' % \
+                (temp_u_ind - ker_len - 1,temp_u_ind + ker_len))
+            print('v_ind -ker_len -1 : v_ind + ker_len = %3i : %3i' % \
+                (temp_v_ind - ker_len - 1,temp_v_ind + ker_len))
+
+    return vis_sky_deg, u_err_vec, v_err_vec
+
+
+## Interferometry functions from J.Line.
+
+def grid(container=None,u_coords=None, v_coords=None, u_range=None, \
+         v_range=None,vis=None, kernel='gaussian', kernel_params=[2.0,2.0],KERNEL_SIZE = 31):
+    '''
+    A simple(ish) gridder - defaults to gridding with a gaussian 
+    
+    Author: J.Line
+    '''
+
+    # Weight array, we will divide the entire container array by this.
+    weights_arr = np.zeros(np.shape(container),dtype=complex)
+
+    for i in np.arange(len(u_coords)):
+        u,v,comp = u_coords[i],v_coords[i],vis[i]
+        ##Find the difference between the gridded u coords and the current u
+        ##Get the u and v indexes in the uv grdding container
+        u_ind,v_ind = find_closet_xy(u=u,v=v,u_range=u_range,v_range=v_range)
+
+        if kernel == 'gaussian':
+            kernel_array = gaussian(sig_x=kernel_params[0],sig_y=kernel_params[1],\
+                                    gridsize=KERNEL_SIZE,x_offset=0,y_offset=0)
+            
+
+            ker_v,ker_u = kernel_array.shape
+            width_u = int((ker_u - 1) / 2)
+            width_v = int((ker_v - 1) / 2)
+    
+            N = len(container)
+            min_u_ind = u_ind - width_u
+            max_u_ind = u_ind + width_u + 1
+            min_v_ind = v_ind - width_v
+            max_v_ind = v_ind + width_v + 1
+    
+            ## Jack suggests changing this.
+            if max_u_ind > N-1:
+                max_u_ind = N-1
+                kernel_array = kernel_array[:,0:max_u_ind-min_u_ind]
+    
+            if max_v_ind > N-1:
+                max_v_ind = N-1
+                kernel_array = kernel_array[0:max_v_ind-min_v_ind,:]
+
+            if min_u_ind < 0:
+                min_u_ind = 0
+                kernel_array = kernel_array[:,min_u_ind:max_u_ind]
+
+            if min_v_ind < 0:
+                min_v_ind = 0
+                kernel_array = kernel_array[min_v_ind:max_v_ind,:]
+
+            container[min_v_ind:max_v_ind, min_u_ind:max_u_ind] += comp * kernel_array
+            #weights_arr += kernel_array
+            weights_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] += kernel_array
+            
+        else:
+            kernel_array = complex(1.0,0)
+            
+            container[u_ind,v_ind] += comp * kernel_array
+            weights_arr[u_ind,v_ind] += kernel_array
+
+    # Dividing the container by the sum of the weights. For natural weighting this will be the number of vis.
+    container /= np.sum(weights_arr)
+
+    return container,weights_arr
+
+def gaussian(sig_x=None,sig_y=None,gridsize=31,x_offset=0,y_offset=0):
+    '''Creates a gaussian array of a specified gridsize, with the
+    the gaussian peak centred at an offset from the centre of the grid
+    
+    Author: J.Line
+    '''
+
+    x_cent = int(gridsize / 2.0) + x_offset
+    y_cent = int(gridsize / 2.0) + y_offset
+
+    x = np.arange(gridsize)
+    y = np.arange(gridsize)
+    x_mesh, y_mesh = np.meshgrid(x,y)
+
+    x_bit = (x_mesh - x_cent)*(x_mesh - x_cent) / (2*sig_x*sig_x)
+    y_bit = (y_mesh - y_cent)*(y_mesh - y_cent) / (2*sig_y*sig_y)
+
+    amp = 1 / (2*pi*sig_x*sig_y)
+    gaussian = amp*np.exp(-(x_bit + y_bit))
+
+    return gaussian
+
+
+def find_closet_uv(u=None,v=None,u_range=None,v_range=None):
+    '''Finds the closet values to u,v in the ranges u_range,v_range
+    Returns the index of the closest values, and the offsets from
+    the closest values
+    
+    Author: J.Line
+    '''
+
+    u_resolution = np.abs(u_range[1] - u_range[0])
+    v_resolution = np.abs(v_range[1] - v_range[0])
+    
+    #print(u_resolution)
+    #print(v_resolution)
+    
+    ##Find the difference between the gridded u coords and the desired u
+    u_offs = np.abs(u_range - u)
+
+    ##Find out where in the gridded u coords the current u lives;
+    ##This is a boolean array of length len(u_offs)
+    u_true = u_offs < u_resolution/2.0
+    
+    ##Find the index so we can access the correct entry in the container
+    u_ind = np.where(u_true == True)[0]
+
+    ##Use the numpy abs because it's faster (np_abs)
+    v_offs = np.abs(v_range - v)
+    v_true = v_offs < v_resolution/2.0
+    v_ind = np.where(v_true == True)[0]
+    
+    #print(u_offs,v_offs)
+    
+    ##If the u or v coord sits directly between two grid points,
+    ##just choose the first one ##TODO choose smaller offset?
+    if len(u_ind) == 0:
+        u_true = u_offs <= u_resolution/2
+        u_ind = np.where(u_true == True)[0]
+        #print('here')
+        #print(u_range.min())
+    if len(v_ind) == 0:
+        v_true = v_offs <= v_resolution/2
+        v_ind = np.where(v_true == True)[0]
+    # print(u,v)
+    u_ind,v_ind = u_ind[0],v_ind[0]
+
+    u_offs = u_range - u
+    v_offs = v_range - v
+
+    u_off = -(u_offs[u_ind] / u_resolution)
+    v_off = -(v_offs[v_ind] / v_resolution)
+
+    return u_ind,v_ind,u_off,v_off 
+
 """
 # Beam visibility code. This will need to be revisited in the future.
 def Vis_Beam_Poly2D(U,V,dL,dM,l0,m0,Az0,Zen0,*a):
