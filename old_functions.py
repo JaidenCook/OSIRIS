@@ -74,6 +74,7 @@ from astropy.io.votable import writeto as writetoVO
 
 # MWA beam stuff
 from mwa_pb import primary_beam as pb
+from Iris import *
 
 
 def Vis_Beam_Poly2D(U,V,dL,dM,l0,m0,*a):
@@ -849,7 +850,7 @@ def grid(container=None,u_coords=None, v_coords=None, u_range=None, \
         u,v,comp = u_coords[i],v_coords[i],vis[i]
         ##Find the difference between the gridded u coords and the current u
         ##Get the u and v indexes in the uv grdding container
-        u_ind,v_ind = find_closet_xy(u=u,v=v,u_range=u_range,v_range=v_range)
+        u_ind,v_ind,u_off,v_off = find_closet_uv(u=u,v=v,u_range=u_range,v_range=v_range)
 
         if kernel == 'gaussian':
             kernel_array = gaussian(sig_x=kernel_params[0],sig_y=kernel_params[1],\
@@ -972,6 +973,53 @@ def find_closet_uv(u=None,v=None,u_range=None,v_range=None):
     v_off = -(v_offs[v_ind] / v_resolution)
 
     return u_ind,v_ind,u_off,v_off 
+
+def var_Gauss_KDE(x,mu,sd):
+    """
+    This function calculates a Gaussian kernel KDE taking input measurements 'mu', with variance 'var'
+    for an evenly spaced vector x.
+    """
+    
+    # Standard normalised Gaussian kernel, with loc and width parameters.
+    Gauss_ker = lambda x,mu,sd: (1/(np.sqrt(2*np.pi)*sd))*np.exp(-0.5*((x-mu)/sd)**2)
+    
+    # Number of measurements/samples.
+    N = len(mu)
+    
+    if np.shape(sd):
+        # Variable case:
+        # Silvermans rule:
+        h_vec = 1.06*sd*(N**(-0.2))
+        
+        # Produce a kernel for each mu, sum and normalise them.
+        KDE_vec = np.sum(np.array([Gauss_ker(x,mu[i],h_vec[i]) for i in range(len(mu))]),axis=0)/N
+    else:
+        # Non variable case
+        h = 1.06*sd*(N**(-0.2))
+        
+        # Produce a kernel for each mu, sum and normalise them.
+        KDE_vec = np.sum(np.array([Gauss_ker(x,mu[i],h) for i in range(len(mu))]),axis=0)/N
+        
+    return KDE_vec
+
+def plot_KDE(x,mu,KDE,figsize=(9,6),bins=30,alpha=0.25,xlab='x',ylab='Density'):
+    """
+    Simple KDE plotting function, takes the input observations 'mu', KDE density,
+    and x_vector and outputs a figure.
+    """
+
+    font_size = 22
+    label_size = 18
+
+    fig,axs = plt.subplots(1, figsize = figsize, dpi = 75)
+
+    #axs.plot(x, KDE)
+    axs.hist(x, color = 'blue',alpha=alpha, bins=bins, density=True)
+    axs.plot(x, np.full_like(x, -0.01), '|k', markeredgewidth=1)
+
+    axs.tick_params(labelsize=label_size)
+    axs.set_xlabel(xlab,fontsize=font_size)
+    axs.set_ylabel(ylab,fontsize=font_size)
 
 """
 # Beam visibility code. This will need to be revisited in the future.
