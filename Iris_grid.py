@@ -10,100 +10,7 @@ from numba import jit
 import numpy as np
 import time
 
-def find_closet_uv(u,v,u_vec,v_vec):
-    '''
-    Finds the indices for the (u,v) point associated to a u, v grid.
-
-        Parameters
-        ----------
-        u : numpy array, float
-            Baseline u value.
-        v : numpy array, float
-            Baseline v value.
-        u_vec : numpy array, float
-            Regular 1D u grid.
-        v_vec : numpy array, float
-            Regular 1D u grid.
-
-        Returns
-        -------
-        Returns closest (u,v) indices.
-
-    Author : J. Line
-    '''
-    u_resolution = np.abs(u_vec[1] - u_vec[0])
-    v_resolution = np.abs(v_vec[1] - v_vec[0])
-    
-    ##Find the difference between the gridded u coords and the desired u
-    u_offs = np.abs(u_vec - u)
-
-    ##Find out where in the gridded u coords the current u lives;
-    ##This is a boolean array of length len(u_offs)
-    u_true = u_offs < u_resolution/2.0
-    
-    ##Find the index so we can access the correct entry in the container
-    u_ind = np.where(u_true == True)[0]
-
-    ##Use the numpy abs because it's faster (np_abs)
-    v_offs = np.abs(v_vec - v)
-    v_true = v_offs < v_resolution/2.0
-    v_ind = np.where(v_true == True)[0]
-
-    ##If the u or v coord sits directly between two grid points,
-    ##just choose the first one ##TODO choose smaller offset?
-    if len(u_ind) == 0:
-        u_true = u_offs <= u_resolution/2
-        u_ind = np.where(u_true == True)[0]
-        #print('here')
-        #print(u_range.min())
-    if len(v_ind) == 0:
-        v_true = v_offs <= v_resolution/2
-        v_ind = np.where(v_true == True)[0]
-    # print(u,v)
-    u_ind,v_ind = u_ind[0],v_ind[0]
-
-    u_offs = u_vec - u
-    v_offs = v_vec - v
-
-    #u_off = -(u_offs[u_ind] / u_resolution)
-    #v_off = -(v_offs[v_ind] / v_resolution)
-
-    return u_ind,v_ind
-
-
-def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
-    '''
-    Generate A generic 2D Gassian kernel. For gridding and weighting purposes.
-
-        Parameters
-        ----------
-        u_arr : numpy array, float
-            2D Visibilities u array.
-        v_arr : numpy array, float
-            2D Visibilities v array.
-        sig_u : numpy array, float
-            Kernel size in u.
-        sig_v : numpy array, float
-            Kernel size in v.
-        u_cent : numpy array, float
-            Visibility u coordinate centre.
-        v_cent : numpy array, float
-            Visibility v coordinate centre.
-
-        Returns
-        -------
-        2D Gaussian weights array.
-
-    '''
-
-    u_bit = (u_arr - u_cent)/sig_u
-    v_bit = (v_arr - v_cent)/sig_v
-
-    amp = 1/(2*np.pi*sig_u*sig_v)
-    gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
-
-    return gaussian
-
+import Iris
 
 def grid_natural(grid_arr, u_coords, v_coords, vis, u_vec, v_vec):
     '''
@@ -137,15 +44,15 @@ def grid_natural(grid_arr, u_coords, v_coords, vis, u_vec, v_vec):
     for i in np.arange(len(vis)):
         
         # Determining the index location for each visibility.
-        u_cent_ind,v_cent_ind = Iris.find_closet_xy(u_coords[i],v_coords[i],u_vec,v_vec)
+        u_cent_ind,v_cent_ind = Iris.find_closest_xy(u_coords[i],v_coords[i],u_vec,v_vec)
 
-        weights_arr[u_cent_ind,v_cent_ind] = weights_arr[u_cent_ind,v_cent_ind] + 1
-        grid_arr[u_cent_ind,v_cent_ind] = grid_arr[u_cent_ind,v_cent_ind] + vis[i]
-    
-    #print(np.sum(weights_arr),np.sum(grid_arr))
+        weights_arr[v_cent_ind,u_cent_ind] = weights_arr[v_cent_ind,u_cent_ind] + 1
+        grid_arr[v_cent_ind,u_cent_ind] = grid_arr[v_cent_ind,u_cent_ind] + vis[i]
 
     # The weight array should always be positive in this context. 
     grid_arr[weights_arr > 0.0] /= weights_arr[weights_arr > 0.0]
+
+    #grid_arr = grid_arr/np.sum(weights_arr)
 
     #end_temp = time.perf_counter()
     #print('Grid time = %6.3f s' %  (end_temp - start_temp))
@@ -195,7 +102,7 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=3
     for i in np.arange(len(vis)):
         
         # Determining the index location for each visibility.
-        u_cent_ind,v_cent_ind = Iris.find_closet_xy(u_coords[i],v_coords[i],u_vec,v_vec)
+        u_cent_ind,v_cent_ind = Iris.find_closest_xy(u_coords[i],v_coords[i],u_vec,v_vec)
 
         # Determining the index ranges:
         min_u_ind = u_cent_ind - int(kernel_size/2)
@@ -207,17 +114,20 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=3
         u_temp_arr = u_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
         v_temp_arr = v_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
 
-        temp_gauss_weights = gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, u_coords[i], v_coords[i])
+        temp_gauss_weights = Iris.gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, u_coords[i], v_coords[i])
 
         # Adding Gaussian weights to weights arr.
         weights_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] = \
             weights_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] + temp_gauss_weights 
+        
         # Adding gridded visibilities.
         grid_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] = \
             grid_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] + vis[i]*temp_gauss_weights 
 
     # The weight array should always be positive in this context. 
-    grid_arr[weights_arr > 0.0] /= weights_arr[weights_arr > 0.0]
+    #grid_arr[weights_arr > 0.0] /= weights_arr[weights_arr > 0.0]
+
+    #grid_arr = grid_arr/np.sum(weights_arr)
 
     return grid_arr, weights_arr
 
