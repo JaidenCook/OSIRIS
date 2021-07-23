@@ -1386,9 +1386,13 @@ class Skymodel:
                 im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='upper',\
                     extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
         else:
-            # Case for the whole sky.
-            im = axs.imshow(self.model[:,:,100],cmap=cmap,origin='lower',\
-                extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)])
+            if len(self.model[0,0,:]) > 100:
+                # Case for the whole sky.
+                im = axs.imshow(self.model[:,:,100],cmap=cmap,origin='lower',\
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)])
+            else:
+                im = axs.imshow(self.model[:,:,0],cmap=cmap,origin='lower',\
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)])
 
         if clab:
             # Find a better way to do this.
