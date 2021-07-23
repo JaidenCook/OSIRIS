@@ -1379,8 +1379,12 @@ class Skymodel:
             l_temp_arr = self.l_grid[l_ind_arr,m_ind_arr]
             m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
 
-            im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='upper',\
-                extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
+            if len(self.model[0,0,:]) > 100:
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='upper',\
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
+            else:
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='upper',\
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
         else:
             # Case for the whole sky.
             im = axs.imshow(self.model[:,:,100],cmap=cmap,origin='lower',\
