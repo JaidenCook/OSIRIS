@@ -1116,19 +1116,19 @@ class Skymodel:
         Parameters
         ----------
         Az : numpy array, float
-            2D azimuth numpy array. [deg]
+            2D azimuth numpy array. [rad]
         Az0 : numpy array, float
-            Azimuth angle of the Gaussian centre. [deg]
+            Azimuth angle of the Gaussian centre. [rad]
         Zen : numpy array, float
-            2D zenith numpy array. [deg]
+            2D zenith numpy array. [rad]
         Zen0 : numpy array, float
-            Zenith angle of the centre of the Gaussian. [deg]
+            Zenith angle of the centre of the Gaussian. [rad]
         amaj : numpy array, float
             Gaussian major axis. [deg]
         bmin : numpy array, float
             Gaussian minor axis. [deg]
         theta_pa : numpy array, float
-            Gaussian position angle. [deg]
+            Gaussian position angle. [rad]
         A_tot : numpy array, float
             Source integrated flux density.
 
@@ -1154,14 +1154,6 @@ class Skymodel:
         # By definition the major axis is larger than the minor axis:
         #
         # FWHM = amaj = 2 sqrt(2 ln(2)) sigma
-    
-        if amaj < bmin:
-            # Swapping amaj and bmin:
-            t = bmin
-            bmin = amaj
-            amaj = t
-        else:
-            pass
 
         # Defining the width of the Gaussians
         sigx = amaj/(2.0*np.sqrt(2.0*np.log(2.0)))
@@ -1174,7 +1166,8 @@ class Skymodel:
         # Deriving the peak amplitude from the integrated amplitude.
         Amplitude = A_tot/(sigx*sigy*2*np.pi)
 
-        theta = theta_pa + Az0
+        #theta = theta_pa + Az0
+        theta = theta_pa
         
         a = (np.cos(theta)**2)/(2.0*sigx**2) + (np.sin(theta)**2)/(2.0*sigy**2)
         b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
@@ -1256,7 +1249,7 @@ class Skymodel:
                 # Multiple source case where shape(l_mod) is not None type.
                 temp_maj = np.radians(Maj[i])
                 temp_min = np.radians(Min[i])
-
+        
                 Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod[i]),\
                                 np.pi/2 - np.radians(Alt_mod[i]),np.radians(PA[i]),\
                                 temp_maj, temp_min)
@@ -1277,11 +1270,14 @@ class Skymodel:
             self.model[np.isnan(self.model)] = 0.0
 
             if np.shape(self.l_mod):
+                #print(S[i,:])
                 # Multiple source case:
-                self.model = self.model*S[i,:]
+                #self.model = self.model#*S[i,:]
+                self.model = self.model#*S[i,:]
             else:
                 # Default single source case.
-                self.model = self.model*S
+                #self.model = self.model#*S
+                self.model = self.model#*S
 
     def add_point_sources(self, Az_mod, Alt_mod, S):
         """
