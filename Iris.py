@@ -1109,7 +1109,7 @@ class Skymodel:
         
     
 
-    def Gauss2D(self,Az,Zen,A_tot,Az0,Zen0,theta_pa,amaj,bmin):
+    def Gauss2D(self,Az,Zen,Sint,Az0,Zen0,theta_pa,amaj,bmin):
         """
         Generates 2D Gaussian array.
 
@@ -1129,7 +1129,7 @@ class Skymodel:
             Gaussian minor axis. [deg]
         theta_pa : numpy array, float
             Gaussian position angle. [rad]
-        A_tot : numpy array, float
+        Sint : numpy array, float
             Source integrated flux density.
 
         Returns
@@ -1164,7 +1164,7 @@ class Skymodel:
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
 
         # Deriving the peak amplitude from the integrated amplitude.
-        Amplitude = A_tot/(sigx*sigy*2*np.pi)
+        Speak = Sint/(sigx*sigy*2*np.pi)
 
         #theta = theta_pa + Az0
         theta = theta_pa
@@ -1176,7 +1176,7 @@ class Skymodel:
         x_shft = np.sin(Zen)*np.cos(Az) - np.sin(Zen0)*np.cos(Az0)
         y_shft = -np.sin(Zen)*np.sin(Az) + np.sin(Zen0)*np.sin(Az0)
         
-        return Amplitude*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
+        return Speak*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
     
     def add_Gaussian_sources(self, Az_mod, Alt_mod, Maj, Min, PA, S, window_size):
         """
@@ -1253,6 +1253,13 @@ class Skymodel:
                 Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod[i]),\
                                 np.pi/2 - np.radians(Alt_mod[i]),np.radians(PA[i]),\
                                 temp_maj, temp_min)
+            
+                # Creating temporary array which has dimensions of (l,m,frequency).
+                Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
+
+                # scaling the array by the integrated frequency dependent flux density, and adding to the model.
+                self.model[l_ind_arr,m_ind_arr,:] += S[i,:]*Gauss_temp_arr
+
             else:
                 # Single source case.
                 temp_maj = np.radians(Maj)
@@ -1261,23 +1268,16 @@ class Skymodel:
                 Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod),\
                                 np.pi/2 - np.radians(Alt_mod),np.radians(PA),\
                                 temp_maj, temp_min)
-            
-            self.model[l_ind_arr,m_ind_arr,:] = self.model[l_ind_arr,m_ind_arr,:] +\
-                np.ones(np.shape(self.model[l_ind_arr,m_ind_arr,:]))*Gauss_temp[:,:,None]
-        
+
+                # Creating temporary array which has dimensions of (l,m,frequency).
+                Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
+
+                # scaling the array by the integrated frequency dependent flux density, and adding to the model.
+                self.model[l_ind_arr,m_ind_arr,:] += S*Gauss_temp_arr
+
             ## Set all NaNs and values below the horizon to zero:
             #self.model[self.r_arr > 1.0,:] = 0.0
             self.model[np.isnan(self.model)] = 0.0
-
-            if np.shape(self.l_mod):
-                #print(S[i,:])
-                # Multiple source case:
-                #self.model = self.model#*S[i,:]
-                self.model = self.model#*S[i,:]
-            else:
-                # Default single source case.
-                #self.model = self.model#*S
-                self.model = self.model#*S
 
     def add_point_sources(self, Az_mod, Alt_mod, S):
         """
