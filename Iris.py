@@ -19,6 +19,8 @@ import warnings
 import subprocess
 warnings.filterwarnings("ignore")
 
+from tqdm import tqdm
+
 # Array stuff:
 import numpy as np
 warnings.simplefilter('ignore', np.RankWarning)
@@ -205,8 +207,9 @@ def Poly_func2D_nu(data_tuple,*a):
             
     return zz.ravel()
 
-def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='viridis',figsize = (14,12),\
-    xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,clim=None,contours=None,**kwargs):
+def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',figsize = (14,12),\
+    xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,\
+    clim=None,vmin=None,vmax=None,contours=None,**kwargs):
     """
     Plots a 2D input image. This input image can either be in a cartesian or polar projection.
     
@@ -240,6 +243,12 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='viridis',fig
     else:
         norm = None
 
+    if np.any(vmax):
+        vmax=vmax
+    
+    if np.any(vmin):
+        vmin=vmin
+
     if projection == 'cartesian':
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
@@ -247,9 +256,11 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='viridis',fig
         if np.any(X_vec) != None and np.any(Y_vec) != None:
 
             im = axs.imshow(Img,cmap=cmap,origin='lower',\
-                            extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)],norm=norm,**kwargs)
+                    extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)],\
+                    norm=norm,vmin=vmin,vmax=vmax,**kwargs)
         else:
-            im = axs.imshow(Img,cmap=cmap,origin='lower')
+            im = axs.imshow(Img,cmap=cmap,origin='lower',norm=norm,\
+                vmin=vmin,vmax=vmax,**kwargs)
 
         if contours:
             axs.clabel(contours, inline=True, fontsize=8)
@@ -268,13 +279,13 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='viridis',fig
     elif projection == "polar":
         
         fig = plt.figure(figsize = figsize, dpi = 75)
-        
+
         #label_size = 24
         font_size = 22
         #thetaticks = np.arange(0,360,45)
-        
+
         ax1 = fig.add_subplot(111,projection='polar')
-        pcm1 = ax1.pcolormesh(X_vec,Y_vec, Img, cmap=cmap, norm=norm)
+        pcm1 = ax1.pcolormesh(X_vec,Y_vec,Img,cmap=cmap,norm=norm,vmin=vmin,vmax=vmax)
         
         ax1.set_yticks([])
         ax1.set_theta_offset(np.pi/2.0)
@@ -778,7 +789,7 @@ class Power_spec:
         """
 
         bin_width = 2.5 # [lambda]
-        N_bins = 302.5/bin_width
+        N_bins = 302.5/bin_width # This might be wrong, I believe the total width is 307.7=5
         # Specifying the radius vector:
         r_bins = np.linspace(0,302.5,int(N_bins) + 1)
 
@@ -1213,7 +1224,8 @@ class Skymodel:
         else:
             n_sources = 1
 
-        for i in range(n_sources):
+        #for i in range(n_sources):
+        for i in tqdm(range(n_sources)):
 
             # Creating temporary close l and m mask arrays:
             if np.shape(self.l_mod):
@@ -1337,8 +1349,8 @@ class Skymodel:
                 # Default single source case.
                 self.model = self.model*S
 
-    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',cmap='viridis',\
-        clab=None,title=None,**kwargs):
+    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',cmap='cividis',\
+        clab=None,title=None,vmax=None,vmin=None,lognorm=False,**kwargs):
         """
         This function plots a subset of the sky-model. Particularly for a single source.
         The main purpose of the functions in this pipeline is to plot the visibilities 
@@ -1355,6 +1367,22 @@ class Skymodel:
             # Case for a single source, when there is more than one model source.
             l_mod = self.l_mod
             m_mod = self.m_mod
+
+        # These values should be unpacked with kwargs.
+        if lognorm:
+            norm = matplotlib.colors.LogNorm()
+        else:
+            norm = None
+
+        if np.any(vmax):
+            vmax = vmax
+        else:
+            vmax = None
+        
+        if np.any(vmin):
+            vmin = vmin
+        else:
+            vmin = None
 
         if window:
             # Case for a single source image.
@@ -1376,19 +1404,29 @@ class Skymodel:
             m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
 
             if len(self.model[0,0,:]) > 100:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='upper',\
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='lower',\
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
             else:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='upper',\
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)])
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='lower',\
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
         else:
             if len(self.model[0,0,:]) > 100:
                 # Case for the whole sky.
-                im = axs.imshow(self.model[:,:,100],cmap=cmap,origin='lower',\
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)])
+                temp_arr = self.model[:,:,100]
+                temp_arr[self.r_grid > 1.0] = np.NaN
+
+                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',\
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
             else:
-                im = axs.imshow(self.model[:,:,0],cmap=cmap,origin='lower',\
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)])
+                temp_arr = self.model[:,:,0]
+                temp_arr[self.r_grid > 1.0] = np.NaN
+
+                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',\
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
 
         if clab:
             # Find a better way to do this.
@@ -1398,7 +1436,19 @@ class Skymodel:
             clab = r'$I_{\rm{app}}\,[\rm{Jy/Str}]$'
 
         # Setting the colour bars:
-        cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+        if np.any(vmax) and np.any(vmin):
+            # Setting the limits of the colour bar. 
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='both')
+        elif np.any(vmax):
+            # Upper limit only.
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='max')
+        elif np.any(vmin):
+            # Lower limit only.
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='min')
+        else:
+            # No limits.
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+
         cb.set_label(label=clab,fontsize=24)
 
         axs.set_xlabel(xlab,fontsize=24)
