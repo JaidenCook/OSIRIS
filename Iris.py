@@ -614,8 +614,8 @@ class Power_spec:
     """
     
     # Constants
-    nu_21 = 1400*1e+6 #[MHz]
     c = 299792458.0/1000 #[km/s]
+    nu_21 = (1000*c)/(0.21) #[Hz]
     kb = 1380.649 # [Jy m^2 Hz K^-1] Boltzmann's constant.
     
     def __init__(self,Four_sky_cube,eta,u_arr,v_arr,nu_o,dnu,dnu_f,weights_cube=None,nu_21=nu_21):
@@ -646,7 +646,9 @@ class Power_spec:
         self.z = (nu_21/self.nu_o) - 1
         self.dnu = dnu # Bandwidth in [MHz].
         self.dnu_f = dnu_f # Fine channel width in [MHz].
-        #print('Redshift = %5.2f' % self.z)
+        print('f_21 = %s' % int(nu_21))
+        print('f_o = %s' % int(self.nu_o))
+        print('Redshift = %5.2f' % self.z)
 
         # Save memory.
         del Four_sky_cube
@@ -692,6 +694,7 @@ class Power_spec:
 
             return k_perp, k_par
 
+    # Change this to a static method.
     def Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c):
         """
         Convert the power to temperature brightness.
@@ -707,7 +710,7 @@ class Power_spec:
         N_chans = dnu/dnu_f
 
         print('Observed wavelength = %5.3f [m]' % lam_o)
-        #print('Fine channel width = %5.3e' % dnu_f)
+        print('Fine channel width = %5.3e' % dnu_f)
         
         # Calculating the volume correction factor:
         window = signal.blackmanharris(int(dnu/dnu_f))
@@ -748,10 +751,18 @@ class Power_spec:
         self.k_r_arr = Power_spec.Cosmo_unit_conversion(self)
 
         # bin size is important. Too many bins, and some will have a sum of zero weights.
-        #N_bins = 146 # This number provides integer bins sizes.
-        N_bins = 100 # This number provides integer bins sizes.
-        #N_bins = int(96/2) # This number provides integer bins sizes.
-        k_r_bins = np.linspace(0,int(np.max(self.k_r_arr)),N_bins)
+        # Bin sizes should be determined as loglinear spacings. 
+        N_bins = 17 # This number provides integer bins sizes.
+        #k_r_bins = np.linspace(0,int(np.max(self.k_r_arr)),N_bins)
+        
+        kr_min = 0.004927893
+        log_kr_min = np.log10(kr_min)
+        kr_max = 2.782628
+        log_kr_max = np.log10(kr_max)
+        dlog_k = (log_kr_max - log_kr_min)/N_bins
+
+        #k_r_bins = 10**np.logspace(log_kr_min,log_kr_max,N_bins)#,endpoint=True)
+        k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
 
         Power_spec1D = np.zeros(len(k_r_bins)-1)
         Radius = np.zeros(len(k_r_bins)-1)
@@ -762,7 +773,8 @@ class Power_spec:
         for i in range(len(k_r_bins)-1):
 
             # Calculating the radius:
-            Radius[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
+            #Radius[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
+            Radius[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
 
             # Defining the shell array index:
             shell_ind = np.logical_and(self.k_r_arr >= k_r_bins[i], self.k_r_arr <= k_r_bins[i+1])
@@ -789,7 +801,7 @@ class Power_spec:
         """
 
         bin_width = 2.5 # [lambda]
-        N_bins = 302.5/bin_width # This might be wrong, I believe the total width is 307.7=5
+        N_bins = 302.5/bin_width # This might be wrong, I believe the total width is 307.5
         # Specifying the radius vector:
         r_bins = np.linspace(0,302.5,int(N_bins) + 1)
 
@@ -835,8 +847,8 @@ class Power_spec:
         # Assigning the perpendicular and parallel components of the power spectrum.
         self.kperp, self.kpar = Power_spec.Cosmo_unit_conversion(self,Radius,pspec='cylindrical')
 
-
-    def plot_spherical(self,figsize = (14,12),xlim=None,ylim=None,title=None,**kwargs):
+    ## Change the plotting functions to static methods so they can be used in other scripts.
+    def plot_spherical(self,figsize = (10,8),xlim=None,ylim=None,title=None,**kwargs):
         """
         Plot the 1D angular averaged power spectrum.
         """
@@ -856,8 +868,9 @@ class Power_spec:
             axs.set_ylim(ylim)
     
         axs.set_xlabel(r'$|k| \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
+        axs.tick_params(axis='x',labelsize=20)
         axs.set_ylabel(r'$\rm{P(\mathbf{k}) \, [mK^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
-        #axs.set_ylabel(r'$\rm{P(\mathbf{k}) \, [mK^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
+        axs.tick_params(axis='y',labelsize=20)
 
         plt.tight_layout()
         #plt.legend(fontsize=24)
@@ -1414,7 +1427,7 @@ class Skymodel:
         else:
             if len(self.model[0,0,:]) > 100:
                 # Case for the whole sky.
-                temp_arr = self.model[:,:,100]
+                temp_arr = np.ones(self.model[:,:,0].shape)*self.model[:,:,100]
                 temp_arr[self.r_grid > 1.0] = np.NaN
 
                 im = axs.imshow(temp_arr,cmap=cmap,origin='lower',\
