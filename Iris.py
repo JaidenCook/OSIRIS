@@ -848,38 +848,60 @@ class Power_spec:
         self.kperp, self.kpar = Power_spec.Cosmo_unit_conversion(self,Radius,pspec='cylindrical')
 
     ## Change the plotting functions to static methods so they can be used in other scripts.
-    def plot_spherical(self,figsize = (10,8),xlim=None,ylim=None,title=None,**kwargs):
+    @staticmethod
+    def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
+        xlabel=None,ylabel=None,**kwargs):
         """
         Plot the 1D angular averaged power spectrum.
         """
         
+        import seaborn as sns
+        sns.set_theme(style="darkgrid")
+
         # Initialising the figure object.
         # Need fig object, code breaks otherwise, fix this in the future.
-        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
-    
-        plt.loglog()
-        #plt.semilogy()
+        #fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
-        axs.plot(self.k_r,self.Power1D,**kwargs)
+        if figaxs:
+            fig = figaxs[0]
+            axs = figaxs[1]
+        else:
+            fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+
+        plt.loglog()
+
+        axs.plot(k_r,Power1D,**kwargs)
 
         if xlim:
             axs.set_xlim(xlim)
         if ylim:
             axs.set_ylim(ylim)
-    
-        axs.set_xlabel(r'$|k| \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
+
+        if xlabel:
+            axs.set_xlabel(xlabel,fontsize=24)
+        else:
+            axs.set_xlabel(r'$|k| \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
+
+        if ylabel:
+            axs.set_ylabel(ylabel,fontsize=24)
+        else:
+            axs.set_ylabel(r'$\rm{P(\mathbf{k}) \, [mK^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
+
         axs.tick_params(axis='x',labelsize=20)
-        axs.set_ylabel(r'$\rm{P(\mathbf{k}) \, [mK^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
         axs.tick_params(axis='y',labelsize=20)
 
-        plt.tight_layout()
-        #plt.legend(fontsize=24)
-
-        if title:
-            plt.savefig('{0}.png'.format(title))
-
+        if figaxs:
+            if title:
+                plt.savefig('{0}.png'.format(title))
+            return axs
+            
         else:
-            plt.show()
+            plt.tight_layout()
+        
+            if title:
+                plt.savefig('{0}.png'.format(title))
+            else:
+                plt.show()
 
     def plot_cylindrical(self,figsize=(5.5,7),cmap='viridis',
         title=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,**kwargs):
