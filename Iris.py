@@ -621,7 +621,9 @@ class Power_spec:
     def __init__(self,Four_sky_cube,eta,u_arr,v_arr,nu_o,dnu,dnu_f,weights_cube=None,nu_21=nu_21):
         
         # Attributes will include data cube, eta, 
-        
+        # For determining the 2D bins.
+        self.uvmax = np.max(u_arr)
+
         #self.data = Four_sky_cube
         self.power_cube = np.conjugate(Four_sky_cube)*Four_sky_cube # [Jy^2 Hz^2]
 
@@ -637,7 +639,7 @@ class Power_spec:
             # Only cells with values are assigned weights.
             self.weights_cube[self.power_cube > 0.0] = 1.0
 
-            #print(np.sum(self.weights_cube))      
+            #print(np.sum(self.weights_cube))
         
         self.eta = eta # [Hz^-1]
         self.u_arr = u_arr # Should have units of wavelengths.
@@ -646,8 +648,6 @@ class Power_spec:
         self.z = (nu_21/self.nu_o) - 1
         self.dnu = dnu # Bandwidth in [MHz].
         self.dnu_f = dnu_f # Fine channel width in [MHz].
-        print('f_21 = %s' % int(nu_21))
-        print('f_o = %s' % int(self.nu_o))
         print('Redshift = %5.2f' % self.z)
 
         # Save memory.
@@ -694,53 +694,84 @@ class Power_spec:
 
             return k_perp, k_par
 
-    # Change this to a static method.
-    def Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c):
+    @staticmethod
+    def Power2Tb(dnu,dnu_f,nu_o,z,verbose=True):
         """
-        Convert the power to temperature brightness.
+        Calculate the conversion factor from Jy^2 Hz^2 to mK^2 Mpc^3 h^-3.
+
+            Parameters
+            ----------
+            dnu : float
+                Bandwidth [Hz].
+            dnu_f : float
+                Fine channel width [Hz].
+            nu_o : float
+                Observing frequency at the centre of the band [Hz].
+            z : float
+                Redshift of the observing frequency.
+            
+            Returns
+            -------
+            conv_factor
         """
         from scipy import signal
         from astropy.cosmology import Planck18    
 
+        # Constants
+        nu_21 = 1400*1e+6 #[MHz]
+        c = 299792458.0/1000 #[km/s]
+        kb = 1380.649 # [Jy m^2 Hz K^-1] Boltzmann's constant.
 
         # Constants.
         lam_21 = 1000*c/nu_21 #[m]
-        lam_o = 1000*c/self.nu_o #[m]
+        #lam_o = 1000*c/self.nu_o #[m]
+        lam_o = 1000*c/nu_o #[m]
         fov = 0.076 # [sr] field of view. Approximate.
         N_chans = dnu/dnu_f
 
-        print('Observed wavelength = %5.3f [m]' % lam_o)
-        print('Fine channel width = %5.3e' % dnu_f)
+        if verbose:
+            print('Observed wavelength = %5.3f [m]' % lam_o)
+            print('Fine channel width = %5.3e' % dnu_f)
+        else:
+            pass
         
         # Calculating the volume correction factor:
         window = signal.blackmanharris(int(dnu/dnu_f))
         Ceff = np.sum(window)/(dnu/dnu_f)
 
-        print('Volume correction factor = %5.3f' % (Ceff))
+        if verbose:
+            print('Volume correction factor = %5.3f' % (Ceff))
+        else:
+            pass
 
         # Cosmological scaling parameter:
         h = Planck18.H(0).value/100
-        E_z = Planck18.efunc(self.z)
+        #E_z = Planck18.efunc(self.z)
+        E_z = Planck18.efunc(z)
 
         # Cosmological distances:
-        Dm = Planck18.comoving_distance(self.z).value/h #[Mpc/h]
+        #Dm = Planck18.comoving_distance(self.z).value/h #[Mpc/h]
+        Dm = Planck18.comoving_distance(z).value/h #[Mpc/h]
         DH = 3000 # [Mpc/h] Hubble distance.
 
         # Volume term.
-        co_vol = (1/Ceff)*(Dm**2 * DH *(1 + self.z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
-        #co_vol = (h**3) * (Dm**2 * DH *(1 + self.z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3]
+        #co_vol = (1/Ceff)*(Dm**2 * DH *(1 + self.z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
+        co_vol = (1/Ceff)*(Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
 
-        print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
+        if verbose:
+            print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
+        else:
+            pass
 
         # Converting a 1 Jy^2 source to mK^2 Mpc^3 h^-3.
         conv_factor = (N_chans**2) * (lam_o**4/(4*kb**2)) * (1/(fov*dnu)) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
 
-        print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3 h^-3]' % conv_factor)
-        print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3]' % (conv_factor*h**3))
+        if verbose:
+            print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3 h^-3]' % conv_factor)
+            print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3]' % (conv_factor*h**3))
+        else:
+            pass
         
-        # Storing for checking purposes.
-        self.conv_factor = (N_chans**2) * (lam_o**4/(4*kb**2)) * (1/(fov*dnu)) * co_vol * 1e+6 #[mK^2 Mpc^3 h^-3]
-
         return conv_factor
 
     def Spherical(self,kb=kb,nu_21=nu_21,c=c):
@@ -788,7 +819,8 @@ class Power_spec:
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        Cosmo_factor = Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
+        #Cosmo_factor = Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
         #Cosmo_factor = 1#Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
 
         self.Power1D = Power_spec1D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
@@ -801,9 +833,11 @@ class Power_spec:
         """
 
         bin_width = 2.5 # [lambda]
-        N_bins = 302.5/bin_width # This might be wrong, I believe the total width is 307.5
+        N_bins = self.uvmax/bin_width
+        #N_bins = 302.5/bin_width # This might be wrong, I believe the total width is 307.5
         # Specifying the radius vector:
-        r_bins = np.linspace(0,302.5,int(N_bins) + 1)
+        #r_bins = np.linspace(0,302.5,int(N_bins) + 1)
+        r_bins = np.linspace(0,self.uvmax,int(N_bins) + 1)
 
         # Problems with instrument sampling. Ommiting first bin.
         r_bins = r_bins[1:]
@@ -835,10 +869,12 @@ class Power_spec:
                 Power_spec2D[i,j] = np.average(self.power_cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) ## Correct one.
                 #Power_spec2D[i,j] = np.sum(self.power_cube[temp_ind,i])/np.sum(self.weights_cube[temp_ind,i])
 
+                #print(np.sum(self.weights_cube[temp_ind,i]))
+
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        Cosmo_factor = Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
         #Cosmo_factor = 1#Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
 
         # Assigning the power.
@@ -847,16 +883,28 @@ class Power_spec:
         # Assigning the perpendicular and parallel components of the power spectrum.
         self.kperp, self.kpar = Power_spec.Cosmo_unit_conversion(self,Radius,pspec='cylindrical')
 
-    ## Change the plotting functions to static methods so they can be used in other scripts.
+
     @staticmethod
     def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
         xlabel=None,ylabel=None,**kwargs):
         """
-        Plot the 1D angular averaged power spectrum.
+        Plot the 1D angular averaged power spectrum. If figaxs is provided allows for plotting
+        more than one power spectrum.
+
+            Parameters
+            ----------
+            k_r : numpy array, float
+                1D vector of spherically radial k-modes.
+            Power1D : numpy array, float
+                1D Power.
+            
+            Returns
+            -------
+            None
         """
         
-        import seaborn as sns
-        sns.set_theme(style="darkgrid")
+        #import seaborn as sns
+        #sns.set_theme(style="darkgrid")
 
         # Initialising the figure object.
         # Need fig object, code breaks otherwise, fix this in the future.
@@ -890,6 +938,8 @@ class Power_spec:
         axs.tick_params(axis='x',labelsize=20)
         axs.tick_params(axis='y',labelsize=20)
 
+        axs.grid(False)
+
         if figaxs:
             if title:
                 plt.savefig('{0}.png'.format(title))
@@ -903,18 +953,25 @@ class Power_spec:
             else:
                 plt.show()
 
-    def plot_cylindrical(self,figsize=(5.5,7),cmap='viridis',
+    @staticmethod
+    def plot_cylindrical(Power2D,kperp,kpar,figsize=(5.5,7),cmap='viridis',
         title=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,**kwargs):
 
         """
-        Plots the 2D power spectrum.
+        Plot the 2D cylindrically averaged power spectrum.
 
-        Parameters
-        ----------
-
-        Returns
-        -------
-        None
+            Parameters
+            ----------
+            Power2D : numpy array, float
+                2D numpy array containing the power.
+            kperp : numpy array, float
+                1D vector of perpendicular k-modes.
+            kpar : numpy array, float
+                1D vector of parallel k-modes.
+            
+            Returns
+            -------
+            None
         """
 
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
@@ -922,7 +979,7 @@ class Power_spec:
         if vmax:
             vmax=vmax
         else:
-            pspec_max = np.max(np.log10(self.Power2D[self.Power2D > 0]))
+            pspec_max = np.max(np.log10(Power2D[Power2D > 0]))
             vmax = 10**pspec_max
         
         if vmin != None:
@@ -930,7 +987,7 @@ class Power_spec:
             # to vmax.
             vmin=vmin
         else:
-            pspec_min = np.min(np.log10(self.Power2D[self.Power2D > 0]))
+            pspec_min = np.min(np.log10(Power2D[Power2D > 0]))
 
             vmin = 10**pspec_min
 
@@ -939,11 +996,12 @@ class Power_spec:
         else:
             norm = None
 
-        print('Min = %5.3e' % np.min(self.Power2D[self.Power2D > 0]))
-        print('DC mode = %5.3e' % np.max(self.Power2D[self.Power2D > 0]))
+        print('Min = %5.3e' % np.min(Power2D[Power2D > 0]))
+        print('DC mode = %5.3e' % np.max(Power2D[Power2D > 0].flatten()[0]))
+        
 
-        im = axs.imshow(self.Power2D,cmap=cmap,origin='lower',\
-                extent=[np.min(self.kperp),np.max(self.kperp),np.min(self.kpar),np.max(self.kpar)],**kwargs,\
+        im = axs.imshow(Power2D,cmap=cmap,origin='lower',\
+                extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],**kwargs,\
                     norm=norm,vmin=vmin,vmax=vmax, aspect='auto')
 
         # Setting the colour bars:
@@ -960,15 +1018,17 @@ class Power_spec:
         if xlim:
             axs.set_xlim(xlim)
         else:
-            axs.set_xlim([0.002,np.max(self.kperp)])
+            axs.set_xlim([0.002,np.max(kperp)])
             
         if ylim:
             axs.set_ylim(ylim)
         else:
-            axs.set_ylim([0.01,np.max(self.kpar)])
+            axs.set_ylim([0.01,np.max(kpar)])
 
         axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
         axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
+
+        axs.grid(False)
 
         if title:
             plt.savefig('{0}.png'.format(title))
