@@ -70,8 +70,8 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
         vis_sub = vis_true[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
         
         # Weighted average degridded visibilitiy.
-        #vis_deg[i] = np.sum(vis_sub*temp_gauss_weights)/np.sum(temp_gauss_weights)
-        vis_deg[i] = np.sum(vis_sub*temp_gauss_weights)#/np.sum(temp_gauss_weights)
+        vis_deg[i] = np.sum(vis_sub*temp_gauss_weights)/np.sum(temp_gauss_weights)
+        #vis_deg[i] = np.sum(vis_sub*temp_gauss_weights)#/np.sum(temp_gauss_weights)
 
     #print(np.sum(temp_gauss_weights))
     #vis_deg = vis_deg/len(vis_deg)
@@ -151,8 +151,17 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
             kernel.calc_w_kernel(0.0,-u_off,-v_off)
 
         # Weighted average degridded visibilitiy.
-        #vis_deg[i] = np.sum(vis_sub*temp_gauss_weights)/np.sum(temp_gauss_weights)
-        vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)#/np.sum(temp_gauss_weights)
+        vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)#/np.sum(kernel.w_kernel)
+
+        #if i==100:
+        #    print(np.sum(kernel.w_kernel).real)
+        #    kernel.plot_kernel(title='test_kernel')
+        #    print('Abs sum')
+        #    print(np.sum(np.abs(kernel.w_kernel)))
+        #    print('real sum')
+        #    print(np.sum(np.real(kernel.w_kernel)),np.sum(np.imag(kernel.w_kernel)))
+            
+
 
     #print(np.sum(temp_gauss_weights))
     #vis_deg = vis_deg/len(vis_deg)
@@ -217,6 +226,9 @@ class w_kernel():
         -------
         None
         """
+
+        #print('w = %5.3f' % w)
+
         # Initialising constants:
         L = np.abs(np.max(self.l_grid) - np.min(self.l_grid))
         M = np.abs(np.max(self.m_grid) - np.min(self.m_grid))
@@ -227,9 +239,10 @@ class w_kernel():
             # Account for the offsets in relation to the (u,v) grid.
             offset_grid = np.exp(-2j*np.pi*(u_off*self.l_grid + v_off*self.m_grid))
             #offset_grid = np.exp(-2j*np.pi*(v_off*self.l_grid + u_off*self.m_grid))
-
             # Calculating.
             w_sky_ker = offset_grid*np.exp(-2j*np.pi*w*(self.n_grid - 1))*self.kernel
+            #w_sky_ker = offset_grid*self.kernel
+            #w_sky_ker = np.exp(-2j*np.pi*w*(self.n_grid - 1))*self.kernel
         else:
             # Default don't phase rotate relative to the offsets.
             w_sky_ker = np.exp(-2j*np.pi*w*(self.n_grid - 1))*self.kernel
@@ -244,9 +257,10 @@ class w_kernel():
         self.v_grid = v_grid
 
         # Setting and normalising the w-kernel.
-        self.w_kernel = w_kernel/np.sum(w_kernel)
+        self.w_kernel = w_kernel/np.sum(np.abs(w_kernel))
+        #self.w_kernel = w_kernel/np.abs(np.sum(w_kernel))
 
-    def plot_kernel(self,ker='sky',real_cond=True,imag_cond=False,**kwargs):
+    def plot_kernel(self,ker='sky',real_cond=True,imag_cond=False,title=None,**kwargs):
         """
         Plotting method for the kernel. For diagnostic purposes.
 
@@ -264,28 +278,24 @@ class w_kernel():
         -------
         None
         """
+        import matplotlib.pyplot as plt
+
         if ker == 'sky':
             if real_cond:
                 # Plot real part of sky kernel:
                 Iris.Plot_img(self.w_sky_ker.real,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
-                clab='Response',xlab=r'$l$',ylab=r'$m$',**kwargs)
+                clab='Response',xlab=r'$l$',ylab=r'$m$',title=title,**kwargs)
             elif imag_cond:
                 # Plot imag part of sky kernel:
                 Iris.Plot_img(self.w_sky_ker.imag,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
-                clab='Response',xlab=r'$l$',ylab=r'$m$',**kwargs)
+                clab='Response',xlab=r'$l$',ylab=r'$m$',title=title,**kwargs)
         elif ker == 'vis':
             if real_cond:
                 # Plot real part of the w-kernel:
                 Iris.Plot_img(self.w_kernel.real,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
-                clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',**kwargs)
+                clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',title=title,**kwargs)
             elif imag_cond:
                 # Plot imag part of the w-kernel:
                 Iris.Plot_img(self.w_kernel.imag,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
-                clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',**kwargs)
-                
-
-            
-
-
-
+                clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',title=title,**kwargs)
 
