@@ -29,8 +29,6 @@ warnings.simplefilter('ignore', np.RankWarning)
 import matplotlib.pyplot as plt
 import matplotlib
 from mpl_toolkits.mplot3d import Axes3D
-#from matplotlib.gridspec import GridSpec
-#from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 plt.style.use('seaborn-white')
 plt.rcParams['mathtext.fontset'] = 'stix'
@@ -827,8 +825,10 @@ class Power_spec:
         N_bins = 50 # This number provides integer bins sizes.
         
         if wedge_cond:
-            kr_min = np.min(self.k_r_arr[wedge_ind_cube][:,:,temp_kperp_ind==False])
-            kr_max = np.max(self.k_r_arr[wedge_ind_cube][:,:,temp_kperp_ind==False])
+            self.k_r_arr[wedge_ind_cube == False] = 0
+            self.k_r_arr[:,:,temp_kperp_ind] = 0
+            kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
+            kr_max = np.nanmax(self.k_r_arr[self.k_r_arr > 0.0])
         else:
             # Linear bins.
             kr_min = 0.004927893
@@ -891,9 +891,6 @@ class Power_spec:
         # Problems with instrument sampling. Ommiting first bin.
         r_bins = r_bins[1:]
 
-        print('Radius bins:')
-        print(r_bins)
-
         # The u_arr and v_arr should be shifted. 
         r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
 
@@ -927,20 +924,13 @@ class Power_spec:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
         Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
-        #Cosmo_factor = 1#Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
+        #Cosmo_factor = 1
 
         # Assigning the power.
         self.Power2D = Power_spec2D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
 
         # Assigning the perpendicular and parallel components of the power spectrum.
         self.kperp, self.kpar = Power_spec.Cosmo_unit_conversion(self,Radius,pspec='cylindrical')
-
-        print('Radius bin centres')
-        print(Radius)
-
-        print('k_perp bins')
-        print(self.kperp)
-
 
     @staticmethod
     def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
@@ -1058,9 +1048,6 @@ class Power_spec:
         print('DC mode = %5.3e' % np.max(Power2D[Power2D > 0].flatten()[0]))
         
         # Setting NaN values to a particular colour:
-        #current_cmap = matplotlib.cm.get_cmap()
-        #current_cmap.set_bad(color='red')
-
         cmap = matplotlib.cm.viridis
         cmap.set_bad('lightgray',1.)
 
@@ -1082,7 +1069,8 @@ class Power_spec:
         if xlim:
             axs.set_xlim(xlim)
         else:
-            axs.set_xlim([0.002,np.max(kperp)])
+            axs.set_xlim([0.008,np.max(kperp)])
+            #axs.set_xlim([np.min(kperp),np.max(kperp)])
             
         if ylim:
             axs.set_ylim(ylim)
