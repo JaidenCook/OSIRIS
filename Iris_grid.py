@@ -60,7 +60,7 @@ def grid_natural(grid_arr, u_coords, v_coords, vis, u_vec, v_vec):
     return grid_arr, weights_arr
 
 
-def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=31, sig_x=2, sig_y=2):
+def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=7, sig_x=0.5, sig_y=0.5):
     '''
     Natural and Gaussian kernel gridder. Will generalise in future.
 
