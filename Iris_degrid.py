@@ -153,16 +153,6 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
         # Weighted average degridded visibilitiy.
         vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)#/np.sum(kernel.w_kernel)
 
-        #if i==100:
-        #    print(np.sum(kernel.w_kernel).real)
-        #    kernel.plot_kernel(title='test_kernel')
-        #    print('Abs sum')
-        #    print(np.sum(np.abs(kernel.w_kernel)))
-        #    print('real sum')
-        #    print(np.sum(np.real(kernel.w_kernel)),np.sum(np.imag(kernel.w_kernel)))
-            
-
-
     #print(np.sum(temp_gauss_weights))
     #vis_deg = vis_deg/len(vis_deg)
 
