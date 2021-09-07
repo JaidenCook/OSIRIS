@@ -667,7 +667,7 @@ class Power_spec:
         E_z = Planck18.efunc(self.z) ## Scaling function, see (Hogg 2000)
 
         # Cosmological distances:
-        Dm = Planck18.comoving_distance(self.z).value/h #[Mpc/h] Transverse co-moving distance.
+        Dm = Planck18.comoving_distance(self.z).value*h #[Mpc/h] Transverse co-moving distance.
         DH = 3000 # [Mpc/h] Hubble distance.
 
         k_z = self.eta * (2*np.pi*nu_21*E_z)/(DH*(1 + self.z)**2) # [Mpc^-1 h]
@@ -680,7 +680,8 @@ class Power_spec:
             k_y = self.v_arr  * (2*np.pi/Dm) # [Mpc^-1 h]
 
             # Spherically averaged case.
-            k_r_arr = np.sqrt((k_x[:,:,None])**2 + (k_y[:,:,None])**2 + (k_z[None,None,:])**2)
+            #k_r_arr = np.sqrt((k_x[:,:,None])**2 + (k_y[:,:,None])**2 + (k_z[None,None,:])**2)
+            k_r_arr = np.array([np.sqrt(k_x**2 + k_y**2 + kz**2) for kz in k_z]).T
 
             return k_r_arr
 
@@ -718,8 +719,8 @@ class Power_spec:
         from astropy.cosmology import Planck18    
 
         # Constants
-        nu_21 = 1400*1e+6 #[MHz]
         c = 299792458.0/1000 #[km/s]
+        nu_21 = c*1000/(0.21) #[Hz]
         kb = 1380.649 # [Jy m^2 Hz K^-1] Boltzmann's constant.
 
         # Constants.
@@ -750,8 +751,7 @@ class Power_spec:
         E_z = Planck18.efunc(z)
 
         # Cosmological distances:
-        #Dm = Planck18.comoving_distance(self.z).value/h #[Mpc/h]
-        Dm = Planck18.comoving_distance(z).value/h #[Mpc/h]
+        Dm = Planck18.comoving_distance(z).value*h #[Mpc/h]
         DH = 3000 # [Mpc/h] Hubble distance.
 
         # Volume term.
@@ -774,26 +774,76 @@ class Power_spec:
         
         return conv_factor
 
-    def Spherical(self,kb=kb,nu_21=nu_21,c=c):
+    def Spherical(self,kb=kb,nu_21=nu_21,c=c,wedge_cond=False):
         """
         Calculates the spherically averaged 1D power spectrum.
         """
 
         self.k_r_arr = Power_spec.Cosmo_unit_conversion(self)
 
-        # bin size is important. Too many bins, and some will have a sum of zero weights.
-        # Bin sizes should be determined as loglinear spacings. 
-        N_bins = 17 # This number provides integer bins sizes.
-        #k_r_bins = np.linspace(0,int(np.max(self.k_r_arr)),N_bins)
-        
-        kr_min = 0.004927893
-        log_kr_min = np.log10(kr_min)
-        kr_max = 2.782628
-        log_kr_max = np.log10(kr_max)
-        dlog_k = (log_kr_max - log_kr_min)/N_bins
+        if wedge_cond:
+            # Condition for ignoring the wedge contribution to the power spectrum.
+            
+            # Importing the cosmology. Using the latest Planck 2018 results.
+            from astropy.cosmology import Planck18
 
-        #k_r_bins = 10**np.logspace(log_kr_min,log_kr_max,N_bins)#,endpoint=True)
-        k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
+            # Cosmological scaling parameter:
+            h = Planck18.H(0).value/100 # Hubble parameter.
+            E_z = Planck18.efunc(self.z) ## Scaling function, see (Hogg 2000)
+
+            # Cosmological distances:
+            Dm = Planck18.comoving_distance(self.z).value*h #[Mpc/h] Transverse co-moving distance.
+            DH = 3000 # [Mpc/h] Hubble distance.
+
+            # Getting kx, ky, and kz:
+            k_x_grid = 2*np.pi*self.u_arr/Dm
+            k_y_grid = 2*np.pi*self.v_arr/Dm
+            k_z = self.eta * (2*np.pi*E_z*nu_21)/(DH*(1 + self.z)**2) # [Mpc^-1 h]
+
+            k_perp = np.sqrt(k_x_grid**2 + k_y_grid**2)
+            
+            # Calculating the wedge index cube:
+            #wedge_ind_cube = np.array([k_perp <= 0.012 for i in range(len(k_z))]).T
+            #wedge_ind_cube = np.array([k_par > 10*k_perp for k_par in k_z]).T
+            wedge_ind_cube = np.array([k_par > 3*k_perp for k_par in k_z]).T
+
+            #temp_kperp_ind = self.k_r_arr < 0.1
+            temp_kperp_ind = k_z < 0.1
+
+            #wedge_ind_cube = wedge_ind_cube + temp_kperp_ind[None,None,:]
+
+            # Setting all values inside the wedge to zero.
+            self.power_cube[wedge_ind_cube == False] = 0.0
+            
+            self.power_cube[:,:,temp_kperp_ind] = 0.0
+            #self.power_cube[temp_kperp_ind] = 0.0
+
+        else:
+            # Default is to pass.
+            pass
+
+
+        # bin size is important. Too many bins, and some will have a sum of zero weights.
+        N_bins = 50 # This number provides integer bins sizes.
+        
+        if wedge_cond:
+            kr_min = np.min(self.k_r_arr[wedge_ind_cube][:,:,temp_kperp_ind==False])
+            kr_max = np.max(self.k_r_arr[wedge_ind_cube][:,:,temp_kperp_ind==False])
+        else:
+            # Linear bins.
+            kr_min = 0.004927893
+            kr_max = 2.782628
+        
+        # Log-linear bins.
+        log_kr_min = np.log10(kr_min)
+        log_kr_max = np.log10(kr_max)
+
+        # Increments.
+        dlog_k = (log_kr_max - log_kr_min)/N_bins
+        dk = (kr_max - kr_min)/N_bins
+
+        #k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
+        k_r_bins = np.linspace(kr_min - dk/2,kr_max + dk/2,N_bins + 1)
 
         Power_spec1D = np.zeros(len(k_r_bins)-1)
         Radius = np.zeros(len(k_r_bins)-1)
@@ -804,22 +854,21 @@ class Power_spec:
         for i in range(len(k_r_bins)-1):
 
             # Calculating the radius:
-            #Radius[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
-            Radius[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
+            Radius[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
+            #Radius[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
 
             # Defining the shell array index:
             shell_ind = np.logical_and(self.k_r_arr >= k_r_bins[i], self.k_r_arr <= k_r_bins[i+1])
 
             # Weighted average:
             # Using a user inputted weights array.
-            #Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
-            Power_spec1D[i] = np.sum(self.power_cube[shell_ind]*self.weights_cube[shell_ind])/np.sum(self.weights_cube[shell_ind])
+            Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
+            #Power_spec1D[i] = np.sum(self.power_cube[shell_ind]*self.weights_cube[shell_ind])/np.sum(self.weights_cube[shell_ind])
             #Power_spec1D[i] = np.average(self.power_cube[temp_ind],weights=self.weights_cube[temp_ind])
 
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        #Cosmo_factor = Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
         Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
         #Cosmo_factor = 1#Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
 
@@ -841,6 +890,9 @@ class Power_spec:
 
         # Problems with instrument sampling. Ommiting first bin.
         r_bins = r_bins[1:]
+
+        print('Radius bins:')
+        print(r_bins)
 
         # The u_arr and v_arr should be shifted. 
         r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
@@ -882,6 +934,12 @@ class Power_spec:
 
         # Assigning the perpendicular and parallel components of the power spectrum.
         self.kperp, self.kpar = Power_spec.Cosmo_unit_conversion(self,Radius,pspec='cylindrical')
+
+        print('Radius bin centres')
+        print(Radius)
+
+        print('k_perp bins')
+        print(self.kperp)
 
 
     @staticmethod
@@ -954,7 +1012,7 @@ class Power_spec:
                 plt.show()
 
     @staticmethod
-    def plot_cylindrical(Power2D,kperp,kpar,figsize=(5.5,7),cmap='viridis',
+    def plot_cylindrical(Power2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
         title=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,**kwargs):
 
         """
@@ -999,6 +1057,12 @@ class Power_spec:
         print('Min = %5.3e' % np.min(Power2D[Power2D > 0]))
         print('DC mode = %5.3e' % np.max(Power2D[Power2D > 0].flatten()[0]))
         
+        # Setting NaN values to a particular colour:
+        #current_cmap = matplotlib.cm.get_cmap()
+        #current_cmap.set_bad(color='red')
+
+        cmap = matplotlib.cm.viridis
+        cmap.set_bad('lightgray',1.)
 
         im = axs.imshow(Power2D,cmap=cmap,origin='lower',\
                 extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],**kwargs,\
@@ -1006,7 +1070,7 @@ class Power_spec:
 
         # Setting the colour bars:
         cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002, extend='both')
-        
+
         if clab:
             cb.set_label(label=clab,fontsize=20)
         else:
@@ -1027,6 +1091,11 @@ class Power_spec:
 
         axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
         axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
+
+        # Setting the tick label fontsizes.
+        axs.tick_params(axis='x', labelsize=18)
+        axs.tick_params(axis='y', labelsize=18)
+        cb.ax.tick_params(labelsize=18)
 
         axs.grid(False)
 
