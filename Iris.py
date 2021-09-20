@@ -1170,7 +1170,7 @@ class Power_spec:
         from astropy.cosmology import Planck18
 
         # Cosmological scaling parameter:
-        z = self.z
+        z = 7.14
         h = Planck18.H(0).value/100 # Hubble parameter.
         E_z = Planck18.efunc(z) ## Scaling function, see (Hogg 2000)
 
