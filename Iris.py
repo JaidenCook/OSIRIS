@@ -609,8 +609,34 @@ class Power_spec:
     """
     This class defines the different power spectrums. It allows for the calculation of the cylindrical and the
     angular averaged power spectrum. These are also referred to as the 2D and 1D power spectrums.
+
+    ...
+
+    Attributes
+    ----------
+    fine : numpy array
+        ...
+
+
+    Methods
+    -------
+    Power2Tb(freqs=""):
+        ...
+    uv_to_kxky(freqs=""):
+        ...
+    eta_to_kz(freqs=""):
+        ...
+    wedge_factor()
+        ...
+    Spherical()
+        ...
+    Cylindrical()
+        ...
+    plot_spherical()
+        ...
+    plot_cylindrical()
     """
-    
+
     # Constants
     c = 299792458.0/1000 #[km/s]
     nu_21 = (1000*c)/(0.21) #[Hz]
@@ -651,48 +677,6 @@ class Power_spec:
         # Save memory.
         del Four_sky_cube
     
-    def Cosmo_unit_conversion(self,Radius=None,pspec='angular',nu_21=nu_21):
-        """
-        Convert u,v and eta into k_x, k_y, k_z.
-        
-        """
-        
-        # Importing the cosmology. Using the latest Planck 2018 results.
-        from astropy.cosmology import Planck18
-
-        # Cosmological scaling parameter:
-        h = Planck18.H(0).value/100 # Hubble parameter.
-        E_z = Planck18.efunc(self.z) ## Scaling function, see (Hogg 2000)
-
-        # Cosmological distances:
-        Dm = Planck18.comoving_distance(self.z).value*h #[Mpc/h] Transverse co-moving distance.
-        DH = 3000 # [Mpc/h] Hubble distance.
-
-        k_z = self.eta * (2*np.pi*nu_21*E_z)/(DH*(1 + self.z)**2) # [Mpc^-1 h]
-
-        if pspec == 'angular':
-            
-            # This returns a 2D array. Different to the cylindrical case.
-
-            k_x = self.u_arr * (2*np.pi/Dm) # [Mpc^-1 h]
-            k_y = self.v_arr  * (2*np.pi/Dm) # [Mpc^-1 h]
-
-            # Spherically averaged case.
-            #k_r_arr = np.sqrt((k_x[:,:,None])**2 + (k_y[:,:,None])**2 + (k_z[None,None,:])**2)
-            k_r_arr = np.array([np.sqrt(k_x**2 + k_y**2 + kz**2) for kz in k_z]).T
-
-            return k_r_arr
-
-        elif pspec == 'cylindrical' or Radius:
-
-            # This returns two 1D arrays. Differs from the spherical case.
-
-            # Cylindrically averaged case.
-            k_perp = Radius * (2*np.pi/Dm) # [Mpc^-1 h]
-            k_par = k_z
-
-            return k_perp, k_par
-
     @staticmethod
     def Power2Tb(dnu,dnu_f,nu_o,z,verbose=True):
         """
@@ -754,7 +738,7 @@ class Power_spec:
 
         # Volume term.
         #co_vol = (1/Ceff)*(Dm**2 * DH *(1 + self.z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
-        co_vol = (1/Ceff)*(Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
+        co_vol = 1#(1/Ceff)*(Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
 
         if verbose:
             print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
@@ -772,68 +756,174 @@ class Power_spec:
         
         return conv_factor
 
-    def Spherical(self,kb=kb,nu_21=nu_21,c=c,wedge_cond=False):
+    @staticmethod
+    def uv_to_kxky(u,z):
         """
-        Calculates the spherically averaged 1D power spectrum.
+        Convert u or v into k_x or k_y, k_z as per Morales et al. (2004).
+        Uses the Plank 2018 cosmology as default. 
+
+        Can convert r = sqrt(u^2 + v^2) to k_perp. Same formula.
+                
+        Parameters
+            ----------
+            u_arr : numpy array, float
+                NDarray of u or v values. Should be in wavelengths.
+            z : float
+                Redshift at the central frequency of the band.
+            
+            Returns
+            -------
+            k_vec : numpy array, float
+                NDarray of k-mode values. Should be in units of h*Mpc^-1. 
         """
 
-        self.k_r_arr = Power_spec.Cosmo_unit_conversion(self)
+        # Importing the cosmology. Using the latest Planck 2018 results.
+        from astropy.cosmology import Planck18
+
+        # Cosmological scaling parameter:
+        h = Planck18.H(0).value/100 # Hubble parameter.
+    
+        # Cosmological distances:
+        Dm = Planck18.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+
+        # Converting u to k
+        k_vec = u * (2*np.pi/Dm) # [Mpc^-1 h]
+
+        return k_vec
+
+    @staticmethod
+    def eta_to_kz(eta,z):
+        """
+        Convert eta into k_z as per Morales et al. (2004).
+        Uses the Plank 2018 cosmology as default.
+                
+        Parameters
+            ----------
+            eta : numpy array, float
+                1Darray of eta values. 
+            z : float
+                Redshift at the central frequency of the band.
+            
+            Returns
+            -------
+            k_z : numpy array, float
+                1Darray of kz values. Should be in units of h*Mpc^-1.
+        """
+
+        # Importing the cosmology. Using the latest Planck 2018 results.
+        from astropy.cosmology import Planck18
+
+        # Constant:
+        c = 299792458.0/1000 #[km/s]
+        nu_21 = (1000*c)/(0.21) #[Hz]
+
+        # Cosmological scaling parameter:
+        E_z = Planck18.efunc(z) ## Scaling function, see (Hogg 2000)
+
+        # Cosmological distances:
+        DH = 3000 # [Mpc/h] Hubble distance.
+
+        # k_||
+        k_z = eta * (2*np.pi*nu_21*E_z)/(DH*(1 + z)**2) # [Mpc^-1 h]
+
+        return k_z
+
+    @staticmethod
+    def wedge_factor(z,cosmo=None):
+        """
+        Nicholes horizon cosmology cut.
+                
+        Parameters
+            ----------
+            z : float
+                Redshift.
+            cosmo : Astropy Object
+                Astropy cosmology object, default is None. If None use Plank18 cosmology.
+            
+            Returns
+            -------
+            wedge_factor : float
+                k|| > wedge_factor * k_perp cut.
+        """
+
+        if cosmo == None:
+            # Default cosmology is Plank2018. Can input other cosmologies with Astropy.
+            # Importing the cosmology. Using the latest Planck 2018 results.
+            from astropy.cosmology import Planck18 as cosmo
+        else:
+            pass
+
+        # Cosmological scaling parameter:
+        h = cosmo.H(0).value/100 # Hubble parameter.
+        E_z = cosmo.efunc(z) ## Scaling function, see (Hogg 2000)
+
+        # Cosmological distances:
+        Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+        DH = 3000 # [Mpc/h] Hubble distance.
+
+        wedge_factor = Dm*E_z/(DH*(1 + z)) 
+
+        return wedge_factor
+
+    def Spherical(self,kb=kb,nu_21=nu_21,c=c,wedge_cond=False):
+        """
+        Calculates the 1D spherical power spectra using the input Power object.
+                
+        Parameters
+            ----------
+            self : object
+                Power object contains u and v arrays, as well as the observation redshift.
+            kb : float
+                Boltzman's constant.
+            nu_21 : float
+                21cm frequency in Hz.
+            kb : float
+                Speed of light km/s.
+            
+            Returns
+            -------
+        """
+
+        # Defining the kx, ky, and kz values from u,v and eta.
+        k_z = Power_spec.eta_to_kz(self.eta,self.z) # [Mpc^-1 h]
+        k_x = Power_spec.uv_to_kxky(self.u_arr,self.z) # [Mpc^-1 h]
+        k_y = Power_spec.uv_to_kxky(self.v_arr,self.z) # [Mpc^-1 h]
+
+        # Creating 3D k_r array.
+        self.k_r_arr = np.array([np.sqrt(k_x**2 + k_y**2 + kz**2) for kz in k_z]).T
 
         if wedge_cond:
             # Condition for ignoring the wedge contribution to the power spectrum.
             
-            # Importing the cosmology. Using the latest Planck 2018 results.
-            from astropy.cosmology import Planck18
-
-            # Cosmological scaling parameter:
-            h = Planck18.H(0).value/100 # Hubble parameter.
-            E_z = Planck18.efunc(self.z) ## Scaling function, see (Hogg 2000)
-
-            # Cosmological distances:
-            Dm = Planck18.comoving_distance(self.z).value*h #[Mpc/h] Transverse co-moving distance.
-            DH = 3000 # [Mpc/h] Hubble distance.
-
-            # Getting kx, ky, and kz:
-            k_x_grid = 2*np.pi*self.u_arr/Dm
-            k_y_grid = 2*np.pi*self.v_arr/Dm
-            k_z = self.eta * (2*np.pi*E_z*nu_21)/(DH*(1 + self.z)**2) # [Mpc^-1 h]
-
-            k_perp = np.sqrt(k_x_grid**2 + k_y_grid**2)
+            k_perp = np.sqrt(k_x**2 + k_y**2) # [Mpc^-1 h]
             
-            # Calculating the wedge index cube:
-            #wedge_ind_cube = np.array([k_perp <= 0.012 for i in range(len(k_z))]).T
-            #wedge_ind_cube = np.array([k_par > 10*k_perp for k_par in k_z]).T
-            wedge_ind_cube = np.array([k_par > 3*k_perp for k_par in k_z]).T
+            wedge_cut = Power_spec.wedge_factor(self.z) # Nicholes horizon cosmology cut.
+            print('wedge_cut %5.3f' % wedge_cut)
 
-            #temp_kperp_ind = self.k_r_arr < 0.1
-            temp_kperp_ind = k_z < 0.1
+            wedge_ind_cube = np.array([k_par < wedge_cut*k_perp for k_par in k_z]).T
 
-            #wedge_ind_cube = wedge_ind_cube + temp_kperp_ind[None,None,:]
+            #kr_min = 0.15
+            #window_ind_cube[:,:,k_z < kr_min] = True
 
-            # Setting all values inside the wedge to zero.
-            self.power_cube[wedge_ind_cube == False] = 0.0
-            
-            self.power_cube[:,:,temp_kperp_ind] = 0.0
-            #self.power_cube[temp_kperp_ind] = 0.0
+            # Setting the wedge to zero.
+            self.power_cube[wedge_ind_cube] = np.NaN
+            self.weights_cube[wedge_ind_cube] = np.NaN
+            self.k_r_arr[wedge_ind_cube] = np.NaN
 
-        else:
-            # Default is to pass.
-            pass
-
-
-        # bin size is important. Too many bins, and some will have a sum of zero weights.
-        N_bins = 50 # This number provides integer bins sizes.
-        
-        if wedge_cond:
-            self.k_r_arr[wedge_ind_cube == False] = 0
-            self.k_r_arr[:,:,temp_kperp_ind] = 0
             kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
-            kr_max = np.nanmax(self.k_r_arr[self.k_r_arr > 0.0])
+            kr_max = np.nanmax(self.k_r_arr)
+
         else:
             # Linear bins.
             kr_min = 0.004927893
             kr_max = 2.782628
+
+        # bin size is important. Too many bins, and some will have a sum of zero weights.
+        N_bins = 50 # This number provides integer bins sizes.    
         
+        print('k_r_min = %5.3f' % kr_min)
+        print('k_r_max = %5.3f' % kr_max)
+
         # Log-linear bins.
         log_kr_min = np.log10(kr_min)
         log_kr_max = np.log10(kr_max)
@@ -842,95 +932,104 @@ class Power_spec:
         dlog_k = (log_kr_max - log_kr_min)/N_bins
         dk = (kr_max - kr_min)/N_bins
 
+        print('dk = %5.3f' % dk)
+
         #k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
         k_r_bins = np.linspace(kr_min - dk/2,kr_max + dk/2,N_bins + 1)
 
-        Power_spec1D = np.zeros(len(k_r_bins)-1)
-        Radius = np.zeros(len(k_r_bins)-1)
 
-        # Defining a boolean cube array where the non-empty cells have true values.
-        #cell_ind = self.power_cube > 0.0
-        
+        Power_spec1D = np.zeros(len(k_r_bins)-1)
+        kr_vec = np.zeros(len(k_r_bins)-1)
+
         for i in range(len(k_r_bins)-1):
 
             # Calculating the radius:
-            Radius[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
-            #Radius[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
+            kr_vec[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
+            #kr_vec[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
 
             # Defining the shell array index:
             shell_ind = np.logical_and(self.k_r_arr >= k_r_bins[i], self.k_r_arr <= k_r_bins[i+1])
 
-            # Weighted average:
-            # Using a user inputted weights array.
-            Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
-            #Power_spec1D[i] = np.sum(self.power_cube[shell_ind]*self.weights_cube[shell_ind])/np.sum(self.weights_cube[shell_ind])
-            #Power_spec1D[i] = np.average(self.power_cube[temp_ind],weights=self.weights_cube[temp_ind])
+            if wedge_cond:
+                Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
+            else:
+                Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
 
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
         Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
-        #Cosmo_factor = 1#Power_spec.Power2Tb(self,dnu,dnu_f,kb=kb,nu_21=nu_21,c=c)
 
         self.Power1D = Power_spec1D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
-        self.k_r = Radius
+        self.k_r = kr_vec
 
 
     def Cylindrical(self,kb=kb,nu_21=nu_21,c=c):
         """
-        Calculates the cylindrically averaged 2D power spectrum.
+        Calculates the 2D cylindrical power spectra using the input Power object.
+                
+        Parameters
+            ----------
+            self : object
+                Power object contains u and v arrays, as well as the observation redshift.
+            kb : float
+                Boltzman's constant.
+            nu_21 : float
+                21cm frequency in Hz.
+            kb : float
+                Speed of light km/s.
+            
+            Returns
+            -------
         """
 
         bin_width = 2.5 # [lambda]
-        N_bins = self.uvmax/bin_width
-        #N_bins = 302.5/bin_width # This might be wrong, I believe the total width is 307.5
+        
+        # Converting into cosmological values.
+        dk_r = Power_spec.uv_to_kxky(bin_width,self.z) # h Mpc^-1
+        k_perp_max = Power_spec.uv_to_kxky(self.uvmax,self.z) # h Mpc^-1
+        
+        # Defininf the number of bins.
+        N_bins = int(k_perp_max/dk_r)
+        
         # Specifying the radius vector:
-        #r_bins = np.linspace(0,302.5,int(N_bins) + 1)
-        r_bins = np.linspace(0,self.uvmax,int(N_bins) + 1)
+        kr_bins = np.linspace(0,k_perp_max,N_bins + 1)
 
         # Problems with instrument sampling. Ommiting first bin.
-        r_bins = r_bins[1:]
+        kr_bins = kr_bins[1:]
 
         # The u_arr and v_arr should be shifted. 
         r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
+        kr_uv_arr = Power_spec.uv_to_kxky(r_uv,self.z)
 
         # Initialising the power spectrum and radius arrays.
-        Power_spec2D = np.zeros([len(self.eta),len(r_bins)-1])
-        Radius = np.zeros(len(r_bins)-1)
+        Power_spec2D = np.zeros([len(self.eta),len(kr_bins)-1])
+        kr_vec = np.zeros(len(kr_bins)-1)
 
         # Averaging the power in annular rings for each eta slice.
         for i in range(len(self.eta)):
-            
-            # Getting the boolean values of non-empty pixels.
-            #temp_cell_ind = self.power_cube[:,:,i] > 0.0
-            
-            for j in range(len(r_bins)-1):
+            for j in range(len(kr_bins)-1):
                 
                 # Assigning the radius values. Needed for plotting purposes.
-                Radius[j] = ((r_bins[j+1] + r_bins[j])/2.0)
+                kr_vec[j] = ((kr_bins[j+1] + kr_bins[j])/2.0)
 
                 # Creating annunuls of boolean values.
-                #temp_uv_ring_ind = np.logical_and(r_uv >= r_bins[j], r_uv <= r_bins[j+1])
-                temp_ind = np.logical_and(r_uv >= r_bins[j], r_uv <= r_bins[j+1])
-                #temp_ind = temp_uv_ring_ind*temp_cell_ind
+                temp_ind = np.logical_and(kr_uv_arr >= kr_bins[j], kr_uv_arr <= kr_bins[j+1])
 
                 # Weighted averaging of annuli values.
                 Power_spec2D[i,j] = np.average(self.power_cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) ## Correct one.
-                #Power_spec2D[i,j] = np.sum(self.power_cube[temp_ind,i])/np.sum(self.weights_cube[temp_ind,i])
-
-                #print(np.sum(self.weights_cube[temp_ind,i]))
 
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
         Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
-        #Cosmo_factor = 1
 
         # Assigning the power.
         self.Power2D = Power_spec2D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
 
         # Assigning the perpendicular and parallel components of the power spectrum.
-        self.kperp, self.kpar = Power_spec.Cosmo_unit_conversion(self,Radius,pspec='cylindrical')
+        self.kperp = kr_vec
+        self.kpar = Power_spec.eta_to_kz(self.eta,self.z)
 
     @staticmethod
     def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
@@ -966,7 +1065,8 @@ class Power_spec:
 
         plt.loglog()
 
-        axs.plot(k_r,Power1D,**kwargs)
+        #axs.plot(k_r,Power1D,**kwargs)
+        axs.step(k_r,Power1D,**kwargs)
 
         if xlim:
             axs.set_xlim(xlim)
@@ -1065,6 +1165,34 @@ class Power_spec:
         
         axs.set_xscale('log')
         axs.set_yscale('log')
+
+        ####
+        from astropy.cosmology import Planck18
+
+        # Cosmological scaling parameter:
+        z = self.z
+        h = Planck18.H(0).value/100 # Hubble parameter.
+        E_z = Planck18.efunc(z) ## Scaling function, see (Hogg 2000)
+
+        # Cosmological distances:
+        Dm = Planck18.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+        DH = 3000 # [Mpc/h] Hubble distance.
+
+        grad = (1/0.35501)*Dm*E_z/(DH*(1 + z)) # Nicholes horizon cosmology cut.
+        #logk_wedge = 1 + np.log10(kperp) #+ (1/grad)*np.log10(0.1)
+        #k_wedge = 10**logk_wedge
+
+        print(np.min(kperp))
+        k_wedge1 = grad*(kperp)
+
+        grad = Dm*E_z/(DH*(1 + z)) # Nicholes horizon cosmology cut.
+
+        k_wedge2 = grad*(kperp)
+
+
+        axs.plot(kperp,k_wedge1,lw=3,ls='--',c='k')
+        axs.plot(kperp,k_wedge2,lw=3,ls='--',c='k')
+
 
         if xlim:
             axs.set_xlim(xlim)
