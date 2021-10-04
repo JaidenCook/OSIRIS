@@ -247,6 +247,9 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
     if np.any(vmin):
         vmin=vmin
 
+    cmap = matplotlib.cm.viridis
+    cmap.set_bad('lightgray',1.)
+
     if projection == 'cartesian':
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
@@ -267,11 +270,14 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
 
         # Setting the colour bars:
         cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
-        cb.set_label(label=clab)
+        cb.set_label(label=clab,fontsize=20)
+        cb.ax.tick_params(labelsize=20)
 
-        axs.set_xlabel(xlab)
-        axs.set_ylabel(ylab)
+        axs.set_xlabel(xlab,fontsize=20)
+        axs.set_ylabel(ylab,fontsize=20)
     
+        axs.tick_params(axis='both', labelsize=20)
+
         im.set_clim(clim)
 
     elif projection == "polar":
@@ -642,7 +648,7 @@ class Power_spec:
     nu_21 = (1000*c)/(0.21) #[Hz]
     kb = 1380.649 # [Jy m^2 Hz K^-1] Boltzmann's constant.
     
-    def __init__(self,Four_sky_cube,eta,u_arr,v_arr,nu_o,dnu,dnu_f,weights_cube=None,nu_21=nu_21):
+    def __init__(self,Four_sky_cube,eta,u_arr,v_arr,nu_o,dnu,dnu_f,weights_cube=None,nu_21=nu_21,cosmo=None):
         
         # Attributes will include data cube, eta, 
         # For determining the 2D bins.
@@ -674,11 +680,22 @@ class Power_spec:
         self.dnu_f = dnu_f # Fine channel width in [MHz].
         print('Redshift = %5.2f' % self.z)
 
+        if cosmo != None:
+            # User inputted cosmology.
+            print('Using non-standard cosmology.')
+            self.cosmo = cosmo
+        else:
+            # Default is the Plank18 cosmology.
+            from astropy.cosmology import Planck18
+
+            self.cosmo = Planck18
+
+
         # Save memory.
         del Four_sky_cube
     
     @staticmethod
-    def Power2Tb(dnu,dnu_f,nu_o,z,verbose=True):
+    def Power2Tb(dnu,dnu_f,nu_o,z,cosmo,verbose=True):
         """
         Calculate the conversion factor from Jy^2 Hz^2 to mK^2 Mpc^3 h^-3.
 
@@ -698,7 +715,6 @@ class Power_spec:
             conv_factor
         """
         from scipy import signal
-        from astropy.cosmology import Planck18    
 
         # Constants
         c = 299792458.0/1000 #[km/s]
@@ -728,17 +744,16 @@ class Power_spec:
             pass
 
         # Cosmological scaling parameter:
-        h = Planck18.H(0).value/100
-        #E_z = Planck18.efunc(self.z)
-        E_z = Planck18.efunc(z)
+        h = cosmo.H(0).value/100
+        #E_z = cosmo.efunc(self.z)
+        E_z = cosmo.efunc(z)
 
         # Cosmological distances:
-        Dm = Planck18.comoving_distance(z).value*h #[Mpc/h]
+        Dm = cosmo.comoving_distance(z).value*h #[Mpc/h]
         DH = 3000 # [Mpc/h] Hubble distance.
 
         # Volume term.
-        #co_vol = (1/Ceff)*(Dm**2 * DH *(1 + self.z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
-        co_vol = 1#(1/Ceff)*(Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
+        co_vol = (1/Ceff)*(Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
 
         if verbose:
             print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
@@ -757,7 +772,7 @@ class Power_spec:
         return conv_factor
 
     @staticmethod
-    def uv_to_kxky(u,z):
+    def uv_to_kxky(u,z,cosmo):
         """
         Convert u or v into k_x or k_y, k_z as per Morales et al. (2004).
         Uses the Plank 2018 cosmology as default. 
@@ -777,14 +792,11 @@ class Power_spec:
                 NDarray of k-mode values. Should be in units of h*Mpc^-1. 
         """
 
-        # Importing the cosmology. Using the latest Planck 2018 results.
-        from astropy.cosmology import Planck18
-
         # Cosmological scaling parameter:
-        h = Planck18.H(0).value/100 # Hubble parameter.
+        h = cosmo.H(0).value/100 # Hubble parameter.
     
         # Cosmological distances:
-        Dm = Planck18.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+        Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
 
         # Converting u to k
         k_vec = u * (2*np.pi/Dm) # [Mpc^-1 h]
@@ -792,7 +804,7 @@ class Power_spec:
         return k_vec
 
     @staticmethod
-    def eta_to_kz(eta,z):
+    def eta_to_kz(eta,z,cosmo):
         """
         Convert eta into k_z as per Morales et al. (2004).
         Uses the Plank 2018 cosmology as default.
@@ -810,15 +822,12 @@ class Power_spec:
                 1Darray of kz values. Should be in units of h*Mpc^-1.
         """
 
-        # Importing the cosmology. Using the latest Planck 2018 results.
-        from astropy.cosmology import Planck18
-
         # Constant:
         c = 299792458.0/1000 #[km/s]
         nu_21 = (1000*c)/(0.21) #[Hz]
 
         # Cosmological scaling parameter:
-        E_z = Planck18.efunc(z) ## Scaling function, see (Hogg 2000)
+        E_z = cosmo.efunc(z) ## Scaling function, see (Hogg 2000)
 
         # Cosmological distances:
         DH = 3000 # [Mpc/h] Hubble distance.
@@ -829,7 +838,7 @@ class Power_spec:
         return k_z
 
     @staticmethod
-    def wedge_factor(z,cosmo=None):
+    def wedge_factor(z,cosmo):
         """
         Nicholes horizon cosmology cut.
                 
@@ -845,13 +854,6 @@ class Power_spec:
             wedge_factor : float
                 k|| > wedge_factor * k_perp cut.
         """
-
-        if cosmo == None:
-            # Default cosmology is Plank2018. Can input other cosmologies with Astropy.
-            # Importing the cosmology. Using the latest Planck 2018 results.
-            from astropy.cosmology import Planck18 as cosmo
-        else:
-            pass
 
         # Cosmological scaling parameter:
         h = cosmo.H(0).value/100 # Hubble parameter.
@@ -885,9 +887,9 @@ class Power_spec:
         """
 
         # Defining the kx, ky, and kz values from u,v and eta.
-        k_z = Power_spec.eta_to_kz(self.eta,self.z) # [Mpc^-1 h]
-        k_x = Power_spec.uv_to_kxky(self.u_arr,self.z) # [Mpc^-1 h]
-        k_y = Power_spec.uv_to_kxky(self.v_arr,self.z) # [Mpc^-1 h]
+        k_z = Power_spec.eta_to_kz(self.eta,self.z,self.cosmo) # [Mpc^-1 h]
+        k_x = Power_spec.uv_to_kxky(self.u_arr,self.z,self.cosmo) # [Mpc^-1 h]
+        k_y = Power_spec.uv_to_kxky(self.v_arr,self.z,self.cosmo) # [Mpc^-1 h]
 
         # Creating 3D k_r array.
         self.k_r_arr = np.array([np.sqrt(k_x**2 + k_y**2 + kz**2) for kz in k_z]).T
@@ -897,26 +899,28 @@ class Power_spec:
             
             k_perp = np.sqrt(k_x**2 + k_y**2) # [Mpc^-1 h]
             
-            wedge_cut = Power_spec.wedge_factor(self.z) # Nicholes horizon cosmology cut.
+            wedge_cut = Power_spec.wedge_factor(self.z,self.cosmo) # Nicholes horizon cosmology cut.
             print('wedge_cut %5.3f' % wedge_cut)
 
             wedge_ind_cube = np.array([k_par < wedge_cut*k_perp for k_par in k_z]).T
 
-            #kr_min = 0.15
-            #window_ind_cube[:,:,k_z < kr_min] = True
+            ## Testing
+            kr_min = 0.07
+            wedge_ind_cube[:,:,k_z < kr_min] = True
+            ## Testing
 
             # Setting the wedge to zero.
             self.power_cube[wedge_ind_cube] = np.NaN
             self.weights_cube[wedge_ind_cube] = np.NaN
             self.k_r_arr[wedge_ind_cube] = np.NaN
 
-            kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
+            #kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
             kr_max = np.nanmax(self.k_r_arr)
 
         else:
-            # Linear bins.
-            kr_min = 0.004927893
-            kr_max = 2.782628
+
+            kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
+            kr_max = np.nanmax(self.k_r_arr)
 
         # bin size is important. Too many bins, and some will have a sum of zero weights.
         N_bins = 50 # This number provides integer bins sizes.    
@@ -958,7 +962,7 @@ class Power_spec:
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo)
 
         self.Power1D = Power_spec1D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
         self.k_r = kr_vec
@@ -986,8 +990,8 @@ class Power_spec:
         bin_width = 2.5 # [lambda]
         
         # Converting into cosmological values.
-        dk_r = Power_spec.uv_to_kxky(bin_width,self.z) # h Mpc^-1
-        k_perp_max = Power_spec.uv_to_kxky(self.uvmax,self.z) # h Mpc^-1
+        dk_r = Power_spec.uv_to_kxky(bin_width,self.z,self.cosmo) # h Mpc^-1
+        k_perp_max = Power_spec.uv_to_kxky(self.uvmax,self.z,self.cosmo) # h Mpc^-1
         
         # Defininf the number of bins.
         N_bins = int(k_perp_max/dk_r)
@@ -1000,7 +1004,7 @@ class Power_spec:
 
         # The u_arr and v_arr should be shifted. 
         r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
-        kr_uv_arr = Power_spec.uv_to_kxky(r_uv,self.z)
+        kr_uv_arr = Power_spec.uv_to_kxky(r_uv,self.z,self.cosmo)
 
         # Initialising the power spectrum and radius arrays.
         Power_spec2D = np.zeros([len(self.eta),len(kr_bins)-1])
@@ -1022,14 +1026,14 @@ class Power_spec:
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z)
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo)
 
         # Assigning the power.
         self.Power2D = Power_spec2D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
 
         # Assigning the perpendicular and parallel components of the power spectrum.
         self.kperp = kr_vec
-        self.kpar = Power_spec.eta_to_kz(self.eta,self.z)
+        self.kpar = Power_spec.eta_to_kz(self.eta,self.z,self.cosmo)
 
     @staticmethod
     def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
@@ -1076,7 +1080,7 @@ class Power_spec:
         if xlabel:
             axs.set_xlabel(xlabel,fontsize=24)
         else:
-            axs.set_xlabel(r'$|k| \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
+            axs.set_xlabel(r'$|\mathbf{k}| \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
 
         if ylabel:
             axs.set_ylabel(ylabel,fontsize=24)
@@ -1141,6 +1145,7 @@ class Power_spec:
 
         if lognorm:
             norm = matplotlib.colors.LogNorm()
+            #norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
         else:
             norm = None
 
@@ -1154,6 +1159,7 @@ class Power_spec:
         im = axs.imshow(Power2D,cmap=cmap,origin='lower',\
                 extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],**kwargs,\
                     norm=norm,vmin=vmin,vmax=vmax, aspect='auto')
+        
 
         # Setting the colour bars:
         cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002, extend='both')
@@ -1178,21 +1184,10 @@ class Power_spec:
         Dm = Planck18.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
         DH = 3000 # [Mpc/h] Hubble distance.
 
-        grad = (1/0.35501)*Dm*E_z/(DH*(1 + z)) # Nicholes horizon cosmology cut.
-        #logk_wedge = 1 + np.log10(kperp) #+ (1/grad)*np.log10(0.1)
-        #k_wedge = 10**logk_wedge
-
-        print(np.min(kperp))
-        k_wedge1 = grad*(kperp)
-
         grad = Dm*E_z/(DH*(1 + z)) # Nicholes horizon cosmology cut.
+        k_wedge = grad*(kperp)
 
-        k_wedge2 = grad*(kperp)
-
-
-        axs.plot(kperp,k_wedge1,lw=3,ls='--',c='k')
-        axs.plot(kperp,k_wedge2,lw=3,ls='--',c='k')
-
+        axs.plot(kperp,k_wedge,lw=3,ls='--',c='k')
 
         if xlim:
             axs.set_xlim(xlim)
