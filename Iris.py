@@ -269,7 +269,11 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
             pass
 
         # Setting the colour bars:
-        cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+        if np.any(vmax):
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e',extend='max')
+        else:
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e')
+
         cb.set_label(label=clab,fontsize=20)
         cb.ax.tick_params(labelsize=20)
 
@@ -652,7 +656,8 @@ class Power_spec:
         
         # Attributes will include data cube, eta, 
         # For determining the 2D bins.
-        self.uvmax = np.max(u_arr)
+        #self.uvmax = np.max(u_arr)
+        self.uvmax = 300
 
         #self.data = Four_sky_cube
         self.power_cube = np.conjugate(Four_sky_cube)*Four_sky_cube # [Jy^2 Hz^2]
@@ -709,6 +714,8 @@ class Power_spec:
                 Observing frequency at the centre of the band [Hz].
             z : float
                 Redshift of the observing frequency.
+            cosmo : astropy object
+                Astropy Cosmology object, default used is Plank2018.
             
             Returns
             -------
@@ -923,7 +930,8 @@ class Power_spec:
             kr_max = np.nanmax(self.k_r_arr)
 
         # bin size is important. Too many bins, and some will have a sum of zero weights.
-        N_bins = 50 # This number provides integer bins sizes.    
+        N_bins = 100 # This number provides integer bins sizes.    
+        #N_bins = 20 # This number provides integer bins sizes. 
         
         print('k_r_min = %5.3f' % kr_min)
         print('k_r_max = %5.3f' % kr_max)
@@ -940,7 +948,6 @@ class Power_spec:
 
         #k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
         k_r_bins = np.linspace(kr_min - dk/2,kr_max + dk/2,N_bins + 1)
-
 
         Power_spec1D = np.zeros(len(k_r_bins)-1)
         kr_vec = np.zeros(len(k_r_bins)-1)
@@ -1037,7 +1044,7 @@ class Power_spec:
 
     @staticmethod
     def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
-        xlabel=None,ylabel=None,**kwargs):
+        xlabel=None,ylabel=None,step=True,**kwargs):
         """
         Plot the 1D angular averaged power spectrum. If figaxs is provided allows for plotting
         more than one power spectrum.
@@ -1053,13 +1060,6 @@ class Power_spec:
             -------
             None
         """
-        
-        #import seaborn as sns
-        #sns.set_theme(style="darkgrid")
-
-        # Initialising the figure object.
-        # Need fig object, code breaks otherwise, fix this in the future.
-        #fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         if figaxs:
             fig = figaxs[0]
@@ -1069,8 +1069,13 @@ class Power_spec:
 
         plt.loglog()
 
-        #axs.plot(k_r,Power1D,**kwargs)
-        axs.step(k_r,Power1D,**kwargs)
+        if step:
+            # Default options is a step plot.
+            axs.step(k_r,Power1D,**kwargs)
+        else:
+            # Line plot is more useful for comparing Power spectra with different bin sizes.
+            axs.plot(k_r,Power1D,**kwargs)
+
 
         if xlim:
             axs.set_xlim(xlim)
@@ -1232,11 +1237,26 @@ class MWA_uv:
     #array_loc = np.loadtxt('antenna_locations_MWA_phase1.txt')
     array_loc = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/antenna_locations_MWA_phase1.txt')
     
-    def __init__(self,array_loc=array_loc):
+    def __init__(self,array_loc=array_loc,test_gauss=False,test_uniform=False):
         
-        self.east = array_loc[:,0] # [m]
-        self.north = array_loc[:,1] # [m]
-        self.height = array_loc[:,2] # [m]
+
+        if test_gauss:
+            # Randomly generated gaussian array.
+            array_gauss = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/gaussian_antenna_locations_MWA_phase1.txt')
+            self.east = array_gauss[:,0] # [m]
+            self.north = array_gauss[:,1] # [m]
+            self.height = array_gauss[:,2] # [m]
+        elif test_uniform:
+            # Randomly generated uniform array. 
+            array_uni = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/uniform_antenna_locations_MWA_phase1.txt')
+            self.east = array_uni[:,0] # [m]
+            self.north = array_uni[:,1] # [m]
+            self.height = array_uni[:,2] # [m]
+        else:
+            # Defualt case, uses the MWA Phase I layout.
+            self.east = array_loc[:,0] # [m]
+            self.north = array_loc[:,1] # [m]
+            self.height = array_loc[:,2] # [m]
         
         
     def enh2xyz(self,lat=MWA_lat):
@@ -1370,6 +1390,12 @@ class Skymodel:
         self.l_vec = l_vec
         self.m_vec = m_vec
         
+        # Useful for specifying the minimum Gaussian sizes.
+        # Small Gaussians should still be sampled by several pixels. This effectively
+        # creates a psf.
+        self.dl = np.abs(l_vec[1]-l_vec[0])/2
+        self.dm = np.abs(m_vec[1]-m_vec[0])/2
+
         # Creating the (l,m) plane grid:
         self.l_grid, self.m_grid = np.meshgrid(l_vec,m_vec)
 
@@ -1449,6 +1475,22 @@ class Skymodel:
         sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
 
+        # Checking to see if the new widths are smaller than the pixel sampling scale.
+        if sigx < self.dl:
+            # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
+            # and the new sigma x.
+            sigx = np.sqrt(self.dl**2 + sigx**2)
+        else:
+            pass
+
+        # Checking to see if the new widths are smaller than the pixel sampling scale.
+        if sigy < self.dl:
+            # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
+            # and the new sigma y.
+            sigy = np.sqrt(self.dl**2 + sigy**2)
+        else:
+            pass
+
         # Deriving the peak amplitude from the integrated amplitude.
         Speak = Sint/(sigx*sigy*2*np.pi)
 
@@ -1489,6 +1531,8 @@ class Skymodel:
         -------
         None
         """
+
+
         # Converting the the Alt and Az into l and m coordinates:
         self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
         self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
@@ -1592,7 +1636,7 @@ class Skymodel:
         L = (np.max(self.l_vec) - np.min(self.l_vec))
 
         N = len(self.l_vec)
-        dA = (L/N)**2
+        dA = self.dl*self.dm
 
         if np.shape(self.l_mod):
             # Multiple source case.
@@ -1612,17 +1656,19 @@ class Skymodel:
                 l_ind, m_ind = find_closest_xy(self.l_mod,self.m_mod,self.l_vec,self.m_vec)
 
             # Setting point source value:
-            self.model[m_ind, l_ind,:] = 1.0/dA
+            #self.model[m_ind, l_ind,:] = 1.0#/dA
+            self.model[m_ind, l_ind,:] = S[i]/dA
 
             ## Set all NaNs and values below the horizon to zero:
-            self.model[np.isnan(self.model)] = 0.0
+            #self.model[np.isnan(self.model)] = 0.0
 
-            if np.shape(self.l_mod):
-                # Multiple source case:
-                self.model = self.model*S[i,:]
-            else:
-                # Default single source case.
-                self.model = self.model*S
+            #if np.shape(self.l_mod):
+            #    # Multiple source case:
+            #    #self.model = self.model*S[i,:]
+            #    self.model = self.model*S[i]
+            #else:
+            #    # Default single source case.
+            #    self.model = self.model*S
 
     def plot_sky_mod(self,window=None,index=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',cmap='cividis',\
         clab=None,title=None,vmax=None,vmin=None,lognorm=False,**kwargs):
