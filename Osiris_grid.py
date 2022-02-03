@@ -10,7 +10,7 @@ from numba import jit
 import numpy as np
 import time
 
-import Iris
+import Osiris
 
 def grid_natural(grid_arr, u_coords, v_coords, vis, u_vec, v_vec):
     '''
@@ -44,7 +44,7 @@ def grid_natural(grid_arr, u_coords, v_coords, vis, u_vec, v_vec):
     for i in np.arange(len(vis)):
         
         # Determining the index location for each visibility.
-        u_cent_ind,v_cent_ind = Iris.find_closest_xy(u_coords[i],v_coords[i],u_vec,v_vec)
+        u_cent_ind,v_cent_ind = Osiris.find_closest_xy(u_coords[i],v_coords[i],u_vec,v_vec)
 
         weights_arr[v_cent_ind,u_cent_ind] = weights_arr[v_cent_ind,u_cent_ind] + 1
         grid_arr[v_cent_ind,u_cent_ind] = grid_arr[v_cent_ind,u_cent_ind] + vis[i]
@@ -102,7 +102,7 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=7
     for i in np.arange(len(vis)):
         
         # Determining the index location for each visibility.
-        u_cent_ind,v_cent_ind = Iris.find_closest_xy(u_coords[i],v_coords[i],u_vec,v_vec)
+        u_cent_ind,v_cent_ind = Osiris.find_closest_xy(u_coords[i],v_coords[i],u_vec,v_vec)
 
         # Determining the index ranges:
         min_u_ind = u_cent_ind - int(kernel_size/2)
@@ -114,7 +114,7 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=7
         u_temp_arr = u_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
         v_temp_arr = v_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
 
-        temp_gauss_weights = Iris.gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, u_coords[i], v_coords[i])
+        temp_gauss_weights = Osiris.gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, u_coords[i], v_coords[i])
 
         # Adding Gaussian weights to weights arr.
         weights_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] = \

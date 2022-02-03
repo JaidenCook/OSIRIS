@@ -19,6 +19,8 @@ import warnings
 import subprocess
 warnings.filterwarnings("ignore")
 
+from tqdm import tqdm
+
 # Array stuff:
 import numpy as np
 warnings.simplefilter('ignore', np.RankWarning)
@@ -27,8 +29,6 @@ warnings.simplefilter('ignore', np.RankWarning)
 import matplotlib.pyplot as plt
 import matplotlib
 from mpl_toolkits.mplot3d import Axes3D
-#from matplotlib.gridspec import GridSpec
-#from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 plt.style.use('seaborn-white')
 plt.rcParams['mathtext.fontset'] = 'stix'
@@ -46,19 +46,11 @@ plt.rc('ytick.minor', size=4, pad=4)
 # Parser options:
 from optparse import OptionParser
 
-# Multiprocessing stuff:
-#from joblib import Parallel, delayed
-#import multiprocessing
-#from tqdm import tqdm
-
 # Scipy stuff:
 import scipy
-from scipy.fft import fftn,fftfreq,fftshift,ifftshift
+from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
 from scipy import stats
 import scipy.optimize as opt
-
-# casa-core stuff:
-#from casacore.tables import table,tablecolumn
 
 # Astropy stuff:
 from astropy import units as u
@@ -106,25 +98,22 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
     
     # By definition the semi-major axis is larger than the semi-minor axis:
     
-    if amaj < bmin:
-        # Swapping amaj and bmin:
-        t = bmin
-        bmin = amaj
-        amaj = t
-    else:
-        pass
-    
+
     # Defining the width of the Gaussians
-    sigx = amaj/np.sqrt(2.0*np.log(2.0))
-    sigy = bmin/np.sqrt(2.0*np.log(2.0))
-    
+    sigx = amaj/(2.0*np.sqrt(2.0*np.log(2.0)))
+    sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
+
     a = (np.cos(theta)**2)/(2.0*sigx**2) + (np.sin(theta)**2)/(2.0*sigy**2)
     b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
     c = (np.sin(theta)**2)/(2.0*sigx**2) + (np.cos(theta)**2)/(2.0*sigy**2)
         
     if polar == False:
         # Cartesian.
-        return A*np.exp(-(a*(X-x0)**2 + 2*b*(X-x0)*(Y-y0) + c*(Y-y0)**2))
+
+        # Deriving the peak amplitude from the integrated amplitude.
+        Amplitude = A/(sigx*sigy*2*np.pi)
+
+        return Amplitude*np.exp(-(a*(X-x0)**2 + 2*b*(X-x0)*(Y-y0) + c*(Y-y0)**2))
     
     elif polar == True:
     
@@ -149,26 +138,16 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         # Az in [0,2pi]
     
 
-        l0 = np.sin(x0)*np.cos(y0)
-        m0 = -np.sin(x0)*np.sin(y0)
-
-        #print('l0 = %2.3f, m0 = %2.3f' %(l0,m0))
-
-
-        #print(l0,m0,np.sin(np.arccos(np.sqrt(l0**2 + m0**2))),np.arccos(np.sqrt(l0**2 + m0**2)))
-
-        #sigy = 2*np.sin(sigy/2)*np.sin(np.arccos(np.sqrt(l0**2 + m0**2)))#*np.cos(np.pi/2 - np.arctan2(l0,m0)+np.pi)#*np.cos(theta)
-        #sigx = 2*np.sin(sigx/2)
-
-        
+        #l0 = np.sin(x0)*np.cos(y0)
+        #m0 = -np.sin(x0)*np.sin(y0)
 
         Az = X
         Zen = Y
         Az0 = x0
         Zen0 = y0
         theta_pa = theta
+        
 
-        #print('theta = %2.3f' % (theta))
         
         sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
@@ -180,45 +159,17 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
         c = (np.sin(theta)**2)/(2.0*sigx**2) + (np.cos(theta)**2)/(2.0*sigy**2)
         
-        #print('theta = %2.3f' % (theta))
-        #print('arctan(l0,m0) = %2.3f' % (np.arctan2(m0,l0)))
-        
-        
-        # Defining x-x0 and y-y0. Defining them in spherical coordinates.
-        ##x_shft = 2*np.sin(Zen)*np.cos(Az)/(1+np.cos(Zen)) - 2*np.sin(Zen0)*np.cos(Az0)/(1+np.cos(Zen0))
-        ##y_shft = 2*np.sin(Zen)*np.sin(Az)/(1+np.cos(Zen)) - 2*np.sin(Zen0)*np.sin(Az0)/(1+np.cos(Zen0))
+        # Deriving the peak amplitude from the integrated amplitude.
+        Amplitude = A/(sigx*sigy*2*np.pi)
+
 
         x_shft = np.sin(Zen)*np.cos(Az) - np.sin(Zen0)*np.cos(Az0)
 
         y_shft = -np.sin(Zen)*np.sin(Az) + np.sin(Zen0)*np.sin(Az0)
 
     
-        return A*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
+        return Amplitude*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
 
-def Poly_func2D_old(xx,yy,*a):
-    #
-    # General form of the polynomial.
-    # p(x,y) = sum^p_j=0 sum^p_i=0 b_i x^p-i y^j
-    #
-   
-    #print "Coefficient Matrix:"
-    a=np.array(a).flatten()#[0]
-    #print np.shape(np.array(a).flatten())
-    #print a
-   
-    zz = np.zeros(np.shape(xx))
-    p = np.sqrt(len(a)) - 1
-    p = int(p)
-   
-    index = 0
-    for j in range(p+1):
-        for i in range(p+1):
-            zz = zz + a[index]*(xx**(p-i))*(yy**j)
-            index += 1
-            
-            #print(p-i,j)
-            
-    return zz.ravel()
 
 def Poly_func2D_nu(data_tuple,*a):
     
@@ -247,77 +198,116 @@ def Poly_func2D_nu(data_tuple,*a):
             
     return zz.ravel()
 
-def Window_blackman(x,x0,X,a):
+def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',figsize = (14,12),\
+    xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,\
+    clim=None,vmin=None,vmax=None,contours=None,**kwargs):
+    """
+    Plots a 2D input image. This input image can either be in a cartesian or polar projection.
     
-    # This function might need to be adjusted.
+    Parameters
+    ----------
+    Img : numpy array
+        2D numpy array of the image. 
+    X_vec : numpy array
+        1D numpy array of the x-axis/Azimuth-axis. Default is 'None'.
+    Y_vec : numpy array
+        1D numpy array of the y-axis/radius-axis. Default is 'None'.
+    title : string
+        Name of the output image. This parameters saves the image.
+    contours : int
+        Contour level. Default is None.
 
-    Wind_arr = (1-a)/2.0 - 0.5*np.cos((2*np.pi*(x - x0 - 0.5*X))/X) + 0.5*a*np.cos((4*np.pi*(x - x0 - 0.5*X))/X)
+    Returns
+    -------
+    None
+    """
+
+    def realign_polar_xticks(ax):
+        for x, label in zip(ax.get_xticks(), ax.get_xticklabels()):
+            if np.sin(x) > 0.1:
+                label.set_horizontalalignment('right')
+            if np.sin(x) < -0.1:
+                label.set_horizontalalignment('left')
+
+    if lognorm:
+        norm = matplotlib.colors.LogNorm()
+    else:
+        norm = None
+
+    if np.any(vmax):
+        vmax=vmax
     
-    # Setting all values outside the window to zero:
-    Wind_arr[(x <= x0 - 0.5*X)] = 0.0
-    Wind_arr[(x >= x0 + 0.5*X)] = 0.0
-    
-    return Wind_arr
+    if np.any(vmin):
+        vmin=vmin
 
-def realign_polar_xticks(ax):
-    for x, label in zip(ax.get_xticks(), ax.get_xticklabels()):
-        if np.sin(x) > 0.1:
-            label.set_horizontalalignment('right')
-        if np.sin(x) < -0.1:
-            label.set_horizontalalignment('left')
+    cmap = matplotlib.cm.viridis
+    cmap.set_bad('lightgray',1.)
 
-def Plot_img(Img,X_vec=None,Y_vec=None,projection=None,cmap='jet',figsize = (14,12),**kwargs):
-
-    if projection == None:
+    if projection == 'cartesian':
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         # Creating the image objects:
-        
         if np.any(X_vec) != None and np.any(Y_vec) != None:
-            im = axs.imshow(Img,cmap=cmap,origin='upper',\
-                                 extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)])
-            
+
+            im = axs.imshow(Img,cmap=cmap,origin='lower',\
+                    extent=[np.min(X_vec),np.max(X_vec),np.min(Y_vec),np.max(Y_vec)],\
+                    norm=norm,vmin=vmin,vmax=vmax,**kwargs)
         else:
-            im = axs.imshow(Img,cmap=cmap,origin='upper')
-            
+            im = axs.imshow(Img,cmap=cmap,origin='lower',norm=norm,\
+                vmin=vmin,vmax=vmax,**kwargs)
+
+        if contours:
+            axs.clabel(contours, inline=True, fontsize=8)
+        else:
+            pass
 
         # Setting the colour bars:
-        cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
-        cb.set_label(label='Intensity')
-    
-        axs.set_xlabel(r'$l$')
-        axs.set_ylabel(r'$m$')
-    
-        im.set_clim(**kwargs)
+        if np.any(vmax):
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e',extend='max')
+        else:
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e')
 
-        plt.show()
+        cb.set_label(label=clab,fontsize=20)
+        cb.ax.tick_params(labelsize=20)
+
+        axs.set_xlabel(xlab,fontsize=20)
+        axs.set_ylabel(ylab,fontsize=20)
+    
+        axs.tick_params(axis='both', labelsize=20)
+
+        im.set_clim(clim)
 
     elif projection == "polar":
         
-        fig = plt.figure(figsize = (14,12), dpi = 75)
-        
-        label_size = 24
+        fig = plt.figure(figsize = figsize, dpi = 75)
+
+        #label_size = 24
         font_size = 22
-        thetaticks = np.arange(0,360,45)
-        
+        #thetaticks = np.arange(0,360,45)
+
         ax1 = fig.add_subplot(111,projection='polar')
-        pcm1 = ax1.pcolormesh(X_vec,Y_vec,Img, cmap = cmap)
+        pcm1 = ax1.pcolormesh(X_vec,Y_vec,Img,cmap=cmap,norm=norm,vmin=vmin,vmax=vmax)
         
         ax1.set_yticks([])
         ax1.set_theta_offset(np.pi/2.0)
-        
         
         cb = fig.colorbar(pcm1, ax = ax1, fraction = 0.046, pad = 0.065)
     
         cb.set_label(label = 'Intensity', fontsize = font_size)
         cb.ax.tick_params(axis = 'x', labelsize = font_size - 2)
         
+        ax1.set_ylim([0,1.])
+
         realign_polar_xticks(ax1)
         
         plt.subplots_adjust(left=-0.5)
     
-        pcm1.set_clim(**kwargs)
+        pcm1.set_clim(clim)
     
+    if title:
+        # Option for saving figure.
+        plt.savefig('{0}'.format(title))
+    else:
         plt.show()
 
 def Plot_3D(X_arr,Y_arr,Z_arr,cmap='jet'):
@@ -338,25 +328,49 @@ def Plot_3D(X_arr,Y_arr,Z_arr,cmap='jet'):
     
     plt.show()
     
-def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='jet'):
+def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='viridis',lognorm=True,figsize = (14,12)):
+    """
+    Visibilities diagnostic plot. Plots the visibilities amplitude, the real and 
+    imaginary values, and the phase for the uv-plane.
+    
+    Parameters
+    ----------
+    Img : numpy array
+        2D numpy array of the image. 
+    X_vec : numpy array
+        1D numpy array of the x-axis. Default is 'None'.
+    Y_vec : numpy array
+        1D numpy array of the y-axis. Default is 'None'.
+    title : string
+        Name of the output image. This parameters saves the image.
+
+    Returns
+    -------
+    None
+    """
+    if lognorm:
+        norm = matplotlib.colors.LogNorm()
+    else:
+        norm = None
+
     # Creating the plots of the real, im, phase and amplitude:
 
     # Visibilities must be normalised before plotting.
 
     Vis_power = np.abs(Vis)
     
-    fig, axs = plt.subplots(2,2, figsize = (14,12), dpi=75)
+    fig, axs = plt.subplots(2,2, figsize = figsize, dpi=75)
 
-    Vis_power_std = np.std(Vis_power)
-    Vis_power_mean = np.mean(Vis_power)
+    #Vis_power_std = np.std(Vis_power)
+    #Vis_power_mean = np.mean(Vis_power)
 
     # Creating the image objects:
-    im_Vis = axs[0,0].imshow(Vis_power,cmap=cmap,\
+    im_Vis = axs[0,0].imshow(Vis_power,cmap=cmap,norm=norm,\
                          extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])#,\
                              #vmin=Vis_power_mean-5*Vis_power_std,vmax=Vis_power_mean+5*Vis_power_std)
-    im_Real = axs[0,1].imshow(np.real(Vis),cmap=cmap,\
+    im_Real = axs[0,1].imshow(np.real(Vis),cmap=cmap,norm=norm,\
                           extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
-    im_Im = axs[1,0].imshow(np.imag(Vis),cmap=cmap,\
+    im_Im = axs[1,0].imshow(np.imag(Vis),cmap=cmap,norm=norm,\
                         extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
     im_Phase = axs[1,1].imshow(np.angle(Vis,deg=True),cmap=cmap,\
                            extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
@@ -393,441 +407,117 @@ def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='jet'):
 
     plt.show()
 
-def Visibilities_2D(img,X,Y,N):
-    """
+def Visibilities_2D(img,X=None,Y=None,N=None,norm=None):
+    '''
     This function takes an input 2D image domain array, and returns the 2D visibilities for that image.
-    """
-    
+
+        Parameters
+        ----------
+        img : numpy array, float
+            2D image array.
+        X : numpy array, float
+            Image array size, default is 'None'.
+        Y : numpy array, float
+            Image array size, default is 'None'.
+        N : numpy array, float
+            Image array pixel size, default is 'None'.
+        norm : string
+            Norm condition, accepts 'forward', 'backward', and 'ortho', default is 'backward'.
+
+        Returns
+        -------
+        2D complex visibility array.
+
+    '''
+
     # Order of Fourier operations:
     # Pad - Input array should already be padded.
     # Shift-fftshift-roll-roll necessary due to off by one error.
-    # FT-fft
+    # FT-ifft
     # Inverse shift-ifftshift
     
-    #Vis = ifftshift(fftn(np.roll(np.roll(fftshift(img),1,axis=0),1,axis=1)))
-    #Vis = ifftshift(fftn(fftshift(img)))
+    ## Default original case:
+    #print('3D case')
+    Vis = np.roll(np.roll(ifftshift(fftn(np.roll(np.roll(fftshift(img),1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
+    #Vis = np.roll(np.roll(ifftshift(ifftn(np.roll(np.roll(fftshift(img),1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
 
-    ## Noticed an off by one error in the visibilities of some low pixel size visibility images.
-    Vis = np.roll(np.roll(ifftshift(fftn(np.roll(np.roll(fftshift(img),1,axis=0),1,axis=1))),-1,axis=0),-1,axis=1)
+    if X and Y and N:
+        # Creating the Fourier grid:
+        # N is number of sample points
+        # T is sample spacing
+        u_vec = fftfreq(N,X/N)
+        v_vec = fftfreq(N,Y/N)
 
-    # Creating the Fourier grid:
-    # N is number of sample points
-    # T is sample spacing
-    u_vec = fftfreq(N,X/N)
-    v_vec = fftfreq(N,Y/N)
-    
-    # Creating the u and v plane:
-    u_arr,v_arr = np.meshgrid(u_vec,v_vec)
-
-    return u_arr, v_arr, Vis
-
-
-def Vis_Beam_Poly2D(U,V,dL,dM,l0,m0,*a):
-    
-    a = np.array(a).ravel() # Setting the beam parameters.
-    
-    vis = np.zeros(np.shape(U),dtype=complex) # Initialising the vis array.
-    p = int(np.sqrt(len(a)) - 1) # Forcing type.
-    
-    # Shifting the U and V arrays.
-    U = fftshift(U)
-    V = fftshift(V)
-    
-    index = 0
-    for r in range(p+1):
-        for s in range(p+1):
-            
-            # u-component:
-            FT_b_u = 0
-            for n in range(p-r+1):
-                temp_frac_u = ((-1)**n) * ( ((dL/2.0)**(p-r-n)) / ((2*np.pi*(U))**(n+1)) )
-                temp_cos_u = np.cos((np.pi/2.0)*(3*(p-r-n) + 1) - np.pi*(U)*dL)
-                
-                temp_u = temp_frac_u*temp_cos_u
-                
-                FT_b_u = FT_b_u + temp_u
-                    
-
-
-            # Taking care of the discontinuities.
-            if r==2:
-                # Sinc function condition.
-                FT_b_u[np.isinf(FT_b_u)] = dL/2
-            
-            if r==1:
-                FT_b_u[np.isnan(FT_b_u)] = 0.0
-            
-            if r==0:
-                FT_b_u[np.isnan(FT_b_u)] = -(dL**3)/12.0
-                    
-            cond_u = False
-            if r == 2 and cond_u == True:
-                
-                print(np.max(U[0,:]),np.min(U[0,:]),FT_b_u[0,:][U[0,:]==0.0])
-                print(dL)
-                plt.clf()
-                #plt.semilogy(U[0,:],FT_b_u[0,:])
-                plt.plot(U[0,:],FT_b_u[0,:])
-                plt.xlabel(r'$u$',fontsize=24)
-                plt.ylabel(r'$\frac{\hat{b}^2_2(u)}{2i^{2}e^{-2\pi i u l_0}}$',fontsize=24)
-                plt.xlim([-25,25])
-                #plt.plot(U[0,:],temp_cos_u[0,:])
-                #plt.savefig('{0}.png'.format(n))
-                plt.show()
-                
-            # v-component:
-            FT_b_v = 0
-            for q in range(s+1):
-                temp_frac_v = ((-1)**q)*(((dM/2.0)**(s-q))/(2*np.pi*(V))**(q+1))
-                temp_cos_v = np.cos((np.pi/2.0)*(3*(s-q) + 1) - np.pi*(V)*dM)
-                
-                temp_v = temp_frac_v*temp_cos_v
-                
-                FT_b_v = FT_b_v + temp_v
-                
-                if s==0:
-                    # Sinc function condition.
-                    FT_b_v[np.isinf(FT_b_v)] = dM/2
-                
-                if s==1:
-                    FT_b_v[np.isnan(FT_b_v)] = 0.0
-                
-                if s==2:
-                    FT_b_v[np.isnan(FT_b_v)] = -(dM**3)/12.0
-                
-            cond_v = False
-            if s == 2 and cond_v == True:
-                
-                print(np.max(V[:,0]),np.min(V[:,0]),FT_b_v[:,0][V[:,0]==0.0])
-                print(dM)
-                plt.clf()
-                plt.plot(V[:,0],FT_b_v[:,0])
-                plt.show()
-            
-            vis = vis + 4*(complex(0,1)**(p-r-s))*a[index]*FT_b_u*FT_b_v
-            
-            index = index + 1
-            
-    # Exponential phase offset term.
-    phase_l0m0 = np.zeros(np.shape(U),dtype=complex)
-    phase_l0m0.real = np.cos(-2*np.pi*(l0*U + m0*V))
-    phase_l0m0.imag = np.sin(-2*np.pi*(l0*U + m0*V))
-    
-    # shifting the phase for the off centre window.
-    vis = vis*phase_l0m0
-    return vis
-    
-
-def Vis_Gauss2D(U,V,I0,l0,m0,PA,amaj,bmin,Az0,Zen0):
-    
-    # Analytic visibility model.
-    
-    Vis = np.zeros(np.shape(U),dtype=complex) # Initialising the vis array.
-
-    N = len(Vis)
-    #Normalisation = ((N**2)/(4*np.pi**2))
-    Normalisation = (N/(2*np.pi))**2#N/(2*np.pi)
-
-    
-    # Defining the width of the Gaussians
-    sigx = amaj/np.sqrt(2.0*np.log(2.0))
-    sigy = bmin/np.sqrt(2.0*np.log(2.0))
-
-    # Defining the width of the Gaussians
-    sigx = amaj/(2.0*np.sqrt(2.0*np.log(2.0)))
-    sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
-
-    
-    sigx = sigx*np.sqrt((np.sin(PA))**2 + (np.cos(PA)*np.cos(Zen0))**2)
-    sigy = sigy*np.sqrt((np.cos(PA))**2 + (np.sin(PA)*np.cos(Zen0))**2)
-    
-    #print('l0 = %2.3f, m0 = %2.3f' %(l0,m0))
-    #print('PA = %2.3f' % (PA))
-
-    #PA = PA - np.arctan2(l0,m0)+np.pi
-    PA = PA + Az0
-
-    #print('PA = %2.3f' % (PA))
-    #print('arctan(l0,m0) = %2.3f' % (np.arctan2(l0,m0)))
-
-
-    I0_h = 2*np.pi*sigx*sigy*I0
-
-
-    a_p = 2*(np.pi**2)*((sigx**2)*(np.cos(PA)**2) + (sigy**2)*(np.sin(PA)**2))
-    b_p = 0.5*(np.sin(2*PA))*(np.pi**2)*(-1*(-sigx**2) + (-sigy**2))
-    c_p = 2*(np.pi**2)*((sigy**2)*(np.cos(PA)**2) + (sigx**2)*(np.sin(PA)**2))
-    
-    # Exponential phase offset term.
-    phase_l0m0 = np.zeros(np.shape(U),dtype=complex)
-    phase_l0m0.real = np.cos(-2*np.pi*(l0*U + m0*V))
-    phase_l0m0.imag = np.sin(-2*np.pi*(l0*U + m0*V))
-    
-    # Normalisation issue
-
-    #Fix normalisation issues. Determine how to properly normalise.
-    Vis = Vis + I0_h*np.exp(-a_p*U**2 - 2*b_p*U*V - c_p*V**2)
-    Vis = phase_l0m0*Vis*Normalisation #Normalisation = (N^2/4pi^2)
-    
-    return Vis
-
-
-def Power_spec1D(Vis_power,u_arr,v_arr,r_vec=None):
-    
-    # Condition for radius vector. The default sampling is to just use
-    # the (u,v) grid. If the user inputs a u and v vector this is specifically
-    # for specifying their own sampling.    
-    if np.any(r_vec) == None:
-        u_vec = u_arr[0,:]
-        v_vec = v_arr[:,0]
+        # Creating the u and v plane:
+        u_arr,v_arr = np.meshgrid(u_vec,v_vec)
         
-        # This is for binning the radii.
-        r_vec = np.sqrt(u_vec[u_vec >= 0.0]**2 + v_vec[v_vec >= 0.0]**2)
+        # Shifting the visibilities.
+        u_arr = fftshift(u_arr)
+        v_arr = fftshift(v_arr)[::-1,:]# For some reason these have to be flipped.
+
+        return u_arr, v_arr, Vis
     else:
-        pass
+        # Default case:
+        return Vis
 
-    # The u_arr and v_arr should be shifted. 
-    r_uv = np.sqrt(u_arr**2 + v_arr**2) + 0.00001
+def Img_slice(Vis_slice,Nb):
+    '''
+    Performs the inverse FFT on a 2D visibility grid.
 
-    # Initialising Power vector and Radius vector.
-    Power_spec_1D = np.zeros(len(r_vec))
-    Radius = np.zeros(len(r_vec))
-    for i in range(len(r_vec)-1):
-    
-        Radius[i] = ((r_vec[i+1] + r_vec[i])/2.0)
-        Power_spec_1D[i] = np.mean(Vis_power[np.logical_and(r_uv >= r_vec[i], r_uv <= r_vec[i+1])])# Weight.
-        #print("#%3d, log_r[i] = %3.2f,log_r[i+1] = %3.2f, Power = %3.3e" % \
-        #          (i,r_bins[i],r_bins[i+1],Power_spec_1D[i])) 
-
-    Radius = np.roll(Radius,1)
-
-    return Power_spec_1D, Radius
-
-def Plot_Power_spec1D(Vis_power1D_list,radius,label_list=None,xlim=None,ylim=None,**kwargs):
-
-    # Vis_power1D can be a list of multiple 1D power spectrums.
-    # label_list should contain the same number of elements as Vis_power1D_list
-
-    #print(np.shape(Vis_power1D_list))
-    #print(label_list)
-
-    # Initialising the figure object.
-    # Need fig object, code breaks otherwise, fix this in the future.
-    fig, axs = plt.subplots(1, figsize = (14,12), dpi=75)
-    
-    plt.semilogy()
-
-    if len(np.shape(Vis_power1D_list)) < 2:
-        axs.plot(radius,Vis_power1D_list,**kwargs)
-
-    # Plotting multiple 1D power spectra if required.    
-    elif label_list != None and len(np.shape(Vis_power1D_list)) > 1:
-        for i in range(len(Vis_power1D_list)):
-            axs.plot(radius,Vis_power1D_list[i],label = label_list[i],**kwargs)
-
-    if xlim != None:
-        axs.set_xlim(xlim)
-    if ylim != None:
-        axs.set_ylim(ylim)
-    
-    axs.set_xlabel(r'$\sqrt{u^2 + v^2}$',fontsize=24)
-    axs.set_ylabel(r'$\rm{Power}$',fontsize=24)
-
-    plt.legend(fontsize=24)
-
-
-def Vis_degrid(u_arr,v_arr,u_ker_arr,v_ker_arr,u,v,vis_ker,vis_sky,verb_cond=False):
-    
-    # Initialising the new deridded visibility array:
-    vis_sky_deg = np.zeros(len(u),dtype=complex)
-    u_err_vec = np.zeros(len(u))
-    v_err_vec = np.zeros(len(v))
-    
-    # might have to specify different cases. One for odd and even arrays.
-    u_vec = u_arr[0,:]
-    v_vec = v_arr[:,0]
-
-    # Creating an index vector.
-    ind_vec = np.arange(len(u_arr))
-        
-    u_pixel_size = np.abs(u_vec[0] - u_vec[1])# These should be in units of wavelengths.
-    v_pixel_size = np.abs(v_vec[0] - v_vec[1])
-    
-    u_ker_pixel_size = np.abs(u_ker_arr[0,0] - u_ker_arr[0,1])# These should be in untis of wavelengths.
-    v_ker_pixel_size = np.abs(v_ker_arr[0,0] - v_ker_arr[1,0])
-
-    # Catch condition for degridding. Make sure pixel sizes for the kernel and the sky_vis are the same.
-    if u_ker_pixel_size != u_pixel_size or v_ker_pixel_size != v_pixel_size:
-        print("Kernel pixel size and visibilty pixel size don't match.")
-        print('du_pix = %5.2f, du_ker_pix = %5.2f' % (u_pixel_size,u_ker_pixel_size))
-        print('dv_pix = %5.2f, dv_ker_pix = %5.2f' % (v_pixel_size,v_ker_pixel_size))
-
-        return None
-
-    # The kernel sum should equal 1.
-    vis_ker = vis_ker/(np.sum(vis_ker))
-    
-    # Integer size of the kernel.
-    ker_len = int(len(vis_ker)/2)
-    
-    for i in range(len(u)):
-    
-        # These should be the indices of the coordinates closest to the baseline. These coordinates
-        # should line up with the kernel.
-        temp_u_ind = ind_vec[np.isclose(u_vec,u[i],atol=u_pixel_size/2)][0]
-        temp_v_ind = ind_vec[np.isclose(v_vec,v[i],atol=v_pixel_size/2)][0]
-
-        # We also want to look at the error between the pixel position and the guess.
-        u_err_vec[i] = np.abs(u[i] - u_vec[temp_u_ind])
-        v_err_vec[i] = np.abs(v[i] - v_vec[temp_v_ind])
-    
-        # Might have to define a visibility subset that is larger.
-        # Defining the visibility subset:
-        vis_sub = vis_sky[temp_u_ind - ker_len - 1:temp_u_ind + ker_len,\
-                  temp_v_ind - ker_len - 1:temp_v_ind + ker_len]
-        
-        # Verbose output condition, for diagnostic purposes. Default condition is False.
-        if verb_cond == True:
-            print('#{0}'.format(i))
-            print('u[i] = %5.2f, v[i] = %5.2f' % (u[i],v[i]))
-            print('upixel scale = %5.2f, vpixelscale = %5.2f' % (u_vec[1]-u_vec[0],v_vec[1]-v_vec[0]))
-            print('min_u = %7.3f, min_v = %7.3f' % (np.min(u_vec),np.min(v_vec)))
-            print('u_diff = %5.2f, v_diff = %5.2f'% (np.min(np.abs(u_vec - u[i])),np.min(np.abs(v_vec - v[i]))))
-            print('u_ind = %4i, v_ind = %4i' % (temp_u_ind,temp_v_ind))
-            print('Kernel half width = %3i' % ker_len)
-        else:
-            pass
-    
-        
-        vis_sky_deg[i] = np.sum(vis_sub*vis_ker)
-
-    return vis_sky_deg, u_err_vec, v_err_vec
-
-
-## Interferometry functions from J.Line.
-
-def add_kernel(uv_array,u_ind,v_ind,kernel):
-    '''Takes v by u sized kernel and adds it into
-    a numpy array at the u,v point u_ind, v_ind
-    Kernel MUST be odd dimensions for symmetry purposes
-    
-    Author: J.Line
+        Parameters
+        ----------
+        vis_slice : numpy array, complex128
+            2D visiblity array. SHould have odd sized dimensions.
+        Nb : int
+            Number of baselines.
+       
+        Returns
+        -------
+        2D image array.
 
     '''
-    ker_v,ker_u = kernel.shape
-    width_u = int((ker_u - 1) / 2)
-    width_v = int((ker_v - 1) / 2)
+    Vis_slice = Vis_slice/Nb
 
-    N = len(uv_array)
-    min_u_ind = u_ind - width_u
-    max_u_ind = u_ind + width_u + 1
-    min_v_ind = v_ind - width_v
-    max_v_ind = v_ind + width_v + 1
+    I_out = (np.roll(fftshift(ifftn(np.roll(np.roll(ifftshift(Vis_slice),
+                        1,axis=0),1,axis=1),norm='forward')),-1,axis=0))
     
-    ## Jack suggests changing this, I will have to discuss this with him.
-    if max_u_ind > N-1:
-        max_u_ind = N-1
-        kernel = kernel[:,0:max_u_ind-min_u_ind]
-    
-    if max_v_ind > N-1:
-        max_v_ind = N-1
-        kernel = kernel[0:max_v_ind-min_v_ind,:]
+    return I_out
 
-    if min_u_ind < 0:
-        min_u_ind = 0
-        kernel = kernel[:,min_u_ind:max_u_ind]
+def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
+    '''
+    Generate A generic 2D Gassian kernel. For gridding and weighting purposes.
 
-    if min_v_ind < 0:
-        min_v_ind = 0
-        kernel = kernel[min_v_ind:max_v_ind,:]
+        Parameters
+        ----------
+        u_arr : numpy array, float
+            2D Visibilities u array.
+        v_arr : numpy array, float
+            2D Visibilities v array.
+        sig_u : numpy array, float
+            Kernel size in u.
+        sig_v : numpy array, float
+            Kernel size in v.
+        u_cent : numpy array, float
+            Visibility u coordinate centre.
+        v_cent : numpy array, float
+            Visibility v coordinate centre.
 
-    array_subsec = uv_array[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
+        Returns
+        -------
+        2D Gaussian weights array.
 
-    try:
-        array_subsec += kernel
-    except ValueError:
-        print('Value Error')
-        print('kernel shape {0}'.format(kernel.shape))
-        print('kernel width u = %4i, kernel width v = %4i' % (width_u,width_v))
-        print('Kernel shape (%4i,%4i)' % (max_v_ind-min_v_ind,max_u_ind-min_u_ind))
-        print('Array size = %4i, u indexing size = %4i' % (len(uv_array), u_ind + width_u +1))
-        print('Array size = %4i, v indexing size = %4i' % (len(uv_array), u_ind + width_u +1))
-
-
-def grid(container=None,u_coords=None, v_coords=None, u_range=None, v_range=None,complexes=None, kernel='gaussian', kernel_params=[2.0,2.0]):
-    '''A simple(ish) gridder - defaults to gridding with a gaussian 
-    
-    Author: J.Line
     '''
 
-    # Weight array, we will divide the entire container array by this.
-    weights_arr = np.zeros(np.shape(container),dtype='complex')
+    u_bit = (u_arr - u_cent)/sig_u
+    v_bit = (v_arr - v_cent)/sig_v
 
-    KERNEL_SIZE = 31
-    #KERNEL_SIZE = 63
+    amp = 1/(2*np.pi*sig_u*sig_v)
+    gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
 
-    for i in np.arange(len(u_coords)):
-        u,v,comp = u_coords[i],v_coords[i],complexes[i]
-        ##Find the difference between the gridded u coords and the current u
-        ##Get the u and v indexes in the uv grdding container
-        u_ind,v_ind,u_off,v_off = find_closet_uv(u=u,v=v,u_range=u_range,v_range=v_range)
-
-        if kernel == 'gaussian':
-            kernel_array = gaussian(sig_x=kernel_params[0],sig_y=kernel_params[1],gridsize=KERNEL_SIZE,x_offset=0,y_offset=0)
-        else:
-            kernel_array = np.array([[complex(1,0)]])
-            #kernel_array = np.zeros([KERNEL_SIZE,KERNEL_SIZE],dtype=complex) + 1
-            #kernel_array = 1.0
-
-        ##Multiply the kernal by the complex value
-        #data_kernel = kernel_array * comp # Add all the kernel components into a separate array for weighting.
-        data_kernel = kernel_array * comp #/ (KERNEL_SIZE)# Add all the kernel components into a separate array for weighting.
-        ##Add the multiplied kernel-uvdata values to the grid
-        add_kernel(container,u_ind,v_ind,data_kernel)
-        add_kernel(weights_arr,u_ind,v_ind,kernel_array)
-
-    #print(np.sum(weights_arr))
-    # Dividing the containter by the weights
-
-    # Dividing by the number of visibilities summed into a particular bin.
-    container[weights_arr.real > 0]/weights_arr[weights_arr.real > 0]
-
-    return container,weights_arr
-
-def gaussian(sig_x=None,sig_y=None,gridsize=31,x_offset=0,y_offset=0):
-    '''Creates a gaussian array of a specified gridsize, with the
-    the gaussian peak centred at an offset from the centre of the grid
-    
-    Author: J.Line
-    '''
-
-    x_cent = int(gridsize / 2.0) + x_offset
-    y_cent = int(gridsize / 2.0) + y_offset
-
-    x = np.arange(gridsize)
-    y = np.arange(gridsize)
-    x_mesh, y_mesh = np.meshgrid(x,y)
-
-    x_bit = (x_mesh - x_cent)*(x_mesh - x_cent) / (2*sig_x*sig_x)
-    y_bit = (y_mesh - y_cent)*(y_mesh - y_cent) / (2*sig_y*sig_y)
-
-    amp = 1 / (2*pi*sig_x*sig_y)
-    gaussian = amp*np.exp(-(x_bit + y_bit))
+    # Normalising so the sum of the gaussian is equal to 1.
+    gaussian = gaussian/np.sum(gaussian)
 
     return gaussian
-
-def enh2xyz(east,north,height,latitiude):
-    '''Calculates local X,Y,Z using east,north,height coords,
-    and the latitude of the array. Latitude must be in radians
-    
-    Author: J.Line
-    '''
-    sl = np.sin(latitiude)
-    cl = np.cos(latitiude)
-    X = -north*sl + height*cl
-    Y = east
-    Z = north*cl + height*sl
-    return X,Y,Z
 
 def get_lm(ra=None,ra0=None,dec=None,dec0=None):
     '''Calculate l,m,n for a given phase centre ra0,dec0 and sky point ra,dec
@@ -848,74 +538,880 @@ def get_lm(ra=None,ra0=None,dec=None,dec0=None):
     n = sdec*sdec0 + cdec*cdec0*cdra
     return l,m,n
 
-def get_uvw(x_lamb,y_lamb,z_lamb,dec,HA):
-    '''Calculates u,v,w for a given 
-    
-    Author: J.Line
+def find_closest_xy(x,y,x_vec,y_vec,off_cond=False):
     '''
+    Finds the indices for the (x,y) point associated to a x, y grid.
 
-    u = np.sin(HA)*x_lamb + np.cos(HA)*y_lamb
-    v = -np.sin(dec)*np.cos(HA)*x_lamb + np.sin(dec)*np.sin(HA)*y_lamb + np.cos(dec)*z_lamb
-    w = np.cos(dec)*np.cos(HA)*x_lamb - np.cos(dec)*np.sin(HA)*y_lamb + np.sin(dec)*z_lamb
-    return u,v,w
+        Parameters
+        ----------
+        x : numpy array, float
+            x value.
+        y : numpy array, float
+            y value.
+        x_vec : numpy array, float
+            Regular 1D uxgrid.
+        y_vec : numpy array, float
+            Regular 1D y grid.
 
-def find_closet_uv(u=None,v=None,u_range=None,v_range=None):
-    '''Finds the closet values to u,v in the ranges u_range,v_range
-    Returns the index of the closest values, and the offsets from
-    the closest values
-    
-    Author: J.Line
+        Returns
+        -------
+        Returns closest (x,y) indices.
+
+    Author : J. Line
+    Modified by J. Cook
     '''
-
-    u_resolution = u_range[1] - u_range[0]
-    v_resolution = v_range[1] - v_range[0]
+    x_resolution = np.abs(x_vec[1] - x_vec[0])
+    y_resolution = np.abs(y_vec[1] - y_vec[0])
+    
     ##Find the difference between the gridded u coords and the desired u
-    u_offs = np.abs(u_range - u)
+    x_offs = np.abs(x_vec - x)
+
     ##Find out where in the gridded u coords the current u lives;
     ##This is a boolean array of length len(u_offs)
-    u_true = u_offs < u_resolution/2.0
+    x_true = x_offs < x_resolution/2.0
+    
     ##Find the index so we can access the correct entry in the container
-    u_ind = np.where(u_true == True)[0]
+    x_ind = np.where(x_true == True)[0]
 
     ##Use the numpy abs because it's faster (np_abs)
-    v_offs = np.abs(v_range - v)
-    v_true = v_offs < v_resolution/2.0
-    v_ind = np.where(v_true == True)[0]
+    y_offs = np.abs(y_vec - y)
+    y_true = y_offs < y_resolution/2.0
+    y_ind = np.where(y_true == True)[0]
 
     ##If the u or v coord sits directly between two grid points,
     ##just choose the first one ##TODO choose smaller offset?
-    if len(u_ind) == 0:
-        u_true = u_offs <= u_resolution/2
-        u_ind = np.where(u_true == True)[0]
+    if len(x_ind) == 0:
+        x_true = x_offs <= x_resolution/2
+        x_ind = np.where(x_true == True)[0]
         #print('here')
         #print(u_range.min())
-    if len(v_ind) == 0:
-        v_true = v_offs <= v_resolution/2
-        v_ind = np.where(v_true == True)[0]
+    if len(y_ind) == 0:
+        y_true = y_offs <= y_resolution/2
+        y_ind = np.where(y_true == True)[0]
     # print(u,v)
-    u_ind,v_ind = u_ind[0],v_ind[0]
+    x_ind, y_ind = x_ind[0], y_ind[0]
+    #x_ind, y_ind = x_ind, y_ind
 
-    u_offs = u_range - u
-    v_offs = v_range - v
+    if off_cond:
+        # Offset condition, if true return the offsets alongside the indices.
+        x_offs = x_vec - x
+        y_offs = y_vec - y
 
-    u_off = -(u_offs[u_ind] / u_resolution)
-    v_off = -(v_offs[v_ind] / v_resolution)
+        # Offsets need to be multiplied by negative one to phase shift in the correct direction.
+        x_offs = -1*x_offs[x_ind]
+        y_offs = -1*y_offs[y_ind]
 
-    return u_ind,v_ind,u_off,v_off
+        return x_ind, y_ind, x_offs, y_offs
+    else:
+        # Default condition don't return the offsets.
+        return x_ind,y_ind
 
-### Defining classes. Split this up into different module files.
+### Defining classes. Split this up into different module files.\
+
+class Power_spec:
+    """
+    This class defines the different power spectrums. It allows for the calculation of the cylindrical and the
+    angular averaged power spectrum. These are also referred to as the 2D and 1D power spectrums.
+
+    ...
+
+    Attributes
+    ----------
+    fine : numpy array
+        ...
+
+
+    Methods
+    -------
+    Power2Tb(freqs=""):
+        ...
+    uv_to_kxky(freqs=""):
+        ...
+    eta_to_kz(freqs=""):
+        ...
+    wedge_factor()
+        ...
+    Spherical()
+        ...
+    Cylindrical()
+        ...
+    plot_spherical()
+        ...
+    plot_cylindrical()
+    """
+
+    # Constants
+    c = 299792458.0/1000 #[km/s]
+    nu_21 = (1000*c)/(0.21) #[Hz]
+    kb = 1380.649 # [Jy m^2 Hz K^-1] Boltzmann's constant.
+    
+    def __init__(self,Four_sky_cube,eta,u_arr,v_arr,nu_o,dnu,dnu_f,weights_cube=None,nu_21=nu_21,cosmo=None):
+        
+        # Attributes will include data cube, eta, 
+        # For determining the 2D bins.
+        #self.uvmax = np.max(u_arr)
+        self.uvmax = 300
+
+        #self.data = Four_sky_cube
+        self.power_cube = np.conjugate(Four_sky_cube)*Four_sky_cube # [Jy^2 Hz^2]
+
+        if np.any(weights_cube):
+            # Case for user inputted weigth cube.
+            self.weights_cube = weights_cube
+
+        else:
+            print('Natural weighting case.')
+            # Default weighting scheme is natural. Default set to not break older code.
+            self.weights_cube = np.zeros(np.shape(Four_sky_cube))
+            
+            # Only cells with values are assigned weights.
+            self.weights_cube[self.power_cube > 0.0] = 1.0
+
+            #print(np.sum(self.weights_cube))
+        
+        self.eta = eta # [Hz^-1]
+        self.u_arr = u_arr # Should have units of wavelengths.
+        self.v_arr = v_arr # Should have units of wavelengths.
+        self.nu_o = nu_o # [Hz]
+        self.z = (nu_21/self.nu_o) - 1
+        self.dnu = dnu # Bandwidth in [MHz].
+        self.dnu_f = dnu_f # Fine channel width in [MHz].
+        print('Redshift = %5.2f' % self.z)
+
+        if cosmo != None:
+            # User inputted cosmology.
+            print('Using non-standard cosmology.')
+            self.cosmo = cosmo
+        else:
+            # Default is the Plank18 cosmology.
+            from astropy.cosmology import Planck18
+
+            self.cosmo = Planck18
+
+
+        # Save memory.
+        del Four_sky_cube
+    
+    @staticmethod
+    def Power2Tb(dnu,dnu_f,nu_o,z,cosmo,verbose=True):
+        """
+        Calculate the conversion factor from Jy^2 Hz^2 to mK^2 Mpc^3 h^-3.
+
+            Parameters
+            ----------
+            dnu : float
+                Bandwidth [Hz].
+            dnu_f : float
+                Fine channel width [Hz].
+            nu_o : float
+                Observing frequency at the centre of the band [Hz].
+            z : float
+                Redshift of the observing frequency.
+            cosmo : astropy object
+                Astropy Cosmology object, default used is Plank2018.
+            
+            Returns
+            -------
+            conv_factor
+        """
+        from scipy import signal
+
+        # Constants
+        c = 299792458.0/1000 #[km/s]
+        nu_21 = c*1000/(0.21) #[Hz]
+        kb = 1380.649 # [Jy m^2 Hz K^-1] Boltzmann's constant.
+
+        # Constants.
+        lam_21 = 1000*c/nu_21 #[m]
+        #lam_o = 1000*c/self.nu_o #[m]
+        lam_o = 1000*c/nu_o #[m]
+        fov = 0.076 # [sr] field of view. Approximate.
+        N_chans = dnu/dnu_f
+
+        if verbose:
+            print('Observed wavelength = %5.3f [m]' % lam_o)
+            print('Fine channel width = %5.3e' % dnu_f)
+        else:
+            pass
+        
+        # Calculating the volume correction factor:
+        window = signal.blackmanharris(int(dnu/dnu_f))
+        Ceff = np.sum(window)/(dnu/dnu_f)
+
+        if verbose:
+            print('Volume correction factor = %5.3f' % (Ceff))
+        else:
+            pass
+
+        # Cosmological scaling parameter:
+        h = cosmo.H(0).value/100
+        #E_z = cosmo.efunc(self.z)
+        E_z = cosmo.efunc(z)
+
+        # Cosmological distances:
+        Dm = cosmo.comoving_distance(z).value*h #[Mpc/h]
+        DH = 3000 # [Mpc/h] Hubble distance.
+
+        # Volume term.
+        co_vol = (1/Ceff)*(Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
+
+        if verbose:
+            print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
+        else:
+            pass
+
+        # Converting a 1 Jy^2 source to mK^2 Mpc^3 h^-3.
+        conv_factor = (N_chans**2) * (lam_o**4/(4*kb**2)) * (1/(fov*dnu)) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
+
+        if verbose:
+            print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3 h^-3]' % conv_factor)
+            print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3]' % (conv_factor*h**3))
+        else:
+            pass
+        
+        return conv_factor
+
+    @staticmethod
+    def uv_to_kxky(u,z,cosmo):
+        """
+        Convert u or v into k_x or k_y, k_z as per Morales et al. (2004).
+        Uses the Plank 2018 cosmology as default. 
+
+        Can convert r = sqrt(u^2 + v^2) to k_perp. Same formula.
+                
+        Parameters
+            ----------
+            u_arr : numpy array, float
+                NDarray of u or v values. Should be in wavelengths.
+            z : float
+                Redshift at the central frequency of the band.
+            
+            Returns
+            -------
+            k_vec : numpy array, float
+                NDarray of k-mode values. Should be in units of h*Mpc^-1. 
+        """
+
+        # Cosmological scaling parameter:
+        h = cosmo.H(0).value/100 # Hubble parameter.
+    
+        # Cosmological distances:
+        Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+
+        # Converting u to k
+        k_vec = u * (2*np.pi/Dm) # [Mpc^-1 h]
+
+        return k_vec
+
+    @staticmethod
+    def eta_to_kz(eta,z,cosmo):
+        """
+        Convert eta into k_z as per Morales et al. (2004).
+        Uses the Plank 2018 cosmology as default.
+                
+        Parameters
+            ----------
+            eta : numpy array, float
+                1Darray of eta values. 
+            z : float
+                Redshift at the central frequency of the band.
+            
+            Returns
+            -------
+            k_z : numpy array, float
+                1Darray of kz values. Should be in units of h*Mpc^-1.
+        """
+
+        # Constant:
+        c = 299792458.0/1000 #[km/s]
+        nu_21 = (1000*c)/(0.21) #[Hz]
+
+        # Cosmological scaling parameter:
+        E_z = cosmo.efunc(z) ## Scaling function, see (Hogg 2000)
+
+        # Cosmological distances:
+        DH = 3000 # [Mpc/h] Hubble distance.
+
+        # k_||
+        k_z = eta * (2*np.pi*nu_21*E_z)/(DH*(1 + z)**2) # [Mpc^-1 h]
+
+        return k_z
+
+    @staticmethod
+    def wedge_factor(z,cosmo):
+        """
+        Nicholes horizon cosmology cut.
+                
+        Parameters
+            ----------
+            z : float
+                Redshift.
+            cosmo : Astropy Object
+                Astropy cosmology object, default is None. If None use Plank18 cosmology.
+            
+            Returns
+            -------
+            wedge_factor : float
+                k|| > wedge_factor * k_perp cut.
+        """
+
+        # Cosmological scaling parameter:
+        h = cosmo.H(0).value/100 # Hubble parameter.
+        E_z = cosmo.efunc(z) ## Scaling function, see (Hogg 2000)
+
+        # Cosmological distances:
+        Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+        DH = 3000 # [Mpc/h] Hubble distance.
+
+        wedge_factor = Dm*E_z/(DH*(1 + z)) 
+
+        return wedge_factor
+
+    def Spherical(self,kb=kb,nu_21=nu_21,c=c,wedge_cond=False):
+        """
+        Calculates the 1D spherical power spectra using the input Power object.
+                
+        Parameters
+            ----------
+            self : object
+                Power object contains u and v arrays, as well as the observation redshift.
+            kb : float
+                Boltzman's constant.
+            nu_21 : float
+                21cm frequency in Hz.
+            kb : float
+                Speed of light km/s.
+            
+            Returns
+            -------
+        """
+
+        fov = 0.076
+        vol_fac = 0.35501
+
+        # Defining the kx, ky, and kz values from u,v and eta.
+        k_z = Power_spec.eta_to_kz(self.eta,self.z,self.cosmo) # [Mpc^-1 h]
+        k_x = Power_spec.uv_to_kxky(self.u_arr,self.z,self.cosmo) # [Mpc^-1 h]
+        k_y = Power_spec.uv_to_kxky(self.v_arr,self.z,self.cosmo) # [Mpc^-1 h]
+
+        # Creating 3D k_r array.
+        self.k_r_arr = np.array([np.sqrt(k_x**2 + k_y**2 + kz**2) for kz in k_z]).T
+
+        if wedge_cond:
+            # Condition for ignoring the wedge contribution to the power spectrum.
+            
+            k_perp = np.sqrt(k_x**2 + k_y**2) # [Mpc^-1 h]
+            
+            grad_max = 0.5*np.pi # Calculating the max wedge cut. Accounting for window tapering.
+
+            #wedge_cut = Power_spec.wedge_factor(self.z,self.cosmo) # Nicholes horizon cosmology cut.
+            wedge_cut = grad_max*Power_spec.wedge_factor(self.z,self.cosmo) # Nicholes horizon cosmology cut.
+            print('wedge_cut %5.3f' % wedge_cut)
+            print('wedge_cut %5.3f' % (wedge_cut/grad_max))
+
+            wedge_ind_cube = np.array([k_par < wedge_cut*k_perp for k_par in k_z]).T
+            #wedge_ind_cube = np.array([k_par < fov*wedge_cut*k_perp for k_par in k_z]).T
+
+            ## Testing
+            #kr_min = 0.07
+            kr_min = 0.1
+            wedge_ind_cube[:,:,k_z < kr_min] = True
+            ## 
+
+            # Setting the wedge to zero.
+            self.power_cube[wedge_ind_cube] = np.NaN
+            self.weights_cube[wedge_ind_cube] = np.NaN
+            self.k_r_arr[wedge_ind_cube] = np.NaN
+
+            #kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
+            kr_max = np.nanmax(self.k_r_arr)
+
+        else:
+
+            kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
+            kr_max = np.nanmax(self.k_r_arr)
+
+        # bin size is important. Too many bins, and some will have a sum of zero weights.
+        #N_bins = 100 # This number provides integer bins sizes.
+        #N_bins = 90 # This number provides integer bins sizes.
+        N_bins = 60 # This number provides integer bins sizes. 
+        
+        print('k_r_min = %5.3f' % kr_min)
+        print('k_r_max = %5.3f' % kr_max)
+
+        # Log-linear bins.
+        log_kr_min = np.log10(kr_min)
+        log_kr_max = np.log10(kr_max)
+
+        # Increments.
+        dlog_k = (log_kr_max - log_kr_min)/N_bins
+        dk = (kr_max - kr_min)/N_bins
+
+        print('dk = %5.3f' % dk)
+
+        #k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
+        k_r_bins = np.linspace(kr_min - dk/2,kr_max + dk/2,N_bins + 1)
+
+        Power_spec1D = np.zeros(len(k_r_bins)-1)
+        kr_vec = np.zeros(len(k_r_bins)-1)
+
+        for i in range(len(k_r_bins)-1):
+
+            # Calculating the radius:
+            kr_vec[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
+            #kr_vec[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
+
+            # Defining the shell array index:
+            shell_ind = np.logical_and(self.k_r_arr >= k_r_bins[i], self.k_r_arr <= k_r_bins[i+1])
+
+            if wedge_cond:
+                Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
+            else:
+                Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
+
+        # Cosmological unit conversion factor:
+        dnu = self.dnu*1e+6 #[Hz] full bandwidth.
+        dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo)
+
+        self.Power1D = Power_spec1D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
+        self.k_r = kr_vec
+
+
+    def Cylindrical(self,kb=kb,nu_21=nu_21,c=c):
+        """
+        Calculates the 2D cylindrical power spectra using the input Power object.
+                
+        Parameters
+            ----------
+            self : object
+                Power object contains u and v arrays, as well as the observation redshift.
+            kb : float
+                Boltzman's constant.
+            nu_21 : float
+                21cm frequency in Hz.
+            kb : float
+                Speed of light km/s.
+            
+            Returns
+            -------
+        """
+
+        bin_width = 2.5 # [lambda]
+        
+        # Converting into cosmological values.
+        dk_r = Power_spec.uv_to_kxky(bin_width,self.z,self.cosmo) # h Mpc^-1
+        k_perp_max = Power_spec.uv_to_kxky(self.uvmax,self.z,self.cosmo) # h Mpc^-1
+        
+        # Defininf the number of bins.
+        N_bins = int(k_perp_max/dk_r)
+        
+        # Specifying the radius vector:
+        kr_bins = np.linspace(0,k_perp_max,N_bins + 1)
+
+        # Problems with instrument sampling. Ommiting first bin.
+        kr_bins = kr_bins[1:]
+
+        # The u_arr and v_arr should be shifted. 
+        r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
+        kr_uv_arr = Power_spec.uv_to_kxky(r_uv,self.z,self.cosmo)
+
+        # Initialising the power spectrum and radius arrays.
+        Power_spec2D = np.zeros([len(self.eta),len(kr_bins)-1])
+        kr_vec = np.zeros(len(kr_bins)-1)
+
+        # Averaging the power in annular rings for each eta slice.
+        for i in range(len(self.eta)):
+            for j in range(len(kr_bins)-1):
+                
+                # Assigning the radius values. Needed for plotting purposes.
+                kr_vec[j] = ((kr_bins[j+1] + kr_bins[j])/2.0)
+
+                # Creating annunuls of boolean values.
+                temp_ind = np.logical_and(kr_uv_arr >= kr_bins[j], kr_uv_arr <= kr_bins[j+1])
+
+                # Weighted averaging of annuli values.
+                Power_spec2D[i,j] = np.average(self.power_cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) ## Correct one.
+
+        # Cosmological unit conversion factor:
+        dnu = self.dnu*1e+6 #[Hz] full bandwidth.
+        dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo)
+
+        # Assigning the power.
+        self.Power2D = Power_spec2D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
+
+        # Assigning the perpendicular and parallel components of the power spectrum.
+        self.kperp = kr_vec
+        self.kpar = Power_spec.eta_to_kz(self.eta,self.z,self.cosmo)
+
+    @staticmethod
+    def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
+        xlabel=None,ylabel=None,step=True,**kwargs):
+        """
+        Plot the 1D angular averaged power spectrum. If figaxs is provided allows for plotting
+        more than one power spectrum.
+
+            Parameters
+            ----------
+            k_r : numpy array, float
+                1D vector of spherically radial k-modes.
+            Power1D : numpy array, float
+                1D Power.
+            
+            Returns
+            -------
+            None
+        """
+
+        if figaxs:
+            fig = figaxs[0]
+            axs = figaxs[1]
+        else:
+            fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+
+        plt.loglog()
+
+        if step:
+            # Default options is a step plot.
+            axs.step(k_r,Power1D,**kwargs)
+        else:
+            # Line plot is more useful for comparing Power spectra with different bin sizes.
+            axs.plot(k_r,Power1D,**kwargs)
+
+
+        if xlim:
+            axs.set_xlim(xlim)
+        if ylim:
+            axs.set_ylim(ylim)
+
+        if xlabel:
+            axs.set_xlabel(xlabel,fontsize=24)
+        else:
+            axs.set_xlabel(r'$|\mathbf{k}| \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
+
+        if ylabel:
+            axs.set_ylabel(ylabel,fontsize=24)
+        else:
+            axs.set_ylabel(r'$\rm{P(\mathbf{k}) \, [mK^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
+
+        axs.tick_params(axis='x',labelsize=20)
+        axs.tick_params(axis='y',labelsize=20)
+
+        axs.grid(False)
+
+        if figaxs:
+            if title:
+                plt.savefig('{0}.png'.format(title))
+            return axs
+            
+        else:
+            plt.tight_layout()
+        
+            if title:
+                plt.savefig('{0}.png'.format(title))
+            else:
+                plt.show()
+
+    @staticmethod
+    def plot_cylindrical(Power2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
+        name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,title=None,**kwargs):
+
+        """
+        Plot the 2D cylindrically averaged power spectrum.
+
+            Parameters
+            ----------
+            Power2D : numpy array, float
+                2D numpy array containing the power.
+            kperp : numpy array, float
+                1D vector of perpendicular k-modes.
+            kpar : numpy array, float
+                1D vector of parallel k-modes.
+            
+            Returns
+            -------
+            None
+        """
+
+        fov = 0.076
+        vol_fac = 0.35501
+
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
+
+        if vmax:
+            vmax=vmax
+        else:
+            pspec_max = np.max(np.log10(Power2D[Power2D > 0]))
+            vmax = 10**pspec_max
+        
+        if vmin != None:
+            # If vmin=0 this is considered false. So condition has to be different
+            # to vmax.
+            vmin=vmin
+        else:
+            pspec_min = np.min(np.log10(Power2D[Power2D > 0]))
+
+            vmin = 10**pspec_min
+
+        if lognorm:
+            norm = matplotlib.colors.LogNorm()
+            #norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
+        else:
+            norm = None
+
+        print('Min = %5.3e' % np.min(Power2D[Power2D > 0]))
+        print('Max = %5.3e' % np.max(Power2D[Power2D > 0].flatten()[0]))
+        
+        # Setting NaN values to a particular colour:
+        cmap = matplotlib.cm.viridis
+        cmap.set_bad('lightgray',1.)
+
+        im = axs.imshow(Power2D,cmap=cmap,origin='lower',\
+                extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],**kwargs,\
+                    norm=norm,vmin=vmin,vmax=vmax, aspect='auto')
+        
+
+        # Setting the colour bars:
+        cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002, extend='both')
+
+        if clab:
+            cb.set_label(label=clab,fontsize=20)
+        else:
+            cb.set_label(label=r'$P(k_\perp,k_{||}) \, [\rm{mK^2\,h^{-3}\,Mpc^3}]$',fontsize=20)
+        
+        axs.set_xscale('log')
+        axs.set_yscale('log')
+
+        ####
+        from astropy.cosmology import Planck18
+
+        # Cosmological scaling parameter:
+        z = 7.14
+        h = Planck18.H(0).value/100 # Hubble parameter.
+        E_z = Planck18.efunc(z) ## Scaling function, see (Hogg 2000)
+
+        # Cosmological distances:
+        Dm = Planck18.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+        DH = 3000 # [Mpc/h] Hubble distance.
+
+        # Full sky.
+        grad_max = 0.5*np.pi*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        # Primary beam FOV.
+        grad = np.sqrt(fov)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+
+        # Illustrating the EoR window and horizon lines.
+        axs.plot([0.1/grad_max,np.max(kperp)],grad_max*np.array([0.1/grad_max,np.max(kperp)]),lw=3,c='k')
+        axs.plot([0.008,0.1/grad_max-0.0002839],[0.1,0.1],lw=3,c='k')
+        axs.plot(kperp,grad*kperp,lw=3,ls='--',c='k')
+
+        if xlim:
+            axs.set_xlim(xlim)
+        else:
+            axs.set_xlim([0.008,np.max(kperp)])
+            #axs.set_xlim([np.min(kperp),np.max(kperp)])
+            
+        if ylim:
+            axs.set_ylim(ylim)
+        else:
+            axs.set_ylim([0.01,np.max(kpar)])
+
+        axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
+        axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
+
+        # Setting the tick label fontsizes.
+        axs.tick_params(axis='x', labelsize=18)
+        axs.tick_params(axis='y', labelsize=18)
+        cb.ax.tick_params(labelsize=18)
+
+        axs.grid(False)
+
+        if title:
+            plt.title(title,fontsize=20)
+        else:
+            pass
+
+        if name:
+            plt.savefig('{0}.png'.format(name))
+        else:
+            plt.show()
+
+
+class MWA_uv:
+    """
+    Class defines the (u,v,w) coordinates for the MWA Phase I array in 
+    terms of wavelengths. It take in different pointing angles. The default
+    is a zenith pointing.
+    """
+    # Future can make it so you pass the RA and DEC of the phase centre.
+    
+    ## MWA latitude.
+    MWA_lat = -26.703319444 # [deg] 
+    ## Zenith hour angle.
+    H0 = 0.0 # [deg]
+    ## Array east, north, height data.
+    #array_loc = np.loadtxt('antenna_locations_MWA_phase1.txt')
+    array_loc = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/antenna_locations_MWA_phase1.txt')
+    
+    def __init__(self,array_loc=array_loc,test_gauss=False,test_uniform=False):
+        
+
+        if test_gauss:
+            # Randomly generated gaussian array.
+            array_gauss = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/gaussian_antenna_locations_MWA_phase1.txt')
+            self.east = array_gauss[:,0] # [m]
+            self.north = array_gauss[:,1] # [m]
+            self.height = array_gauss[:,2] # [m]
+        elif test_uniform:
+            # Randomly generated uniform array. 
+            array_uni = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/uniform_antenna_locations_MWA_phase1.txt')
+            self.east = array_uni[:,0] # [m]
+            self.north = array_uni[:,1] # [m]
+            self.height = array_uni[:,2] # [m]
+        else:
+            # Defualt case, uses the MWA Phase I layout.
+            self.east = array_loc[:,0] # [m]
+            self.north = array_loc[:,1] # [m]
+            self.height = array_loc[:,2] # [m]
+        
+        
+    def enh2xyz(self,lat=MWA_lat):
+        '''Calculates local X,Y,Z using east,north,height coords,
+        and the latitude of the array. Latitude must be in radians
+        
+        Default latitude is the MWA latitude.
+        
+        Author: J.Line
+        '''
+        lat = np.radians(lat)
+        
+        sl = np.sin(lat)
+        cl = np.cos(lat)
+        self.X = -self.north*sl + self.height*cl
+        self.Y = self.east
+        self.Z = self.north*cl + self.height*sl
+        
+        #return X,Y,Z
+    def get_uvw(self,HA=H0,dec=MWA_lat):
+        """
+        Returns the (u,v,w) coordinates for a given pointing centre and hour angle.
+        The default is a zenith pointing.
+
+        Author: J.Line
+        """
+        x_lengths = []
+        y_lengths = []
+        z_lengths = []
+
+        # Calculating for each baseline.
+        for tile1 in range(0,len(self.X)):
+            for tile2 in range(tile1+1,len(self.X)):
+                x_len = self.X[tile2] - self.X[tile1]
+                y_len = self.Y[tile2] - self.Y[tile1]
+                z_len = self.Z[tile2] - self.Z[tile1]
+        
+                x_lengths.append(x_len)
+                y_lengths.append(y_len)
+                z_lengths.append(z_len)
+
+        # These are in metres not wavelengths.
+        dx = np.array(x_lengths) # [m] 
+        dy = np.array(y_lengths) # [m]
+        dz = np.array(z_lengths) # [m]
+
+        dec = np.radians(dec)
+        HA = np.radians(HA)
+    
+        self.u_m = np.sin(HA)*dx + np.cos(HA)*dy
+        self.v_m = -np.sin(dec)*np.cos(HA)*dx + np.sin(dec)*np.sin(HA)*dy + np.cos(dec)*dz
+        self.w_m = np.cos(dec)*np.cos(HA)*dx - np.cos(dec)*np.sin(HA)*dy + np.sin(dec)*dz
+    
+    def uvw_lam(self,wavelength,uvmax=None):
+        """
+        Converts the (u,v,w) coordinates from meters to wavelengths. Additionally
+        subsets for the uvmax cooridinate.
+        """
+    
+        # Converting into wavelengths.
+        u_lam = self.u_m/wavelength 
+        v_lam = self.v_m/wavelength
+        w_lam = self.w_m/wavelength
+        
+        # Determining the uv_max boolean mask
+        #uv_mask = (np.abs(u_lam) < uvmax)*(np.abs(v_lam) < uvmax)
+        if uvmax:
+            # If uvmax is given, otherwise return the entire array.
+            uv_mask = np.logical_and(np.abs(u_lam) <= uvmax, np.abs(v_lam) <= uvmax)
+        
+            self.uv_mask = uv_mask # Useful for rephasing purposes.
+
+            self.u_lam = u_lam[uv_mask]
+            self.v_lam = v_lam[uv_mask]
+            self.w_lam = w_lam[uv_mask]
+        else:
+            self.u_lam = u_lam
+            self.v_lam = v_lam
+            self.w_lam = w_lam
+        
+    def plot_arr(self,uvmax=None,figsize=(10,10)):
+        """
+        Plots the MWA uv sample for a max uv cutoff. Units are in wavelengths.
+        """
+        plt.clf()
+    
+        fig = plt.figure(figsize=figsize)
+        ax1 = fig.add_subplot(111)
+        ax1.plot(self.u_lam,self.v_lam,'k.',mfc='none',ms=1)
+        ax1.plot(-self.u_lam,-self.v_lam,'k.',mfc='none',ms=1)
+        ax1.set_xlabel(r'$u\,(\lambda)$',fontsize=24)
+        ax1.set_ylabel(r'$v\,(\lambda)$',fontsize=24)
+
+        if uvmax:
+            ax1.set_xlim(-uvmax,uvmax)
+            ax1.set_ylim(-uvmax,uvmax)
+        else:
+            pass
+
+        plt.show()
 
 class Skymodel:
     
-    """A class for defining sky-models. In this class sky-models are stored as data cubes,
-    the x and y axis correspond to the (l,m) plane, and the z axis corresponds to frequnecy."""
+    """
+    Creates a sky-model class object which can be used to calculate MWA observation visibilities.
+
+    ...
+
+    Attributes
+    ----------
+    fine : numpy array
+        ...
+
+
+    Methods
+    -------
+    Gauss2D(freqs=""):
+        ...
+    add_Gaussian_sources(freqs=""):
+        ...
+    add_point_sources(freqs=""):
+        ...
+    plot_sky_mod()
+        
+    """
     
     def __init__(self,shape,l_vec,m_vec):
+        # Probably only need to give the (L,M) and shape. Can make the vectors in the initialisation.
         self.model = np.zeros(shape)
         
         self.l_vec = l_vec
         self.m_vec = m_vec
         
+        # Useful for specifying the minimum Gaussian sizes.
+        # Small Gaussians should still be sampled by several pixels. This effectively
+        # creates a psf.
+        self.dl = np.abs(l_vec[1]-l_vec[0])/2
+        self.dm = np.abs(m_vec[1]-m_vec[0])/2
+
         # Creating the (l,m) plane grid:
         self.l_grid, self.m_grid = np.meshgrid(l_vec,m_vec)
 
@@ -923,7 +1419,7 @@ class Skymodel:
         self.r_grid = np.sqrt(self.l_grid**2 + self.m_grid**2)
 
         # Creating an index array, we want all pixels less than or equal to r = 1:
-        ind_arr = self.r_grid <= 1.0
+        self.ind_arr = self.r_grid <= 1.0
 
         # Here we want to create a new alt and az array that is the same size as l_arr and m_arr:
         Alt_arr = np.zeros(np.shape(self.l_grid))
@@ -931,20 +1427,44 @@ class Skymodel:
 
         # Now we want to determine the Altitude and Azimuth, but only in the region where r <= 1. 
         # Outside this region isbeyond the boundary of the horizon.
-        Alt_arr[ind_arr] = np.arccos(self.r_grid[ind_arr]) # Alt = arccos([l^2 + m^2]^(1/2))
-        Az_arr[ind_arr] = np.arctan2(self.l_grid[ind_arr],self.m_grid[ind_arr]) + np.pi #arctan2() returns [-pi,pi] we want [0,2pi].
+        Alt_arr[self.ind_arr] = np.arccos(self.r_grid[self.ind_arr]) # Alt = arccos([l^2 + m^2]^(1/2))
+        Az_arr[self.ind_arr] = 2*np.pi -  (np.arctan2(self.l_grid[self.ind_arr],self.m_grid[self.ind_arr]) + np.pi) #arctan2() returns [-pi,pi] we want [0,2pi].
+        #Az_arr[self.ind_arr] = np.arctan2(self.l_grid[self.ind_arr],self.m_grid[self.ind_arr]) + np.pi #arctan2() returns [-pi,pi] we want [0,2pi].
         
         # Defining the Altitude and Azimuthal grids.
         self.Alt_grid = Alt_arr
         self.Az_grid = Az_arr
         
     
-    def Gauss2D(self,Az,Zen,A,Az0,Zen0,theta_pa,amaj,bmin):
-        # Arguments
-        # Az,Zen,A,Az0,Zen0,theta,amaj,bmin
-    
+
+    def Gauss2D(self,Az,Zen,Sint,Az0,Zen0,theta_pa,amaj,bmin):
+        """
+        Generates 2D Gaussian array.
+
+        Parameters
+        ----------
+        Az : numpy array, float
+            2D azimuth numpy array. [rad]
+        Az0 : numpy array, float
+            Azimuth angle of the Gaussian centre. [rad]
+        Zen : numpy array, float
+            2D zenith numpy array. [rad]
+        Zen0 : numpy array, float
+            Zenith angle of the centre of the Gaussian. [rad]
+        amaj : numpy array, float
+            Gaussian major axis. [deg]
+        bmin : numpy array, float
+            Gaussian minor axis. [deg]
+        theta_pa : numpy array, float
+            Gaussian position angle. [rad]
+        Sint : numpy array, float
+            Source integrated flux density.
+
+        Returns
+        -------
+        2D Gaussian array.
+        """        
         # General 2D Gaussian function.
-        # Stereographic projection.
         # 
         # https://www.aanda.org/articles/aa/full/2002/45/aah3860/node5.html
         #
@@ -959,33 +1479,39 @@ class Skymodel:
         #
         # Zen in [0,pi]
         # Az in [0,2pi]
-        # By definition the semi-major axis is larger than the semi-minor axis:
+        # By definition the major axis is larger than the minor axis:
         #
         # FWHM = amaj = 2 sqrt(2 ln(2)) sigma
-    
-        if amaj < bmin:
-            # Swapping amaj and bmin:
-            t = bmin
-            bmin = amaj
-            amaj = t
-        else:
-            pass
-
-        # Defining the width of the Gaussians
-        sigx = amaj/np.sqrt(2.0*np.log(2.0))
-        sigy = bmin/np.sqrt(2.0*np.log(2.0))
 
         # Defining the width of the Gaussians
         sigx = amaj/(2.0*np.sqrt(2.0*np.log(2.0)))
         sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
 
+        # Adjusting for offset position from zenith. Accounting for projection effects.
         sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
 
-        # Deriving the peak amplitude from the integrated amplitude.
-        Amplitude = A/(sigx*sigy*2*np.pi)
+        # Checking to see if the new widths are smaller than the pixel sampling scale.
+        if sigx < self.dl:
+            # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
+            # and the new sigma x.
+            sigx = np.sqrt(self.dl**2 + sigx**2)
+        else:
+            pass
 
-        theta = theta_pa + Az0
+        # Checking to see if the new widths are smaller than the pixel sampling scale.
+        if sigy < self.dl:
+            # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
+            # and the new sigma y.
+            sigy = np.sqrt(self.dl**2 + sigy**2)
+        else:
+            pass
+
+        # Deriving the peak amplitude from the integrated amplitude.
+        Speak = Sint/(sigx*sigy*2*np.pi)
+
+        #theta = theta_pa + Az0
+        theta = theta_pa
         
         a = (np.cos(theta)**2)/(2.0*sigx**2) + (np.sin(theta)**2)/(2.0*sigy**2)
         b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
@@ -994,20 +1520,57 @@ class Skymodel:
         x_shft = np.sin(Zen)*np.cos(Az) - np.sin(Zen0)*np.cos(Az0)
         y_shft = -np.sin(Zen)*np.sin(Az) + np.sin(Zen0)*np.sin(Az0)
         
-        #return A*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
-        return Amplitude*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
+        return Speak*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
     
     def add_Gaussian_sources(self, Az_mod, Alt_mod, Maj, Min, PA, S, window_size):
-        
-        # Converting the the Alt and Az into l and m coordinates:
-        l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
-        m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+        """
+        Adds 'N' number of Gaussian objects to a sky-model object. 
 
-        for i in range(len(l_mod)):
-    
+        Parameters
+        ----------
+        Az_mod : numpy array, float
+            1D numpy array of the source azimuth. [deg]
+        Alt_mod : numpy array, float
+            1D numpy array of the source altitude. [deg]
+        Maj : numpy array, float
+            1D numpy array of the source major axis. [deg]
+        Min : numpy array, float
+            1D numpy array of the source minor axis. [deg]
+        PA : numpy array, float
+            1D numpy array of the source position angle. [deg]
+        S : numpy array, float
+            1D or 2D numpy array of Gaussian amplitudes.
+        window_size : float
+            Size of the Gaussian window, N*pixel_size.
+
+        Returns
+        -------
+        None
+        """
+
+
+        # Converting the the Alt and Az into l and m coordinates:
+        self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
+        self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+        #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+
+        if np.shape(self.l_mod):
+            n_sources = len(self.l_mod)
+        else:
+            n_sources = 1
+
+        #for i in range(n_sources):
+        for i in tqdm(range(n_sources)):
+
             # Creating temporary close l and m mask arrays:
-            temp_l_ind = np.isclose(self.l_vec,l_mod[i],atol=window_size)
-            temp_m_ind = np.isclose(self.m_vec,m_mod[i],atol=window_size)
+            if np.shape(self.l_mod):
+                # Multiple source case where shape(l_mod) is not None type.
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod[i],atol=window_size)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod[i],atol=window_size)
+            else:
+                # Single source case.
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod,atol=window_size)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod,atol=window_size)
     
             # Creating temporary index vectors:
             # Use the mask array to determin the index values.
@@ -1017,7 +1580,7 @@ class Skymodel:
             # Creating index arrays:
             # Use the index vectors to create arrays
             l_ind_arr, m_ind_arr = np.meshgrid(l_ind_vec, m_ind_vec)
-    
+
             # Creating temporary l and m arrays:
             l_temp_arr = self.l_grid[l_ind_arr,m_ind_arr]
             m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
@@ -1025,23 +1588,212 @@ class Skymodel:
             # Creating temporary Azimuth and Altitude arrays:
             ## This is the way it is described in Thompson. Section 3.1 Pg 71 Second Edition.
             Alt_temp_arr = np.arccos(np.sqrt(l_temp_arr**2 + m_temp_arr**2)) # Alt = arccos([l^2 + m^2]^(1/2))
-            Az_temp_arr = np.arctan2(m_temp_arr,l_temp_arr) + np.pi  #arctan2() returns [-pi,pi] we want [0,2pi].
+            #Az_temp_arr = np.arctan2(m_temp_arr,l_temp_arr) + np.pi  #arctan2() returns [-pi,pi] we want [0,2pi].
+            Az_temp_arr = 2*np.pi - (np.arctan2(l_temp_arr,-m_temp_arr) + np.pi)  #arctan2() returns [-pi,pi] we want [0,2pi].
 
             # converting the major and minor axes into (l,m) coords.
-            temp_maj = np.sin(np.radians(Maj[i]))
-            temp_min = np.sin(np.radians(Min[i]))
-            
-            Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod[i]),\
-                            np.pi/2 - np.radians(Alt_mod[i]),np.radians(PA[i]),\
-                            temp_maj, temp_min)
-
-            
-            self.model[l_ind_arr,m_ind_arr,:] = self.model[l_ind_arr,m_ind_arr,:] +\
-                np.ones(np.shape(self.model[l_ind_arr,m_ind_arr,:]))*Gauss_temp[:,:,None]
+            if np.shape(self.l_mod):
+                # Multiple source case where shape(l_mod) is not None type.
+                temp_maj = np.radians(Maj[i])
+                temp_min = np.radians(Min[i])
         
+                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod[i]),\
+                                np.pi/2 - np.radians(Alt_mod[i]),np.radians(PA[i]),\
+                                temp_maj, temp_min)
+            
+                # Creating temporary array which has dimensions of (l,m,frequency).
+                Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
+
+                # scaling the array by the integrated frequency dependent flux density, and adding to the model.
+                self.model[l_ind_arr,m_ind_arr,:] += S[i,:]*Gauss_temp_arr
+
+            else:
+                # Single source case.
+                temp_maj = np.radians(Maj)
+                temp_min = np.radians(Min)
+
+                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod),\
+                                np.pi/2 - np.radians(Alt_mod),np.radians(PA),\
+                                temp_maj, temp_min)
+
+                # Creating temporary array which has dimensions of (l,m,frequency).
+                Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
+
+                # scaling the array by the integrated frequency dependent flux density, and adding to the model.
+                self.model[l_ind_arr,m_ind_arr,:] += S*Gauss_temp_arr
+
             ## Set all NaNs and values below the horizon to zero:
             #self.model[self.r_arr > 1.0,:] = 0.0
             self.model[np.isnan(self.model)] = 0.0
+
+    def add_point_sources(self, Az_mod, Alt_mod, S):
+        """
+        Adds 'N' number of point source objects to a sky-model object. 
+
+        Parameters
+        ----------
+        Az_mod : numpy array, float
+            1D numpy array of the source azimuth. [deg]
+        Alt_mod : numpy array, float
+            1D numpy array of the source altitude. [deg]
+        S : numpy array, float
+            1D or 2D numpy array of point source amplitudes.
+
+        Returns
+        -------
+        None
+        """
+        # Converting the the Alt and Az into l and m coordinates:
+        self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
+        self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+        #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+
+        # For the point source location.
+        L = (np.max(self.l_vec) - np.min(self.l_vec))
+
+        N = len(self.l_vec)
+        dA = self.dl*self.dm
+
+        if np.shape(self.l_mod):
+            # Multiple source case.
+            n_sources = len(self.l_mod)
+        else:
+            # Single source case.
+            n_sources = 1
+
+        for i in range(n_sources):
+
+            # Creating temporary close l and m mask arrays:
+            if np.shape(self.l_mod):
+                # Multiple source case where shape(l_mod) is not None type.
+                l_ind, m_ind = find_closest_xy(self.l_mod[i],self.m_mod[i],self.l_vec,self.m_vec)
+            else:
+                # Single source case.
+                l_ind, m_ind = find_closest_xy(self.l_mod,self.m_mod,self.l_vec,self.m_vec)
+
+            # Setting point source value:
+            #self.model[m_ind, l_ind,:] = 1.0#/dA
+            self.model[m_ind, l_ind,:] = S[i]/dA
+
+            ## Set all NaNs and values below the horizon to zero:
+            #self.model[np.isnan(self.model)] = 0.0
+
+            #if np.shape(self.l_mod):
+            #    # Multiple source case:
+            #    #self.model = self.model*S[i,:]
+            #    self.model = self.model*S[i]
+            #else:
+            #    # Default single source case.
+            #    self.model = self.model*S
+
+    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',cmap='cividis',\
+        clab=None,title=None,vmax=None,vmin=None,lognorm=False,**kwargs):
+        """
+        This function plots a subset of the sky-model. Particularly for a single source.
+        The main purpose of the functions in this pipeline is to plot the visibilities 
+        for a single source. Additionally there is an all-sky plotting option.
+        """
+
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+
+        if index:
+            # Case for a single source, when there is more than one model source.
+            l_mod = self.l_mod[index]
+            m_mod = self.m_mod[index]
+        else:
+            # Case for a single source, when there is more than one model source.
+            l_mod = self.l_mod
+            m_mod = self.m_mod
+
+        # These values should be unpacked with kwargs.
+        if lognorm:
+            norm = matplotlib.colors.LogNorm()
+        else:
+            norm = None
+
+        if np.any(vmax):
+            vmax = vmax
+        else:
+            vmax = None
         
-            self.model = self.model*S[i,:]
-        
+        if np.any(vmin):
+            vmin = vmin
+        else:
+            vmin = None
+
+        if window:
+            # Case for a single source image.
+            # Specifying the temporary l and m indices based on window size.
+            temp_l_ind = np.isclose(self.l_vec,l_mod,atol=window)
+            temp_m_ind = np.isclose(self.m_vec,m_mod,atol=window)
+
+            # Creating temporary index vectors:
+            # Use the mask array to determin the index values.
+            l_ind_vec = np.arange(len(self.l_vec))[temp_l_ind]
+            m_ind_vec = np.arange(len(self.m_vec))[temp_m_ind]
+
+            # Creating index arrays:
+            # Use the index vectors to create arrays
+            l_ind_arr, m_ind_arr = np.meshgrid(l_ind_vec, m_ind_vec)
+
+            # Creating temporary l and m arrays:
+            l_temp_arr = self.l_grid[l_ind_arr,m_ind_arr]
+            m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
+
+            if len(self.model[0,0,:]) > 100:
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='lower',\
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
+            else:
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='lower',\
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
+        else:
+            if len(self.model[0,0,:]) > 100:
+                # Case for the whole sky.
+                temp_arr = np.ones(self.model[:,:,0].shape)*self.model[:,:,100]
+                temp_arr[self.r_grid > 1.0] = np.NaN
+
+                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',\
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
+            else:
+                temp_arr = self.model[:,:,0]
+                temp_arr[self.r_grid > 1.0] = np.NaN
+
+                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',\
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],\
+                    vmin=vmin,vmax=vmax,aspect='auto')
+
+        if clab:
+            # Find a better way to do this.
+            clab = clab
+        else:
+            # Default colour bar label.
+            clab = r'$I_{\rm{app}}\,[\rm{Jy/Str}]$'
+
+        # Setting the colour bars:
+        if np.any(vmax) and np.any(vmin):
+            # Setting the limits of the colour bar. 
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='both')
+        elif np.any(vmax):
+            # Upper limit only.
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='max')
+        elif np.any(vmin):
+            # Lower limit only.
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='min')
+        else:
+            # No limits.
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+
+        cb.set_label(label=clab,fontsize=24)
+
+        axs.set_xlabel(xlab,fontsize=24)
+        axs.set_ylabel(ylab,fontsize=24)
+
+        im.set_clim(**kwargs)
+
+        if title:
+            plt.savefig('{0}.png'.format(title))
+        else:
+            plt.show()
