@@ -13,7 +13,7 @@ import os
 
 from numpy.lib.index_tricks import nd_grid
 
-import Iris
+import Osiris
 
 # Inserted text is a remote test.
 
@@ -51,7 +51,7 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
     
         # These should be the indices of the coordinates closest to the baseline. These coordinates
         # should line up with the kernel.
-        temp_u_ind, temp_v_ind = Iris.find_closest_xy(u[i],v[i],u_vec,v_vec)
+        temp_u_ind, temp_v_ind = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec)
 
         # Determining the index ranges:
         min_u_ind = temp_u_ind - int(kernel_size/2)
@@ -63,7 +63,7 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
         u_temp_arr = u_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
         v_temp_arr = v_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
 
-        temp_gauss_weights = Iris.gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, u[i], v[i])
+        temp_gauss_weights = Osiris.gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, u[i], v[i])
 
         # Might have to define a visibility subset that is larger.
         # Defining the visibility subset:
@@ -123,10 +123,10 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
         # should line up with the kernel.
         if phase_cond:
             # Condition if phase offset is true.
-            u_ind, v_ind, u_off, v_off = Iris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
+            u_ind, v_ind, u_off, v_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
         else:
             # Default condition don't return the offsets.
-            u_ind, v_ind = Iris.find_closest_xy(u[i],v[i],u_vec,v_vec)
+            u_ind, v_ind = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec)
             u_off=0
             v_off=0
 
@@ -240,7 +240,7 @@ class w_kernel():
         self.w_sky_ker = w_sky_ker
 
         # FFT w-sky-kernel:
-        u_grid, v_grid, w_kernel = Iris.Visibilities_2D(w_sky_ker,L,M,N)
+        u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker,L,M,N)
 
         # Setting attributes:
         self.u_grid = u_grid
@@ -273,19 +273,19 @@ class w_kernel():
         if ker == 'sky':
             if real_cond:
                 # Plot real part of sky kernel:
-                Iris.Plot_img(self.w_sky_ker.real,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
+                Osiris.Plot_img(self.w_sky_ker.real,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
                 clab='Response',xlab=r'$l$',ylab=r'$m$',title=title,**kwargs)
             elif imag_cond:
                 # Plot imag part of sky kernel:
-                Iris.Plot_img(self.w_sky_ker.imag,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
+                Osiris.Plot_img(self.w_sky_ker.imag,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
                 clab='Response',xlab=r'$l$',ylab=r'$m$',title=title,**kwargs)
         elif ker == 'vis':
             if real_cond:
                 # Plot real part of the w-kernel:
-                Iris.Plot_img(self.w_kernel.real,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
+                Osiris.Plot_img(self.w_kernel.real,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
                 clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',title=title,**kwargs)
             elif imag_cond:
                 # Plot imag part of the w-kernel:
-                Iris.Plot_img(self.w_kernel.imag,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
+                Osiris.Plot_img(self.w_kernel.imag,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
                 clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',title=title,**kwargs)
 
