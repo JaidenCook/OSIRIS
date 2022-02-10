@@ -60,7 +60,8 @@ def grid_natural(grid_arr, u_coords, v_coords, vis, u_vec, v_vec):
     return grid_arr, weights_arr
 
 
-def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=7, sig_x=0.5, sig_y=0.5):
+def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, \
+    kernel_size=7, sig_grid=0.5):
     '''
     Natural and Gaussian kernel gridder. Will generalise in future.
 
@@ -91,8 +92,8 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=7
     delta_v = np.abs(v_arr[1,0] - v_arr[0,0])
 
     # Converting to u,v coordinates.
-    sig_u = sig_x * delta_u # Size in u,v space.
-    sig_v = sig_y * delta_v
+    sig_u = sig_grid * delta_u # Size in u,v space.
+    sig_v = sig_grid * delta_v
 
     # Default case.
     u_vec = u_arr[0,:] 
@@ -133,7 +134,7 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr, kernel_size=7
 
 
 def grid_cube(u_coords_list,v_coords_list,vis_list,u_arr,v_arr,\
-    grid_arr_cube,vis_weights_cube,weighting='natural'):
+    grid_arr_cube,vis_weights_cube,weighting='gaussian',kernel_size=7,sig_grid=0.5):
     '''
     Wrapper function for iteratively gridding visibility frequency slices.
 
@@ -181,6 +182,7 @@ def grid_cube(u_coords_list,v_coords_list,vis_list,u_arr,v_arr,\
 
             #grid_gaussian(grid_arr, u_coords, v_coords, vis, u_arr, v_arr)
             grid_arr_cube[:,:,i],vis_weights_cube[:,:,i] = grid_gaussian(grid_arr_cube[:,:,i], \
-                u_coords_list[i], v_coords_list[i], vis_list[i], u_arr, v_arr)
+                u_coords_list[i], v_coords_list[i], vis_list[i], u_arr, v_arr, \
+                kernel_size=kernel_size,sig_grid=sig_grid)
 
     return grid_arr_cube, vis_weights_cube
