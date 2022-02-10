@@ -944,16 +944,17 @@ class Power_spec:
         log_kr_max = np.log10(kr_max)
 
         # Increments.
-        dlog_k = (log_kr_max - log_kr_min)/N_bins
-        dk = (kr_max - kr_min)/N_bins
+        dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
+        dk = (kr_max - kr_min)/(N_bins + 1)
 
         print('dk = %5.3f' % dk)
 
         #k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
-        k_r_bins = np.linspace(kr_min - dk/2,kr_max + dk/2,N_bins + 1)
+        #k_r_bins = np.linspace(kr_min - dk/2,kr_max + dk/2,N_bins + 1)
+        k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
 
-        Power_spec1D = np.zeros(len(k_r_bins)-1)
-        kr_vec = np.zeros(len(k_r_bins)-1)
+        Power_spec1D = np.zeros(N_bins)
+        kr_vec = np.zeros(N_bins)
 
         for i in range(len(k_r_bins)-1):
 
