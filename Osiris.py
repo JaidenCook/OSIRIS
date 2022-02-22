@@ -515,7 +515,7 @@ def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
     gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
 
     # Normalising so the sum of the gaussian is equal to 1.
-    gaussian = gaussian/np.sum(gaussian)
+    #gaussian = gaussian/np.sum(gaussian)
 
     return gaussian
 
@@ -867,7 +867,8 @@ class Power_spec:
 
         return wedge_factor
 
-    def Spherical(self,kb=kb,nu_21=nu_21,c=c,wedge_cond=False):
+    def Spherical(self,wedge_cond=False,N_bins=60,log_bin_cond=False,kr_min=None,kr_max=None,
+                horizon_cond=False,wedge_cut=None,sig=None):
         """
         Calculates the 1D spherical power spectra using the input Power object.
                 
@@ -886,9 +887,6 @@ class Power_spec:
             -------
         """
 
-        fov = 0.076
-        vol_fac = 0.35501
-
         # Defining the kx, ky, and kz values from u,v and eta.
         k_z = Power_spec.eta_to_kz(self.eta,self.z,self.cosmo) # [Mpc^-1 h]
         k_x = Power_spec.uv_to_kxky(self.u_arr,self.z,self.cosmo) # [Mpc^-1 h]
@@ -900,58 +898,101 @@ class Power_spec:
         if wedge_cond:
             # Condition for ignoring the wedge contribution to the power spectrum.
             
+            if sig:
+                # If the grid kernel sixe (sig) provided calculate the FoV.
+                FWHM = 2*np.sqrt(2*np.log(2))/sig
+                fov = FWHM**2 # [rad**2]
+
+            else:
+                fov = 0.076 # [rad**2]
+
+            # Creating the k_perp array.
             k_perp = np.sqrt(k_x**2 + k_y**2) # [Mpc^-1 h]
+            # Specifying a minimum k_perp.
+            k_perp_min = 0.1 # [Mpc^-1 h]
             
-            grad_max = 0.5*np.pi # Calculating the max wedge cut. Accounting for window tapering.
+            if horizon_cond:
+                grad = 0.5*np.pi # Horizon cut gradient.
+            else:
+                grad = 0.5*np.sqrt(fov) # Beam FoV cut.
 
-            #wedge_cut = Power_spec.wedge_factor(self.z,self.cosmo) # Nicholes horizon cosmology cut.
-            wedge_cut = grad_max*Power_spec.wedge_factor(self.z,self.cosmo) # Nicholes horizon cosmology cut.
+            if wedge_cut:
+                # Option to manually input a wedge cut value.
+                wedge_cut = wedge_cut
+            else:
+                # Default is to calculate the horizon or beam grad.
+                wedge_cut = grad*Power_spec.wedge_factor(self.z,self.cosmo) # Nicholes horizon cosmology cut.
+            
             print('wedge_cut %5.3f' % wedge_cut)
-            print('wedge_cut %5.3f' % (wedge_cut/grad_max))
 
-            wedge_ind_cube = np.array([k_par < wedge_cut*k_perp for k_par in k_z]).T
-            #wedge_ind_cube = np.array([k_par < fov*wedge_cut*k_perp for k_par in k_z]).T
+            # Calculating the wedge mask array.
+            wedge_ind_cube = np.array([np.logical_or(k_par < wedge_cut*k_perp, k_perp >= k_perp_min) for k_par in k_z]).T
+            #wedge_ind_cube = np.array([k_par < wedge_cut*k_perp for k_par in k_z]).T
 
-            ## Testing
-            #kr_min = 0.07
-            kr_min = 0.1
+            if kr_min:
+                # User can manually input a kr min.
+                kr_min = kr_min
+            else:
+                ## Testing
+                kr_min = 0.1
+
+            # Setting all k_par modes greater than some mode set to True.
             wedge_ind_cube[:,:,k_z < kr_min] = True
+            
             ## 
-
             # Setting the wedge to zero.
             self.power_cube[wedge_ind_cube] = np.NaN
             self.weights_cube[wedge_ind_cube] = np.NaN
             self.k_r_arr[wedge_ind_cube] = np.NaN
 
-            #kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
+            # Calculating kr_max.
             kr_max = np.nanmax(self.k_r_arr)
 
         else:
 
-            kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
-            kr_max = np.nanmax(self.k_r_arr)
+            if kr_min:
+                # User can manually input a kr min.
+                kr_min = kr_min
+            else:
+                kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
 
-        # bin size is important. Too many bins, and some will have a sum of zero weights.
-        #N_bins = 100 # This number provides integer bins sizes.
-        #N_bins = 90 # This number provides integer bins sizes.
-        N_bins = 60 # This number provides integer bins sizes. 
-        
+            if kr_max:
+                # User can manually input a kr max.
+                kr_max = kr_max
+            else:
+                kr_max = np.nanmax(self.k_r_arr)
+
         print('k_r_min = %5.3f' % kr_min)
         print('k_r_max = %5.3f' % kr_max)
 
-        # Log-linear bins.
-        log_kr_min = np.log10(kr_min)
-        log_kr_max = np.log10(kr_max)
+        if log_bin_cond:
+            # Logarithmically spaced bins, creates uniform bin widths in log space plots.
+            # Binning conditions are different for log bins.
+            if N_bins == 60:
+                # Default number for lin bins is 60. If still 60 then set new default.
+                N_bins = 15
+            else:
+                # If not default N_bins = 60, user has input new number.
+                pass
 
-        # Increments.
-        dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
-        dk = (kr_max - kr_min)/(N_bins + 1)
+            # Log-linear bins.
+            log_kr_min = np.log10(kr_min)
+            log_kr_max = np.log10(kr_max)
+            
+            # Increments.
+            dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
 
-        print('dk = %5.3f' % dk)
+            k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
+            print('dlog_k = %5.3e' % dlog_k)
 
-        #k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
-        #k_r_bins = np.linspace(kr_min - dk/2,kr_max + dk/2,N_bins + 1)
-        k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
+        else:
+            
+            # Increments.
+            dk = (kr_max - kr_min)/(N_bins + 1)
+            k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
+
+            print('dk = %5.3f' % dk)
+
 
         Power_spec1D = np.zeros(N_bins)
         kr_vec = np.zeros(N_bins)
@@ -959,16 +1000,25 @@ class Power_spec:
         for i in range(len(k_r_bins)-1):
 
             # Calculating the radius:
-            kr_vec[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
-            #kr_vec[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
+            if log_bin_cond:
+                kr_vec[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
+            else:
+                kr_vec[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
 
             # Defining the shell array index:
             shell_ind = np.logical_and(self.k_r_arr >= k_r_bins[i], self.k_r_arr <= k_r_bins[i+1])
 
-            if wedge_cond:
-                Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
-            else:
-                Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
+            try:
+                # Some bins don't contain data, this will ensure the script doesn't fail. These bins will be set
+                # to NaN.
+                if wedge_cond:
+                    Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
+                else:
+                    Power_spec1D[i] = np.average(self.power_cube[shell_ind],weights=self.weights_cube[shell_ind])
+            except ZeroDivisionError:
+                # For bins that don't have data we will set these to NaN.
+                Power_spec1D[i] = np.nan
+                
 
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
@@ -979,7 +1029,7 @@ class Power_spec:
         self.k_r = kr_vec
 
 
-    def Cylindrical(self,kb=kb,nu_21=nu_21,c=c):
+    def Cylindrical(self):
         """
         Calculates the 2D cylindrical power spectra using the input Power object.
                 
@@ -1116,7 +1166,8 @@ class Power_spec:
 
     @staticmethod
     def plot_cylindrical(Power2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
-        name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,title=None,**kwargs):
+        name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,
+        title=None,horizon_cond=False,**kwargs):
 
         """
         Plot the 2D cylindrically averaged power spectrum.
@@ -1136,7 +1187,15 @@ class Power_spec:
         """
 
         fov = 0.076
-        vol_fac = 0.35501
+        
+        # Performing a rudimentary fov calculation:
+        # Not 100% sure these are correct, but they create cuts similar to Trott et al 2020.
+        sig = 4 # lambda
+        FWHM = 2*np.sqrt(2*np.log(2))/sig
+        fov = FWHM**2 # rad**2
+
+
+        print(fov)
 
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
 
@@ -1165,12 +1224,13 @@ class Power_spec:
         print('Max = %5.3e' % np.max(Power2D[Power2D > 0].flatten()[0]))
         
         # Setting NaN values to a particular colour:
-        cmap = matplotlib.cm.viridis
+        #cmap = matplotlib.cm.viridis
+        cmap = matplotlib.cm.get_cmap("Spectral_r")
         cmap.set_bad('lightgray',1.)
 
         im = axs.imshow(Power2D,cmap=cmap,origin='lower',\
-                extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],**kwargs,\
-                    norm=norm,vmin=vmin,vmax=vmax, aspect='auto')
+                extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],\
+                norm=norm,vmin=vmin,vmax=vmax, aspect='auto',**kwargs)
         
 
         # Setting the colour bars:
@@ -1199,12 +1259,16 @@ class Power_spec:
         # Full sky.
         grad_max = 0.5*np.pi*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
         # Primary beam FOV.
-        grad = np.sqrt(fov)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        #grad = np.sqrt(fov)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        grad = 0.5*np.sqrt(fov)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
 
-        # Illustrating the EoR window and horizon lines.
-        axs.plot([0.1/grad_max,np.max(kperp)],grad_max*np.array([0.1/grad_max,np.max(kperp)]),lw=3,c='k')
-        axs.plot([0.008,0.1/grad_max-0.0002839],[0.1,0.1],lw=3,c='k')
-        axs.plot(kperp,grad*kperp,lw=3,ls='--',c='k')
+        if horizon_cond:
+            # Illustrating the EoR window and horizon lines.
+            axs.plot([0.1/grad_max,np.max(kperp)],grad_max*np.array([0.1/grad_max,np.max(kperp)]),lw=3,c='k')
+            axs.plot([0.008,0.1/grad_max-0.0002839],[0.1,0.1],lw=3,c='k')
+            axs.plot(kperp,grad*kperp,lw=3,ls='--',c='k')
+        else:
+            pass
 
         if xlim:
             axs.set_xlim(xlim)
