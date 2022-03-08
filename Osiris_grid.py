@@ -122,9 +122,8 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_grid, v_grid, \
             grid_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] + vis[i]*temp_gauss_weights 
 
     # The weight array should always be positive in this context. 
-    #grid_arr[weights_arr > 0.0] /= weights_arr[weights_arr > 0.0]
-
-    #grid_arr = grid_arr/np.sum(weights_arr)
+    # Don't forget you need to divide by the sum of the weights in each cell.
+    grid_arr[weights_arr > 0.0] = grid_arr[weights_arr > 0.0]/weights_arr[weights_arr > 0.0]
 
     return grid_arr, weights_arr
 
