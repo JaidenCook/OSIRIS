@@ -868,7 +868,7 @@ class Power_spec:
         return wedge_factor
 
     def Spherical(self,wedge_cond=False,N_bins=60,log_bin_cond=False,kr_min=None,kr_max=None,
-                horizon_cond=False,wedge_cut=None,sig=None):
+                horizon_cond=True,wedge_cut=None,sig=None):
         """
         Calculates the 1D spherical power spectra using the input Power object.
                 
@@ -880,7 +880,7 @@ class Power_spec:
                 Boltzman's constant.
             nu_21 : float
                 21cm frequency in Hz.
-            kb : float
+            c : float
                 Speed of light km/s.
             
             Returns
@@ -931,7 +931,7 @@ class Power_spec:
 
             if kr_min:
                 # User can manually input a kr min.
-                kr_min = kr_min
+                kr_min = float(kr_min)
             else:
                 ## Testing
                 kr_min = 0.1
@@ -952,13 +952,13 @@ class Power_spec:
 
             if kr_min:
                 # User can manually input a kr min.
-                kr_min = kr_min
+                kr_min = float(kr_min)
             else:
                 kr_min = np.nanmin(self.k_r_arr[self.k_r_arr > 0.0])
 
             if kr_max:
                 # User can manually input a kr max.
-                kr_max = kr_max
+                kr_max = float(kr_max)
             else:
                 kr_max = np.nanmax(self.k_r_arr)
 
@@ -994,6 +994,9 @@ class Power_spec:
             print('dk = %5.3f' % dk)
 
 
+        print('N_bins = %s' % N_bins)
+
+        start0 = time.perf_counter()
         Power_spec1D = np.zeros(N_bins)
         kr_vec = np.zeros(N_bins)
 
@@ -1019,6 +1022,9 @@ class Power_spec:
                 # For bins that don't have data we will set these to NaN.
                 Power_spec1D[i] = np.nan
                 
+        end0 = time.perf_counter()
+        
+        print('1D PS calctime = %5.3f s' % (end0-start0))
 
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
