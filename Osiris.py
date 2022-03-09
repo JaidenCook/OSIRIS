@@ -199,7 +199,7 @@ def Poly_func2D_nu(data_tuple,*a):
     return zz.ravel()
 
 def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',figsize = (14,12),\
-    xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,\
+    figaxs=None, xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,\
     clim=None,vmin=None,vmax=None,contours=None,**kwargs):
     """
     Plots a 2D input image. This input image can either be in a cartesian or polar projection.
@@ -240,11 +240,16 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
     if np.any(vmin):
         vmin=vmin
 
-    cmap = matplotlib.cm.viridis
-    cmap.set_bad('lightgray',1.)
+    #cmap = matplotlib.cm.viridis
+    #cmap.set_bad('lightgray',1.)
 
     if projection == 'cartesian':
-        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+
+        if figaxs:
+            fig = figaxs[0]
+            axs = figaxs[1]
+        else:
+            fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         # Creating the image objects:
         if np.any(X_vec) != None and np.any(Y_vec) != None:
@@ -263,9 +268,18 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
 
         # Setting the colour bars:
         if np.any(vmax):
-            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e',extend='max')
+            if vmax > 1000:
+                # Specifying formatting for large numbers.
+                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e',extend='max')
+            else:
+                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04,extend='max')
         else:
-            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e')
+            if np.nanmax(Img) > 1000:
+                # Specifying formatting for large numbers. 
+                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e')
+            else:
+                # Don't use scientific notation if max is less than 1000.
+                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
 
         cb.set_label(label=clab,fontsize=20)
         cb.ax.tick_params(labelsize=20)
