@@ -1159,12 +1159,12 @@ class Power_spec:
         if xlabel:
             axs.set_xlabel(xlabel,fontsize=24)
         else:
-            axs.set_xlabel(r'$|\mathbf{k}| \,[\rm{h\,Mpc^{-1}}]$',fontsize=24)
+            axs.set_xlabel(r'$|\mathbf{k}| \,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=24)
 
         if ylabel:
             axs.set_ylabel(ylabel,fontsize=24)
         else:
-            axs.set_ylabel(r'$\rm{P(\mathbf{k}) \, [mK^2\,h^{-3}\,Mpc^3]}$',fontsize=24)
+            axs.set_ylabel(r'$\rm{P(\mathbf{k})} \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=24)
 
         axs.tick_params(axis='x',labelsize=20)
         axs.tick_params(axis='y',labelsize=20)
@@ -1259,7 +1259,7 @@ class Power_spec:
         if clab:
             cb.set_label(label=clab,fontsize=20)
         else:
-            cb.set_label(label=r'$P(k_\perp,k_{||}) \, [\rm{mK^2\,h^{-3}\,Mpc^3}]$',fontsize=20)
+            cb.set_label(label=r'$\rm{P(\mathbf{k})} \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=20)
         
         axs.set_xscale('log')
         axs.set_yscale('log')
@@ -1301,8 +1301,8 @@ class Power_spec:
         else:
             axs.set_ylim([0.01,np.max(kpar)])
 
-        axs.set_xlabel(r'$k_\perp \,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
-        axs.set_ylabel(r'$k_{||}\,[\rm{h\,Mpc^{-1}}]$',fontsize=20)
+        axs.set_xlabel(r'$k_\perp \,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=20)
+        axs.set_ylabel(r'$k_{||}\,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=20)
 
         # Setting the tick label fontsizes.
         axs.tick_params(axis='x', labelsize=18)
