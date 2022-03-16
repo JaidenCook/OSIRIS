@@ -11,8 +11,15 @@ This work aims to simulate the visibilities measured for interferometers, specif
 
 Pipeline usage is currently lacking documentation, if anyone actually wants to use this pipeline email me at Jaiden.cook@postgrad.curtin.edu.au.
 
+## Pipeline
+
 ![Pipeline-flow-chart](https://user-images.githubusercontent.com/43106834/158518789-ac0d5416-4f02-4ca0-a929-7b511b59f8a7.png)
 
+The pipeline scripts can be found in the directory ```./pipeline```. The main script ```SNR_pipeline.py``` is capable of running the entire pipeline, however, there is an option to provide the pipeline with a sky-model image cube. This is the preferred operating mode. The sky-model image cubes can be generated from ```SNR_sky-model.py```. This script takes an input OBSID which is the GPS time for a particular MWA observation. The GPS time is used to determine which sources in the sky-model are above the horizon. This script then constructs the sky-model image cube using the FITS file ```CenA-GP-gauss_model.fits``` which contains all the SNR and Centaurus A models. This script also has options for excluding known bright sources such as Centaurus A, Pupis A, Vela and the Crab nebula. Future versions of this script will allow users to input a particular model ID if the user wishes to exclude a particular source.
+
+Once the model is generated it can then be passed to ```SNR_pipeline.py``` which will then FFT, and average spherically and cylindrically to determine the 1D and 2D power spectrum. The power spectrum is output as a ```.npz``` file, this is a compressed ```numpy``` format. The 1D and 2D Power spectrum can then be read and plotted using the script ```SNR_Ratio_plot.py```. See ```--help``` on these scripts for more information about the available options.
+
+For questions on how to setup and run the pipeline please contact me at ```Jaiden.cook@postgrad.curtin.edu.au```.
 
 ## Supernova Remnant and Centaurus A Model
 
