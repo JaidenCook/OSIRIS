@@ -16,4 +16,12 @@ Pipeline usage is currently lacking documentation, if anyone actually wants to u
 
 ## Supernova Remnant and Centaurus A Model
 
-The FITS file containing the Gaussian component models for the SNRs and Centaurus A can be found in the ```./pipeline``` directory, where the file is named ```CenA-GP-gauss_model.fits```
+The FITS file containing the Gaussian component models for the SNRs and Centaurus A can be found in the ```./pipeline``` directory, where the file is named ```CenA-GP-gauss_model.fits```. The FITS file is a FITS table format, with the table columns being ```Name,RA,u_RA,DEC,u_DEC,Sint,u_Sint,Maj,u_Maj,Min,u_Min,PA,u_PA,alpha,ModelID```. For the ```Name``` columns is the same as the one from Greens catalogue which you can find here ```https://www.mrao.cam.ac.uk/surveys/snrs/```, with the exception of the CenA model components which are simply named 'cenA'. Each model has an associated ID which is stored in the ```ModelID``` column. This ID should match the ID given in greens catalogue, with the inclusion of 'cenA' which has the ID 295. Each row of the table represents a different Gaussian, where each Gaussian model component can be grouped by name or by their model ID. Therefore the Gaussian parameters for their centre, their size, their position angle and their amplitude are given by ```RA,DEC,Sint,Maj,Min,PA``` with their associated error columns designated by the prefix ```u_```.
+
+### Caveats Regarding the Model
+All flux densities are the expected 200 MHz flux density. For SNRs that were not fit, we simply used the existing Major, Minor SI and Sint from Green's catalogue. Green's catalogue does not provide a position angle for the elliptical sizes fo the Gaussians, so use these with Caution. These sources have PA=0. 
+
+The position angle for each component will likely need to be rotated, the Gaussian models were fit in pixel coordinates. Using the software ```Topcat``` I found that in order to get the correct rotation I had to apply this formula ```PA = 360 - (PA +90) = 270-PA```, this provides the correct rotation with respect to the celestial coordinate frame. 
+
+Some of the errors for the CenA model components are incorrect. This is true of the components which have the model ID 298, and 299. This corresponds to the outer lobes of Centaurus A. When fitting these lobes I rescaled and downsampled the images, I forgot to rescale the errors for the integrated flux density. To properly scale them they need to be divided by (19x19).
+
