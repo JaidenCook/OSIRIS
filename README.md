@@ -23,7 +23,7 @@ Once the model is generated it can then be passed to ```SNR_pipeline.py``` which
 Outputs file ```1080136736_all-sky_no-cenA.npz```.
 
 ### Example SNR_pipeline.py
-```python SNR_pipeline.py --obsid 1080136736 --sky_model "../models/file_name" --obs_length=10000 --beam_interp --no_wedge --kernel_size=91 --grid_kernel_size=91 --sigma_grid=4```
+```python SNR_pipeline.py --obsid 1080136736 --sky_model "../models/1080136736_all-sky_no-cenA.npz" --obs_length=10000 --beam_interp --no_wedge --kernel_size=91 --grid_kernel_size=91 --sigma_grid=4```
 
 Outputs file ```1080136736_all-sky_no-cenA_tobs10000_no-wedge.npz```
 
