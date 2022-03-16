@@ -10,3 +10,4 @@ This work aims to simulate the visibilities measured for interferometers, specif
 ### Note:
 
 Pipeline usage is currently lacking documentation, if anyone actually wants to use this pipeline email me at Jaiden.cook@postgrad.curtin.edu.au.
+![Pipeline-flow-chart](https://user-images.githubusercontent.com/43106834/158518559-ad75f574-b1a4-4a77-afb0-33d782fbfcab.png)
