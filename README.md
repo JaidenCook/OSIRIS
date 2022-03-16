@@ -10,4 +10,10 @@ This work aims to simulate the visibilities measured for interferometers, specif
 ### Note:
 
 Pipeline usage is currently lacking documentation, if anyone actually wants to use this pipeline email me at Jaiden.cook@postgrad.curtin.edu.au.
-![Pipeline-flow-chart](https://user-images.githubusercontent.com/43106834/158518559-ad75f574-b1a4-4a77-afb0-33d782fbfcab.png)
+
+![Pipeline-flow-chart](https://user-images.githubusercontent.com/43106834/158518789-ac0d5416-4f02-4ca0-a929-7b511b59f8a7.png)
+
+
+## Supernova Remnant and Centaurus A Model
+
+The FITS file containing the Gaussian component models for the SNRs and Centaurus A can be found in the ```./pipeline``` directory, where the file is named ```CenA-GP-gauss_model.fits```
