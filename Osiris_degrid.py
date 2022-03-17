@@ -151,7 +151,10 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
             kernel.calc_w_kernel(0.0,-u_off,-v_off)
 
         # Weighted average degridded visibilitiy.
-        vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)#/np.sum(kernel.w_kernel)
+        #vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
+
+        vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
+        vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
 
     #print(np.sum(temp_gauss_weights))
     #vis_deg = vis_deg/len(vis_deg)
@@ -247,8 +250,9 @@ class w_kernel():
         self.v_grid = v_grid
 
         # Setting and normalising the w-kernel.
-        self.w_kernel = w_kernel/np.sum(np.abs(w_kernel))
-        #self.w_kernel = w_kernel/np.abs(np.sum(w_kernel))
+        self.w_kernel = w_kernel
+        #self.w_kernel = w_kernel/np.sum(np.abs(w_kernel)) # 17/2/22
+        ##self.w_kernel = w_kernel/np.abs(np.sum(w_kernel)) # old
 
     def plot_kernel(self,ker='sky',real_cond=True,imag_cond=False,title=None,**kwargs):
         """
