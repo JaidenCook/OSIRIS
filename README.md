@@ -17,6 +17,8 @@ Once the model is generated it can then be passed to ```SNR_pipeline.py``` which
 
 ## Command Line Script Examples
 
+The pipeline scripts require the metafits files for a real observation. These can be downloaded from the MWA ASVO website ```https://asvo.mwatelescope.org/```. The metafits file is used to get the delays and the frequency channels for the observation. Alternatively in future versions these can be input parameters, or a single metafits file can be modified to have the desired MWA delays and frequency channels. 
+
 ### Example SNR_sky-model.py
 ```python SNR_sky-model.py --obsid 1080136736 --no_cenA --all_sky --save_plots --kernel_size 91```
 
