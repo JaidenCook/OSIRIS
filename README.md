@@ -20,7 +20,7 @@ Once the model is generated it can then be passed to ```SNR_pipeline.py``` which
 ### Example SNR_sky-model.py
 ```python SNR_sky-model.py --obsid 1080136736 --no_cenA --all_sky --save_plots --kernel_size 91```
 
-Outputs file ```1080136736_all-sky_no-cenA.npz```.
+Outputs file ```1080136736_all-sky_no-cenA.npz```. Adding the options ```--save_partial_models``` and ```--S_app``` will generate the approximate 10%, 50%, 90% and 100% apparent sky-model cubes.
 
 ### Example SNR_pipeline.py
 ```python SNR_pipeline.py --obsid 1080136736 --sky_model "../models/1080136736_all-sky_no-cenA.npz" --obs_length=10000 --beam_interp --no_wedge --kernel_size=91 --grid_kernel_size=91 --sigma_grid=4```
