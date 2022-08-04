@@ -78,7 +78,7 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
 
     return vis_deg
 
-def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
+def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False,skew_cond=False,w_ker_sample=None):
     """
     Visibility degridding function. Uses an input kernel, and uv point list to degrid
     visibilities.
@@ -100,6 +100,12 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
         w : numpy array, float
             Default value is None. If None no w-projection is performed. If a w_vec is given
             w-projection is performed. Must be the same shape as u and v.
+        phase_cond : bool
+            Applies phase offset for (u,v) coord difference between pixel grid.
+        skew_cond : bool
+            Default False. Used when calculating skew spectrum. Squares the sky-kernel.
+        w_ker_sample : int
+            Default None. If not none, and is an integer, save that degrid kernel. For testing purposes. 
         
 
         Returns
@@ -115,7 +121,7 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
 
     # Setting the kernel to w=0, this is the default for no w-projection. If w != None then
     # the w-kernel is calculated and overwritten in the for loop below.
-    kernel.calc_w_kernel(w=0.0)
+    kernel.calc_w_kernel(w=0.0,skew_cond=skew_cond)
 
     for i in range(len(u)):
     
@@ -145,16 +151,48 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False):
             # If vector of w values is given.
             # Calculating the w-kernel.
             #kernel.calc_w_kernel(w[i],u_off,v_off)
-            kernel.calc_w_kernel(w[i],-u_off,-v_off)
+            kernel.calc_w_kernel(w[i],-u_off,-v_off,skew_cond=skew_cond)
+
         else:
             #kernel.calc_w_kernel(0.0,u_off,v_off)
-            kernel.calc_w_kernel(0.0,-u_off,-v_off)
+            kernel.calc_w_kernel(0.0,-u_off,-v_off,skew_cond=skew_cond)
 
         # Weighted average degridded visibilitiy.
         #vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
 
-        vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
-        vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
+        #vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct. old as of 19/7/22
+        #vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
+
+        vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # Might not need to renormalise.
+        vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # 
+
+        # Don't need to save the sample.
+        w_ker_sample = None
+        if w_ker_sample != None:
+            # Saving a sample of the deridding kernel for testing purposes. 
+
+            w_ker_sample = int(w_ker_sample)
+
+            if w_ker_sample == i:
+
+                print('Saving degridding kernel w=%5.2f' % (w[i]))
+                # Save visibilities. Useful for testing purposes. 
+                out_path = '/home/jaiden/Documents/EoR/SNR-Pipeline/output/'
+                
+                import time
+                # Need a way to differentiate between visibilities for multiple runs.
+                # In the future this will be ammended to a more common sense name.
+                time_current = round(time.time())
+
+                name = 'degrid-ker-w{1}-{0}'.format(time_current,np.round(w[i],2))
+                np.savez_compressed(out_path + name, w_kernel = kernel.w_kernel)
+
+                print('Degridding kernel saved at %s.npz' % (out_path + name))
+            else:
+                pass
+        else:
+            pass
+
 
     #print(np.sum(temp_gauss_weights))
     #vis_deg = vis_deg/len(vis_deg)
@@ -203,7 +241,7 @@ class w_kernel():
         #beam_grid[r_grid < 1] = beam_grid[r_grid < 1]/self.n_grid[r_grid < 1]
         self.kernel = beam_grid
 
-    def calc_w_kernel(self,w,u_off=None,v_off=None):
+    def calc_w_kernel(self,w,u_off=None,v_off=None,skew_cond=False):
 
         from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
 
@@ -214,6 +252,12 @@ class w_kernel():
         ----------
         w : float
             Baseline w-coordinate.
+        u_off : float
+            Offset in u-coords/
+        v_off : float
+            Offset in v-coords
+        skew_cond : bool
+            Default False. Used when calculating skew spectrum. Squares the sky-kernel.
         
         Returns
         -------
@@ -230,11 +274,10 @@ class w_kernel():
         # Calculating the w-sky-kernel:
         if np.any(u_off) and np.any(v_off):
             # Account for the offsets in relation to the (u,v) grid.
-            offset_grid = np.exp(-2j*np.pi*(u_off*self.l_grid + v_off*self.m_grid))
+            offset_grid = np.exp(2j*np.pi*(u_off*self.l_grid + v_off*self.m_grid))
             #offset_grid = np.exp(-2j*np.pi*(v_off*self.l_grid + u_off*self.m_grid))
             # Calculating.
-            w_sky_ker = offset_grid*np.exp(-2j*np.pi*w*(self.n_grid - 1))*self.kernel
-            #w_sky_ker = offset_grid*self.kernel
+            w_sky_ker = offset_grid*np.exp(2j*np.pi*w*(self.n_grid - 1))*self.kernel
             #w_sky_ker = np.exp(-2j*np.pi*w*(self.n_grid - 1))*self.kernel
         else:
             # Default don't phase rotate relative to the offsets.
@@ -243,15 +286,20 @@ class w_kernel():
         self.w_sky_ker = w_sky_ker
 
         # FFT w-sky-kernel:
-        u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker,L,M,N)
+        if skew_cond:
+            # Skew spectrum squares the degridding kernel in image space. 
+            u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker**2,L,M,N)
+        else:
+            # Default Power spectrum degridding case
+            #u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker,L,M,N) # 20/7/22
+            u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker,L,M,N,norm='forward')
 
         # Setting attributes:
         self.u_grid = u_grid
         self.v_grid = v_grid
 
         # Setting and normalising the w-kernel.
-        self.w_kernel = w_kernel
-        #self.w_kernel = w_kernel/np.sum(np.abs(w_kernel)) # 17/2/22
+        self.w_kernel = w_kernel # 17/7/22 -- depreciated
         ##self.w_kernel = w_kernel/np.abs(np.sum(w_kernel)) # old
 
     def plot_kernel(self,ker='sky',real_cond=True,imag_cond=False,title=None,**kwargs):

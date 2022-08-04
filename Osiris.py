@@ -528,8 +528,7 @@ def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
     amp = 1/(2*np.pi*sig_u*sig_v)
     gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
 
-    # Normalising so the sum of the gaussian is equal to 1.
-    #gaussian = gaussian/np.sum(gaussian)
+    # Note that sum(gaussian)*dA = 1 thus sum(gaussian) = 1/dA.
 
     return gaussian
 
@@ -707,7 +706,7 @@ class Power_spec:
         del Four_sky_cube
     
     @staticmethod
-    def Power2Tb(dnu,dnu_f,nu_o,z,cosmo,verbose=True):
+    def Power2Tb(dnu,dnu_f,nu_o,z,cosmo,Omega_fov,verbose=True):
         """
         Calculate the conversion factor from Jy^2 Hz^2 to mK^2 Mpc^3 h^-3.
 
@@ -736,30 +735,17 @@ class Power_spec:
         kb = 1380.649 # [Jy m^2 Hz K^-1] Boltzmann's constant.
 
         # Constants.
-        lam_21 = 1000*c/nu_21 #[m]
-        #lam_o = 1000*c/self.nu_o #[m]
+        #lam_21 = 1000*c/nu_21 #[m]
         lam_o = 1000*c/nu_o #[m]
-        fov = 0.076 # [sr] field of view. Approximate.
+        #fov = 0.076 # [sr] field of view. Approximate.
         N_chans = dnu/dnu_f
 
-        if verbose:
-            print('Observed wavelength = %5.3f [m]' % lam_o)
-            print('Fine channel width = %5.3e' % dnu_f)
-        else:
-            pass
-        
         # Calculating the volume correction factor:
         window = signal.blackmanharris(int(dnu/dnu_f))
         Ceff = np.sum(window)/(dnu/dnu_f)
 
-        if verbose:
-            print('Volume correction factor = %5.3f' % (Ceff))
-        else:
-            pass
-
         # Cosmological scaling parameter:
         h = cosmo.H(0).value/100
-        #E_z = cosmo.efunc(self.z)
         E_z = cosmo.efunc(z)
 
         # Cosmological distances:
@@ -769,15 +755,15 @@ class Power_spec:
         # Volume term.
         co_vol = (1/Ceff)*(Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
 
-        if verbose:
-            print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
-        else:
-            pass
-
         # Converting a 1 Jy^2 source to mK^2 Mpc^3 h^-3.
-        conv_factor = (N_chans**2) * (lam_o**4/(4*kb**2)) * (1/(fov*dnu)) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
+        conv_factor = (N_chans**2) * (lam_o**4/(4*kb**2)) * (1/(Omega_fov*dnu)) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
 
         if verbose:
+            print('Bandwidth = %5.3f ' % dnu)
+            print('Volume correction factor = %5.3f' % (Ceff))
+            print('Observed wavelength = %5.3f [m]' % lam_o)
+            print('Fine channel width = %5.3e [Hz]' % dnu_f)
+            print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
             print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3 h^-3]' % conv_factor)
             print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3]' % (conv_factor*h**3))
         else:
@@ -882,7 +868,7 @@ class Power_spec:
         return wedge_factor
 
     def Spherical(self,wedge_cond=False,N_bins=60,log_bin_cond=False,kr_min=None,kr_max=None,
-                horizon_cond=True,wedge_cut=None,sig=None):
+                horizon_cond=True,wedge_cut=None,sig=2.5):
         """
         Calculates the 1D spherical power spectra using the input Power object.
                 
@@ -913,7 +899,7 @@ class Power_spec:
             # Condition for ignoring the wedge contribution to the power spectrum.
             
             if sig:
-                # If the grid kernel sixe (sig) provided calculate the FoV.
+                # If the grid kernel size (sig) provided calculate the FoV.
                 FWHM = 2*np.sqrt(2*np.log(2))/sig
                 fov = FWHM**2 # [rad**2]
 
@@ -1040,10 +1026,15 @@ class Power_spec:
         
         print('1D PS calctime = %5.3f s' % (end0-start0))
 
+        # Recalculating the field of view.
+        self.Omega_fov = (2*np.log(2))/(np.pi*(sig)**2) # Omega = 2 ln(2) / (pi* sig_grid^2) [Sr]
+
+        print('Field of view %5.4f [Sr]' % self.Omega_fov)
+
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo)
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
         self.Power1D = Power_spec1D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
         self.k_r = kr_vec
@@ -1107,7 +1098,7 @@ class Power_spec:
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo)
+        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
         # Assigning the power.
         self.Power2D = Power_spec2D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
@@ -1159,12 +1150,12 @@ class Power_spec:
         if xlabel:
             axs.set_xlabel(xlabel,fontsize=24)
         else:
-            axs.set_xlabel(r'$|\mathbf{k}| \,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=24)
+            axs.set_xlabel(r'$k \,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=24)
 
         if ylabel:
             axs.set_ylabel(ylabel,fontsize=24)
         else:
-            axs.set_ylabel(r'$\rm{P(\mathbf{k})} \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=24)
+            axs.set_ylabel(r'$P(k) \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=24)
 
         axs.tick_params(axis='x',labelsize=20)
         axs.tick_params(axis='y',labelsize=20)
@@ -1211,11 +1202,12 @@ class Power_spec:
         # Performing a rudimentary fov calculation:
         # Not 100% sure these are correct, but they create cuts similar to Trott et al 2020.
         sig = 4 # lambda
+        sig = 2 # lambda
         FWHM = 2*np.sqrt(2*np.log(2))/sig
         fov = FWHM**2 # rad**2
 
 
-        print(fov)
+        #print(fov)
 
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
 
@@ -1259,7 +1251,7 @@ class Power_spec:
         if clab:
             cb.set_label(label=clab,fontsize=20)
         else:
-            cb.set_label(label=r'$\rm{P(\mathbf{k})} \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=20)
+            cb.set_label(label=r'$\rm{P(k_\perp,k_{||})} \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=20)
         
         axs.set_xscale('log')
         axs.set_yscale('log')
@@ -1283,10 +1275,14 @@ class Power_spec:
         grad = 0.5*np.sqrt(fov)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
 
         if horizon_cond:
+            
+            line_width = 2.2
+
             # Illustrating the EoR window and horizon lines.
-            axs.plot([0.1/grad_max,np.max(kperp)],grad_max*np.array([0.1/grad_max,np.max(kperp)]),lw=3,c='k')
-            axs.plot([0.008,0.1/grad_max-0.0002839],[0.1,0.1],lw=3,c='k')
-            axs.plot(kperp,grad*kperp,lw=3,ls='--',c='k')
+            axs.plot([0.1/grad_max,0.1],grad_max*np.array([0.1/grad_max,0.1]),lw=line_width,c='k')
+            axs.plot([0.008,0.1/grad_max-0.0002839],[0.1,0.1],lw=line_width,c='k')
+            axs.plot([0.1,0.1],[grad_max*(0.1+0.002),1.78],lw=line_width,c='k')
+            axs.plot(kperp,grad*kperp,lw=line_width,ls='--',c='k')
         else:
             pass
 
@@ -1494,8 +1490,10 @@ class Skymodel:
         # Useful for specifying the minimum Gaussian sizes.
         # Small Gaussians should still be sampled by several pixels. This effectively
         # creates a psf.
-        self.dl = np.abs(l_vec[1]-l_vec[0])/2
-        self.dm = np.abs(m_vec[1]-m_vec[0])/2
+        #self.dl = np.abs(l_vec[1]-l_vec[0])/2 # Old as of 29/7/2022
+        self.dl = np.abs(l_vec[1]-l_vec[0])
+        #self.dm = np.abs(m_vec[1]-m_vec[0])/2
+        self.dm = np.abs(m_vec[1]-m_vec[0])
 
         # Creating the (l,m) plane grid:
         self.l_grid, self.m_grid = np.meshgrid(l_vec,m_vec)
@@ -1513,7 +1511,7 @@ class Skymodel:
         # Now we want to determine the Altitude and Azimuth, but only in the region where r <= 1. 
         # Outside this region isbeyond the boundary of the horizon.
         Alt_arr[self.ind_arr] = np.arccos(self.r_grid[self.ind_arr]) # Alt = arccos([l^2 + m^2]^(1/2))
-        Az_arr[self.ind_arr] = 2*np.pi -  (np.arctan2(self.l_grid[self.ind_arr],self.m_grid[self.ind_arr]) + np.pi) #arctan2() returns [-pi,pi] we want [0,2pi].
+        Az_arr[self.ind_arr] = 2*np.pi - (np.arctan2(self.l_grid[self.ind_arr],self.m_grid[self.ind_arr]) + np.pi) #arctan2() returns [-pi,pi] we want [0,2pi].
         #Az_arr[self.ind_arr] = np.arctan2(self.l_grid[self.ind_arr],self.m_grid[self.ind_arr]) + np.pi #arctan2() returns [-pi,pi] we want [0,2pi].
         
         # Defining the Altitude and Azimuthal grids.
@@ -1521,7 +1519,6 @@ class Skymodel:
         self.Az_grid = Az_arr
         
     
-
     def Gauss2D(self,Az,Zen,Sint,Az0,Zen0,theta_pa,amaj,bmin):
         """
         Generates 2D Gaussian array.
@@ -1577,18 +1574,22 @@ class Skymodel:
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
 
         # Checking to see if the new widths are smaller than the pixel sampling scale.
-        if sigx < self.dl:
+        #if sigx < self.dl: # Old as of 29/07/2022
+        if sigx < self.dl/2:
             # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
             # and the new sigma x.
-            sigx = np.sqrt(self.dl**2 + sigx**2)
+            #sigx = np.sqrt(self.dl**2 + sigx**2)
+            sigx = np.sqrt(0.25*self.dl**2 + sigx**2)
         else:
             pass
 
         # Checking to see if the new widths are smaller than the pixel sampling scale.
-        if sigy < self.dl:
+        #if sigy < self.dl: #Old as of 29/07/2022
+        if sigy < self.dl/2: #Old as of 29/07/2022
             # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
             # and the new sigma y.
-            sigy = np.sqrt(self.dl**2 + sigy**2)
+            #sigy = np.sqrt(self.dl**2 + sigy**2)
+            sigy = np.sqrt(0.25*self.dl**2 + sigy**2)
         else:
             pass
 
@@ -1733,6 +1734,8 @@ class Skymodel:
         self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
         #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
 
+        print('Source position (l,m) = (%5.2f,%5.2f)' % (self.l_mod,self.m_mod))
+
         # For the point source location.
         L = (np.max(self.l_vec) - np.min(self.l_vec))
 
@@ -1757,7 +1760,6 @@ class Skymodel:
                 l_ind, m_ind = find_closest_xy(self.l_mod,self.m_mod,self.l_vec,self.m_vec)
 
             # Setting point source value:
-            #self.model[m_ind, l_ind,:] = 1.0#/dA
             self.model[m_ind, l_ind,:] = S[i]/dA
 
             ## Set all NaNs and values below the horizon to zero:
@@ -1855,7 +1857,7 @@ class Skymodel:
             clab = clab
         else:
             # Default colour bar label.
-            clab = r'$I_{\rm{app}}\,[\rm{Jy/Str}]$'
+            clab = r'$I\,[\rm{Jy/Str}]$'
 
         # Setting the colour bars:
         if np.any(vmax) and np.any(vmin):

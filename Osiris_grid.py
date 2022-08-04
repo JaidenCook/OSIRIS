@@ -60,7 +60,7 @@ def grid_natural(grid_arr, u_coords, v_coords, vis, u_vec, v_vec):
 
 
 def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_grid, v_grid, \
-    u_vec, v_vec, kernel_size=7, sig_grid=0.5):
+    u_vec, v_vec, kernel_size=91, sig_grid=4):
     '''
     Natural and Gaussian kernel gridder. Will generalise in future.
 
@@ -87,13 +87,17 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_grid, v_grid, \
     weights_arr = np.zeros(np.shape(grid_arr))
 
     # Resolution required for both weighting cases.
-    #delta_u = np.abs(u_arr[0,1] - u_arr[0,0])
-    #delta_v = np.abs(v_arr[1,0] - v_arr[0,0])
+    #delta_u = np.abs(u_grid[0,1] - u_grid[0,0])
+    #delta_v = np.abs(v_grid[1,0] - v_grid[0,0])
 
-    # Converting to u,v coordinates.
-    # Remove this, sig_u = sig_grid.
-    sig_u = sig_grid #* delta_u # Size in u,v space.
-    sig_v = sig_grid #* delta_v
+    # sig_grid should already be in wavelengths.
+
+    # Optionally here we could specify sig_grid in terms of lambda, the conversion would be
+    # sig_grid_pix = sig_grid_lam / du.
+    sig_u = sig_grid #* delta_u, size in uv space pixels.
+    #sig_u = sig_grid*delta_u #* delta_u, size in uv space pixels.
+    sig_v = sig_grid #* delta_v, size in uv space pixels.
+    #sig_v = sig_grid*delta_v #* delta_v, size in uv space pixels.
 
     # Looping through each visibility.
     for i in np.arange(len(vis)):
@@ -125,11 +129,21 @@ def grid_gaussian(grid_arr, u_coords, v_coords, vis, u_grid, v_grid, \
     # Don't forget you need to divide by the sum of the weights in each cell.
     grid_arr[weights_arr > 0.0] = grid_arr[weights_arr > 0.0]/weights_arr[weights_arr > 0.0]
 
+    test_cond = False
+    if test_cond:
+        # Testing the grid kernel size.
+        name = 'gridding-kernel-sig-{0}-v2'.format(np.round(sig_grid,2))
+        out_path = '/home/jaiden/Documents/Skewspec/output/'
+        np.savez_compressed(out_path + name, grid_arr = temp_gauss_weights, u_temp_arr = u_temp_arr, \
+            v_temp_arr = v_temp_arr, u = u_coords[i], v = v_coords[i])
+    else:
+        pass
+
     return grid_arr, weights_arr
 
 
 def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
-    grid_arr_cube,vis_weights_cube,weighting='gaussian',kernel_size=7,sig_grid=0.5):
+    grid_arr_cube,vis_weights_cube,weighting='gaussian',kernel_size=91,sig_grid=4):
     '''
     Wrapper function for iteratively gridding visibility frequency slices.
 
