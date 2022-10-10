@@ -129,7 +129,10 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False,skew_cond
         # should line up with the kernel.
         if phase_cond:
             # Condition if phase offset is true.
-            u_ind, v_ind, u_off, v_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
+            #u_ind, v_ind, u_off, v_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
+            u_ind, v_ind, uv_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
+            u_off = uv_off[0] 
+            v_off = uv_off[1]
         else:
             # Default condition don't return the offsets.
             u_ind, v_ind = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec)
@@ -285,14 +288,8 @@ class w_kernel():
 
         self.w_sky_ker = w_sky_ker
 
-        # FFT w-sky-kernel:
-        if skew_cond:
-            # Skew spectrum squares the degridding kernel in image space. 
-            u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker**2,L,M,N)
-        else:
-            # Default Power spectrum degridding case
-            #u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker,L,M,N) # 20/7/22
-            u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker,L,M,N,norm='forward')
+        # Default Power spectrum degridding case
+        u_grid, v_grid, w_kernel = Osiris.Visibilities_2D(w_sky_ker,L,M,N,norm='forward')
 
         # Setting attributes:
         self.u_grid = u_grid
