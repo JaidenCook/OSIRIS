@@ -2,7 +2,7 @@
 
 __author__ = "Jaiden Cook, Jack Line"
 __credits__ = ["Jaiden Cook","Jack Line"]
-__version__ = "0.0.0"
+__version__ = "1.0.0"
 __maintainer__ = "Jaiden Cook"
 __email__ = "Jaiden.Cook@student.curtin.edu"
 
@@ -10,13 +10,7 @@ __email__ = "Jaiden.Cook@student.curtin.edu"
 #%matplotlib notebook
 import os,sys
 import time
-from datetime import datetime
-import glob
-import shutil
-import re
-from math import pi
 import warnings
-import subprocess
 warnings.filterwarnings("ignore")
 
 from tqdm import tqdm
@@ -28,7 +22,6 @@ warnings.simplefilter('ignore', np.RankWarning)
 # Plotting stuff:
 import matplotlib.pyplot as plt
 import matplotlib
-from mpl_toolkits.mplot3d import Axes3D
 
 plt.style.use('seaborn-white')
 plt.rcParams['mathtext.fontset'] = 'stix'
@@ -70,12 +63,31 @@ from mwa_pb import primary_beam as pb
 def mwa_alt_az_za(obsid, ra=None, dec=None, degrees=False):
     """
     Calculate the altitude, azumith and zenith for an obsid
-    Args:
-    obsid : The MWA observation id (GPS time)
-    ra : The right acension in HH:MM:SS
-    dec : The declintation in HH:MM:SS
-    degrees: If true the ra and dec is given in degrees (Default:False)
+    Parameters
+    ----------
+    obsid : float
+        The MWA observation id (GPS time)
+    ra : float 
+        The right acension in HH:MM:SS
+    dec : float
+        The declintation in HH:MM:SS
+    degrees : Bool 
+        If true the ra and dec is given in degrees (Default:False)
+    
+    Returns
+    -------
+    Alt : float
+        Altitude angle in radians or degrees.
+    Az : float
+        Azimuth angle in radians or degrees.
+    Za : float
+        Zenith angle in radians or degrees.
     """
+
+    #
+    ## This function should be moved to the MWA_array class as a static function
+    #
+
     from astropy.time import Time
     from astropy.coordinates import SkyCoord, AltAz, EarthLocation
     from astropy import units as u
@@ -86,19 +98,51 @@ def mwa_alt_az_za(obsid, ra=None, dec=None, degrees=False):
         sky_posn = SkyCoord(ra, dec, unit=(u.deg,u.deg))
     else:
         sky_posn = SkyCoord(ra, dec, unit=(u.hourangle,u.deg))
+    
     earth_location = EarthLocation.of_site('Murchison Widefield Array')
+    # Manual coordinates for MWA location.
     #earth_location = EarthLocation.from_geodetic(lon="116:40:14.93", lat="-26:42:11.95", height=377.8)
+    
     altaz = sky_posn.transform_to(AltAz(obstime=obstime, location=earth_location))
+    
     Alt = altaz.alt.deg
     Az = altaz.az.deg
     Za = 90. - Alt
     return Alt, Az, Za
        
 def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
-    
+    """
+    Generates 2D Gaussian array.
+
+    Parameters
+    ----------
+    x : numpy array, float
+        2D cartesian or azimuth numpy array. [rad]
+    y : numpy array, float
+        2D cartesian or zenith numpy array. [rad]
+    x0 : numpy array, float
+        Cartesian or Azimuth angle of the Gaussian centre. [rad]
+    y0 : numpy array, float
+        Cartesian or Zenith angle of the centre of the Gaussian. [rad]
+    amaj : numpy array, float
+        Gaussian major axis. [deg]
+    bmin : numpy array, float
+        Gaussian minor axis. [deg]
+    theta : numpy array, float
+        Gaussian position angle. [rad]
+    Sint : numpy array, float
+        Source integrated flux density.
+
+    Returns
+    -------
+    2D Gaussian array.
+    """
+    ###
+    ### This should be removed in favour of the sky-model version
+    ### Keep this might be used in modelling of sources. 
+
     # By definition the semi-major axis is larger than the semi-minor axis:
     
-
     # Defining the width of the Gaussians
     sigx = amaj/(2.0*np.sqrt(2.0*np.log(2.0)))
     sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
@@ -121,20 +165,16 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         # Az,Zen,A,Az0,Zen0,theta,amaj,bmin
     
         # General 2D Gaussian function.
-        # Stereographic projection.
         # 
         # https://www.aanda.org/articles/aa/full/2002/45/aah3860/node5.html
         #
-        # Gaussians that exist in Spherical space are plotted onto a 2D surface.
     
         # A*exp(-(a*(x-x0)^2 + 2*b*(x-x0)*(y-y0) + c*(y-y0)^2))
         #
-        # r = 2*sin(Zen)/(1 + cos(Zen))
+        # x = sin(Zen)*cos(Az) - sin(Zen0)*cos(Az0)
+        # y = -sin(Zen)*sin(Az) + sin(Zen0)*sin(Az0)
         #
-        # x = 2*cos(Az)*sin(Zen)/(1 + cos(Zen))
-        # y = 2*sin(Az)*sin(Zen)/(1 + cos(Zen))
-        #
-        # Zen in [0,pi]
+        # Zen in [0,pi/2]
         # Az in [0,2pi]
     
 
@@ -146,9 +186,9 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         Az0 = x0
         Zen0 = y0
         theta_pa = theta
-        
 
-        
+        # In the polar case the size of the Gaussian changes depending on zen0 and theta.
+        # This calculates an approximation of the new size. See Cook et al (2022).        
         sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
 
@@ -162,9 +202,7 @@ def Gauss2D(X,Y,A,x0,y0,theta,amaj,bmin,polar=False):
         # Deriving the peak amplitude from the integrated amplitude.
         Amplitude = A/(sigx*sigy*2*np.pi)
 
-
         x_shft = np.sin(Zen)*np.cos(Az) - np.sin(Zen0)*np.cos(Az0)
-
         y_shft = -np.sin(Zen)*np.sin(Az) + np.sin(Zen0)*np.sin(Az0)
 
     
@@ -198,7 +236,7 @@ def Poly_func2D_nu(data_tuple,*a):
             
     return zz.ravel()
 
-def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',figsize = (14,12),\
+def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',figsize = (7,7),\
     figaxs=None, xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,\
     clim=None,vmin=None,vmax=None,contours=None,**kwargs):
     """
@@ -322,12 +360,33 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
         # Option for saving figure.
         plt.savefig('{0}'.format(title))
     else:
-        plt.show()
+        pass
+        #plt.show()
 
-def Plot_3D(X_arr,Y_arr,Z_arr,cmap='jet'):
+def Plot_3D(X_arr,Y_arr,Z_arr,cmap='viridis',figsize=(7,7)):
+    """
+    Generates a 3D plot from an input (x,y) meshgrid, with a corresponding
+    z-grid array. Default colourmap is 'viridis'.
+    
+    Parameters
+    ----------
+    X_arr : numpy array
+        2D grid array of x values.
+    Y_arr : numpy array
+        2D grid array of y values.
+    Z_arr : numpy array
+        2D grid array of z values.
+    cmap : string
+        Name of the colour map. Must meet matplotlib requirements.
+    figsize : tuple
+        Figure size, default is (7,7).
 
+    Returns
+    -------
+    None
+    """
     fontsize=24
-    fig = plt.figure(figsize = (12,10), dpi=75)
+    fig = plt.figure(figsize = figsize, dpi=75)
     ax = fig.gca(projection='3d')
 
     # Plot the surface.
@@ -342,7 +401,7 @@ def Plot_3D(X_arr,Y_arr,Z_arr,cmap='jet'):
     
     plt.show()
     
-def Plot_visibilites(Vis,N,u_vec,v_vec,cmap='viridis',lognorm=True,figsize = (14,12)):
+def Plot_visibilites(Vis,u_vec,v_vec,cmap='viridis',lognorm=True,figsize = (7,7)):
     """
     Visibilities diagnostic plot. Plots the visibilities amplitude, the real and 
     imaginary values, and the phase for the uv-plane.
@@ -521,6 +580,9 @@ def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
         2D Gaussian weights array.
 
     '''
+    ##
+    ## Move this to Osiris_grid.py. Makes more sense to be there. 
+    ##
 
     u_bit = (u_arr - u_cent)/sig_u
     v_bit = (v_arr - v_cent)/sig_v
@@ -529,27 +591,9 @@ def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
     gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
 
     # Note that sum(gaussian)*dA = 1 thus sum(gaussian) = 1/dA.
+    # The integral of Gaussian is what is equal to 1. int ~ sum*dA
 
     return gaussian
-
-def get_lm(ra=None,ra0=None,dec=None,dec0=None):
-    '''Calculate l,m,n for a given phase centre ra0,dec0 and sky point ra,dec
-    Enter angles in radians
-    
-    Author: J.Line
-    '''
-
-    ##RTS way of doing it
-    cdec0 = np.cos(dec0)
-    sdec0 = np.sin(dec0)
-    cdec = np.cos(dec)
-    sdec = np.sin(dec)
-    cdra = np.cos(ra-ra0)
-    sdra = np.sin(ra-ra0)
-    l = cdec*sdra
-    m = sdec*cdec0 - cdec*sdec0*cdra
-    n = sdec*sdec0 + cdec*cdec0*cdra
-    return l,m,n
 
 def find_closest_xy(x,y,x_vec,y_vec,off_cond=False):
     '''
@@ -573,54 +617,39 @@ def find_closest_xy(x,y,x_vec,y_vec,off_cond=False):
     Author : J. Line
     Modified by J. Cook
     '''
-    x_resolution = np.abs(x_vec[1] - x_vec[0])
-    y_resolution = np.abs(y_vec[1] - y_vec[0])
     
     ##Find the difference between the gridded u coords and the desired u
     x_offs = np.abs(x_vec - x)
-
-    ##Find out where in the gridded u coords the current u lives;
-    ##This is a boolean array of length len(u_offs)
-    x_true = x_offs < x_resolution/2.0
-    
-    ##Find the index so we can access the correct entry in the container
-    x_ind = np.where(x_true == True)[0]
-
-    ##Use the numpy abs because it's faster (np_abs)
     y_offs = np.abs(y_vec - y)
-    y_true = y_offs < y_resolution/2.0
-    y_ind = np.where(y_true == True)[0]
 
-    ##If the u or v coord sits directly between two grid points,
-    ##just choose the first one ##TODO choose smaller offset?
-    if len(x_ind) == 0:
-        x_true = x_offs <= x_resolution/2
-        x_ind = np.where(x_true == True)[0]
-        #print('here')
-        #print(u_range.min())
-    if len(y_ind) == 0:
-        y_true = y_offs <= y_resolution/2
-        y_ind = np.where(y_true == True)[0]
-    # print(u,v)
-    x_ind, y_ind = x_ind[0], y_ind[0]
-    #x_ind, y_ind = x_ind, y_ind
+    x_res = np.abs(x_vec[1]-x_vec[0])
+
+    x_ind = np.argmin(x_offs)
+    y_ind = np.argmin(y_offs)
+
+    if np.any(x_offs[x_ind] > x_res/2) or np.any(y_offs[y_ind] > x_res/2):
+
+        print('x and y coords out of axis bounds.')
+
+        if off_cond:
+            return None,None,None
+        else:
+            return None,None
 
     if off_cond:
         # Offset condition, if true return the offsets alongside the indices.
-        x_offs = x_vec - x
-        y_offs = y_vec - y
+        x_offs = x - x_vec[x_ind] 
+        y_offs = y - y_vec[y_ind]
 
-        # Offsets need to be multiplied by negative one to phase shift in the correct direction.
-        x_offs = -1*x_offs[x_ind]
-        y_offs = -1*y_offs[y_ind]
-
-        return x_ind, y_ind, x_offs, y_offs
+        return x_ind, y_ind, (x_offs, y_offs)
     else:
         # Default condition don't return the offsets.
         return x_ind,y_ind
 
 ### Defining classes. Split this up into different module files.\
 
+# This class is now defunct and has been moved to Osiris_spec.py. This is kept here for legacy code purposes. 
+# Remove this in the future.
 class Power_spec:
     """
     This class defines the different power spectrums. It allows for the calculation of the cylindrical and the
@@ -1455,8 +1484,7 @@ class MWA_uv:
 
         plt.show()
 
-class Skymodel:
-    
+class Skymodel: 
     """
     Creates a sky-model class object which can be used to calculate MWA observation visibilities.
 
