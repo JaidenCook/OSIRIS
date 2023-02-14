@@ -782,13 +782,13 @@ class Power_spec:
         else:
             fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
-    if scale != 1:
-        # If scale is not default, rescale the figure size.
-        (figx,figy) = figsize
-        figx *= scale
-        figy *= scale
+        if scale != 1:
+            # If scale is not default, rescale the figure size.            
+            figx = fig.get_figheight()*scale
+            figy = fig.get_figwidth()*scale
 
-        figsize = (figx,figy)
+            fig.set_figheight(figx)
+            fig.set_figwidth(figy)
 
         plt.loglog()
 
