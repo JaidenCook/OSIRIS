@@ -276,22 +276,24 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         size = FWHM/0.3432
 
         # Kernel size is smaller for BH.
-        kernel_size_nu = int(np.ceil(size)/du) # 11 if FWHM/du = 12.
+        window_size = int(np.ceil(size)/du) # 11 if FWHM/du = 12.
         
-        if (kernel_size_nu%2) == 0:
-            kernel_size_nu += 1
+        if (window_size%2) == 0:
+            window_size += 1
 
         #print(kernel_size_nu)
         #print(f'Gaussian radius = {sig:5.3f} [lam]')
         #print(f'FWHM = {FWHM:5.3f} [lam]')
 
-        if kernel_size_nu > kernel_size:
+        if window_size > kernel_size:
             # In the event the output Blackman-Harris kernel is larger than the 
             # original input kernel.
-            pass
+            err_str = f'BH window has size {window_size} which is greater than' +\
+                f' the padded size {kernel_size}. \nMake {kernel_size} larger e.g 91'
+            raise ValueError(err_str)
         else:
             # If the Blackman-Harris kernel is not larger change the kernel size.
-            kernel_size = kernel_size_nu
+            kernel_size = window_size
 
     elif kernel == 'natural':
         # Natural weight cube.
@@ -477,7 +479,18 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
     v_vec = v_grid[:,0]
 
     import sys
-    test_cond = False
+    
+    # Add option for multi-frequency sigma_grid.
+    try:
+        # If the sig_grid parameter is a vector.
+        sig_grid.shape
+        #shape_tup = sig_grid.shape
+    except AttributeError:
+        # If no vector given create one which just contains
+        # the default sigma parameter.
+        sig_grid = np.ones(N_iter)*sig_grid
+
+
 
     for i in range(N_iter):
         #Looping through each frequency channel.
@@ -497,10 +510,11 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
         u_coords = u_coords_arr[:Nvis_tmp,i]
         v_coords = v_coords_arr[:Nvis_tmp,i]
         vis_vec = vis_arr[:Nvis_tmp,i]
+        sig_u = sig_grid[i]
 
         #grid_gaussian(grid_arr, u_coords, v_coords, vis, u_vec, v_vec)
         grid_arr_cube[:,:,i],vis_weights_cube[:,:,i] = grid(grid_arr_cube[:,:,i], \
             u_coords, v_coords, vis_vec, u_vec, v_vec, \
-            kernel_size=kernel_size, sig_grid=sig_grid, kernel=weighting)
+            kernel_size=kernel_size, sig_grid=sig_u, kernel=weighting)
 
     return grid_arr_cube, vis_weights_cube
