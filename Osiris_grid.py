@@ -10,7 +10,7 @@ __email__ = "Jaiden.Cook@student.curtin.edu"
 import numpy as np
 import Osiris
 
-def sigma_grid_calc(freq,D=4,epsilon=0.42):
+def sigma_grid_calc(freq,D=4,epsilon=0.42,radian_cond=False):
     """
     Calculate the expected Gaussian grid kernel size. The beam
     can be approximated by sigma_b = (epsilon*c)/(freq*D). The Fourier grid
@@ -25,6 +25,9 @@ def sigma_grid_calc(freq,D=4,epsilon=0.42):
             Diameter of the MWA tile in meters.
         epsilon : float, default=0.42
             Scaling factor from Airy disk to a Gaussian (Nasirudin et al. 2020).
+        radian_cond : bool, default=False
+            If true return the Fourier inverse sigma. That is the beam size in 
+            direction cosines as projected onto the (l,m) plane. 
         
         Returns
         -------
@@ -36,7 +39,17 @@ def sigma_grid_calc(freq,D=4,epsilon=0.42):
     # Calculating the wavelength(s).
     lam = c/freq
 
-    return D/(epsilon*np.pi*lam)
+    # The approximate beam size can be calculated by epsilon*lam/D 
+    # or 1/(pi*sigma_u). 
+
+    if radian_cond:
+        # Direction cosine beam width.
+        sigma = (epsilon*lam)/D
+    else:
+        # (u,v) grid beam width.
+        sigma = D/(epsilon*np.pi*lam)
+
+    return sigma
 
 def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None,*args):
     """
@@ -489,14 +502,5 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
         grid_arr_cube[:,:,i],vis_weights_cube[:,:,i] = grid(grid_arr_cube[:,:,i], \
             u_coords, v_coords, vis_vec, u_vec, v_vec, \
             kernel_size=kernel_size, sig_grid=sig_grid, kernel=weighting)
-        
-        if i == 0 and test_cond:
-            # Testing the weight outputs.
-            name = 'Gauss-slice-ntime_step-test-nt8'
-            out_path = '/home/jaiden/Documents/Skewspec/output/'
-            np.savez_compressed(out_path + name, grid_slice = grid_arr_cube[:,:,i],
-                weights_slice=vis_weights_cube[:,:,i])
-            print(np.sum(grid_arr_cube[:,:,i].real),np.sum(grid_arr_cube[:,:,i].imag))
-
 
     return grid_arr_cube, vis_weights_cube
