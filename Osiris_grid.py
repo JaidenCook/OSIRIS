@@ -10,7 +10,7 @@ __email__ = "Jaiden.Cook@student.curtin.edu"
 import numpy as np
 import Osiris
 
-def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec):
+def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None,*args):
     """
     Generate A generic 2D Gassian kernel. For gridding and weighting purposes. If
     du_vec is a vector and not a float, then this function returns a cube of Gaussian
@@ -43,20 +43,42 @@ def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec):
 
         u_bit = (u_arr[:,:,None] - du_vec[None,None,:])/sig
         v_bit = (v_arr[:,:,None] - dv_vec[None,None,:])/sig
+
+        #u_bit = (u_arr[:,:,None] - du_vec[None,None,:])
+        #v_bit = (v_arr[:,:,None] - dv_vec[None,None,:])
     except AttributeError:
         # Defualt case where this is only one offset.
         u_bit = (u_arr - du_vec)/sig
         v_bit = (v_arr - dv_vec)/sig
 
-    amp = 1/(2*np.pi*sig**2)
-    gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
+        #u_bit = (u_arr - du_vec)
+        #v_bit = (v_arr - dv_vec)
+
+    #amp = 1/(2*np.pi*sig**2)
+    #gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
+
+    # Fourier inverse of the sig=sig_u. This is the beam size.
+    sig_beam = 1/(np.pi * sig)
+
+    # Defined as the Fourier transform of a Gaussian fit to the Beam.
+    amp = np.sqrt(np.pi)*sig_beam**2 # should be around 0.05
+    gaussian = amp*np.exp(-(u_bit**2 + v_bit**2))
 
     # Note that sum(gaussian)*dA = 1 thus sum(gaussian) = 1/dA.
     # The integral of Gaussian is what is equal to 1. int ~ sum*dA
 
+    # Setting thing greater than 2.5sig to zero.
+    r_bit = np.sqrt(u_bit**2 + v_bit**2)
+    gaussian[r_bit > 2.5*sig] = 0
+
+    resolution = np.abs(u_arr[0,0]-u_arr[0,1])
+
+    gaussian = (1/resolution**2)*gaussian/np.sum(gaussian,axis=(0,1))
+
     return gaussian
 
-def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec):
+
+def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
     """
     This function calculates the blackmann-harris kernel shifted relative to some
     dx value. We measure in x values, which corresponde to some grid, which should
@@ -76,6 +98,8 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec):
         dv_vec : numpy array, float
             float or array of grid y offset values.
             grid kernel size
+        method : str
+            Can be radial or square. 
 
         Returns
         -------
@@ -87,6 +111,16 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec):
     a1 = 0.48829
     a2 = 0.14128
     a3 = 0.01168
+
+    def blackman_harris1D(x,X,dx):
+
+        X_shift = (x - dx + X*0.5)*2*np.pi/X
+        window1D = a0 - a1*np.cos(X_shift) + a2*np.cos(2*X_shift) - a3*np.cos(3*X_shift)
+
+        # Should be zero otherwise the kernel repeats.
+        window1D[np.abs(x) > X/2] = 0
+
+        return window1D
 
     resolution = np.abs(u_arr[0,0]-u_arr[0,1])
 
@@ -102,14 +136,47 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec):
         # Defualt case where this is only one offset.
         r_arr_shift = np.sqrt((u_arr-du_vec)**2 + (v_arr-dv_vec)**2)
 
-    # Shifted x values.    
-    r_prime = (r_arr_shift + L*0.5)*2*np.pi/L
+        if method == 'square':
+            # Stops the square method from breaking. Single value turned into 
+            # numpy array. Makes it iterable.
+            du_vec = np.array([du_vec])
+            dv_vec = np.array([dv_vec])
 
-    # Kernel.
-    kernel2D = a0 - a1*np.cos(r_prime) + a2*np.cos(2*r_prime) - a3*np.cos(3*r_prime)
+    if method == 'radial':
+
+        # Shifted x values.    
+        r_prime = (r_arr_shift + L*0.5)*2*np.pi/L
+
+        # Kernel.
+        kernel2D = a0 - a1*np.cos(r_prime) + a2*np.cos(2*r_prime) - a3*np.cos(3*r_prime)
+        
+    elif method == 'square':
+        # uvec and vvec
+        u_vec = u_arr[0,:]
+        v_vec = v_arr[:,0]
+        
+        # Radius factor attempts to account for the kernel size increase due to 
+        # the square shape. Might adjust in future to match area of a Gaussian beam.
+        radius_factor = 1
+        #radius_factor = 2
+        #radius_factor = np.sqrt(2)
+
+        window_vec_u_2D = np.array([blackman_harris1D(u_vec,L/radius_factor,dx) for dx in du_vec]).T
+        window_vec_v_2D = np.array([blackman_harris1D(v_vec,L/radius_factor,dy) for dy in dv_vec]).T
+
+        # Einstein notation used to perform outer product for 3 axes.
+        kernel2D = np.einsum('j...,i...',window_vec_u_2D,window_vec_v_2D).T
+
+        # Values outside the kernel should be set to 0.
+    else:
+        print('Input wrong method, default is "radial", alternative is "square".')
+        return None
 
     # Values outside the kernel should be set to 0.
-    kernel2D[r_arr_shift > L/2] = 0.0
+    #dist_factor = 0.3432
+    dist_factor = 1/2
+    #print(np.max(r_arr_shift),L,dist_factor*L)
+    kernel2D[r_arr_shift > dist_factor*L] = 0.0
 
     # Normalising so the weight integral is 1.
     kernel2D = (1/resolution**2)*kernel2D/np.sum(kernel2D,axis=(0,1))
@@ -117,7 +184,7 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec):
     return kernel2D
 
 def calc_weights_cube(u_shift_vec,v_shift_vec,du,
-        sig=2.16,kernel_size=51,kernel='gaussian'):
+        sig=2.41,kernel_size=51,kernel='gaussian'):
     """
     This function calculates the weight kernel for each input visiblity.
     The output is a weights cube, where each slice is the gridding kernel
@@ -160,8 +227,11 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         # Blackman-Harris weights cube function.
         func = blackman_harris2D # Assigning function namespace.
 
+        sig_nu = sig/np.sqrt(2)
+
         # Gaussian FWHM, used to determine Blackman-Harris size.
-        FWHM = 2*np.sqrt(2*np.log(2))*sig
+        #FWHM = 2*np.sqrt(2*np.log(2))*sig
+        FWHM = 2*np.sqrt(2*np.log(2))*sig_nu # For Gauss with width sig not root(2)sig.
 
         # L is the 1D length of the kernel.
         # 0.3432 is the ratio of the FWHM to the total Blackman-Harris
@@ -170,7 +240,15 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         size = FWHM/0.3432
 
         # Kernel size is smaller for BH.
-        kernel_size_nu = int(np.floor(size)/du +1) # 11 if FWHM/du = 12.
+        #kernel_size_nu = int(np.floor(size)/du +1) # 11 if FWHM/du = 12.
+        kernel_size_nu = int(np.ceil(size)/du) # 11 if FWHM/du = 12.
+        
+        if (kernel_size_nu%2) == 0:
+            kernel_size_nu += 1
+
+        #print(kernel_size_nu)
+        #print(f'Gaussian radius = {sig:5.3f} [lam]')
+        #print(f'FWHM = {FWHM:5.3f} [lam]')
 
         if kernel_size_nu > kernel_size:
             # In the event the output Blackman-Harris kernel is larger than the 
@@ -192,7 +270,8 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
 
         return None,None,None
 
-    # Origin centred u and v vectors.
+    # Origin centred u and v vectors.)
+    
     u_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
     v_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
 
@@ -200,15 +279,14 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
     u_temp_arr, v_temp_arr = np.meshgrid(u_vec_O,v_vec_O)
 
     # Calculate the weights cube.
-    weights_cube = func(u_temp_arr, v_temp_arr, size, u_shift_vec, v_shift_vec)
-    #const = 1
-    #weights_cube = func(u_temp_arr, v_temp_arr, size/const, u_shift_vec, v_shift_vec)
+    weights_cube = func(u_temp_arr,v_temp_arr,size,u_shift_vec,v_shift_vec,method='square')
+    #weights_cube = func(u_temp_arr,v_temp_arr,size,u_shift_vec,v_shift_vec,method='radial')
 
     return weights_cube
 
 
 def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec, 
-        kernel_size=51, sig_grid=2.16, kernel='gaussian',test_cond=False):
+        kernel_size=51, sig_grid=2.41, kernel='gaussian',test_cond=False):
     """
     Gaussian and Blackman-Harris kernel gridder. 
 
@@ -323,7 +401,7 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
 
 
 def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
-    grid_arr_cube,vis_weights_cube,weighting='gaussian',kernel_size=51,sig_grid=2.16):
+    grid_arr_cube,vis_weights_cube,weighting='gaussian',kernel_size=51,sig_grid=2.41):
     '''
     Wrapper function for iteratively gridding visibility frequency slices.
 
