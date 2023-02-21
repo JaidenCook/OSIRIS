@@ -10,6 +10,34 @@ __email__ = "Jaiden.Cook@student.curtin.edu"
 import numpy as np
 import Osiris
 
+def sigma_grid_calc(freq,D=4,epsilon=0.42):
+    """
+    Calculate the expected Gaussian grid kernel size. The beam
+    can be approximated by sigma_b = (epsilon*c)/(freq*D). The Fourier grid
+    kernel sigma_u = 1/(pi*sigma_b). Substituting in sigma_b yields sigma_u.
+    We can use this grid size to calculate the Blackman-Harris window sizes.
+
+        Parameters
+        ----------
+        freq : numpy array, float
+            Vector of frequencies, or a single frequency value in Hz.
+        D : float, default=4
+            Diameter of the MWA tile in meters.
+        epsilon : float, default=0.42
+            Scaling factor from Airy disk to a Gaussian (Nasirudin et al. 2020).
+        
+        Returns
+        -------
+        Sigma_u for a Gaussian kernel. Can return a single or numpy array.
+    """
+    
+    c = 3e8 # m s^-1
+    
+    # Calculating the wavelength(s).
+    lam = c/freq
+
+    return D/(epsilon*np.pi*lam)
+
 def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None,*args):
     """
     Generate A generic 2D Gassian kernel. For gridding and weighting purposes. If
@@ -158,9 +186,6 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
         # Radius factor attempts to account for the kernel size increase due to 
         # the square shape. Might adjust in future to match area of a Gaussian beam.
         radius_factor = 1
-        #radius_factor = 2
-        #radius_factor = np.sqrt(2)
-
         window_vec_u_2D = np.array([blackman_harris1D(u_vec,L/radius_factor,dx) for dx in du_vec]).T
         window_vec_v_2D = np.array([blackman_harris1D(v_vec,L/radius_factor,dy) for dy in dv_vec]).T
 
@@ -173,9 +198,7 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
         return None
 
     # Values outside the kernel should be set to 0.
-    #dist_factor = 0.3432
     dist_factor = 1/2
-    #print(np.max(r_arr_shift),L,dist_factor*L)
     kernel2D[r_arr_shift > dist_factor*L] = 0.0
 
     # Normalising so the weight integral is 1.
@@ -240,7 +263,6 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         size = FWHM/0.3432
 
         # Kernel size is smaller for BH.
-        #kernel_size_nu = int(np.floor(size)/du +1) # 11 if FWHM/du = 12.
         kernel_size_nu = int(np.ceil(size)/du) # 11 if FWHM/du = 12.
         
         if (kernel_size_nu%2) == 0:
