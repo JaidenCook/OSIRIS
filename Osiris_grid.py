@@ -207,9 +207,9 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
 
         # Values outside the kernel should be set to 0.
     else:
-        print('Input wrong method, default is "radial", alternative is "square".')
-        return None
-
+        err_str = 'Input wrong method, default is "radial", alternative is "square".'
+        raise ValueError(err_str)
+        
     # Values outside the kernel should be set to 0.
     dist_factor = 1/2
     kernel2D[r_arr_shift > dist_factor*L] = 0.0
