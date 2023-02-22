@@ -330,7 +330,7 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
 
 
 def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec, 
-        kernel_size=51, sig_grid=2.41, kernel='gaussian',test_cond=False):
+        kernel_size=91, sig_grid=1.843, kernel='gaussian',test_cond=False):
     """
     Gaussian and Blackman-Harris kernel gridder. 
 
@@ -382,6 +382,10 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
     weights_cube = calc_weights_cube(u_shift_vec,v_shift_vec,delta_u,sig_u,
                 kernel_size=kernel_size,kernel=kernel)
     
+    # Kernel size is now determined on the fly. The old kernel size is now an array
+    # pad size. This will be fixed and the name changed to pad_number. Additionally
+    # the kernel_size should more accurately be called the kernel_window_size or
+    # just the window_size.
     # Some weighting schemes (Blackman-Harris) change the number of kernel pixels.
     kernel_size = weights_cube.shape[0]
 
@@ -422,7 +426,7 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
     
     if test_cond:
         # Testing the grid kernel size.
-        name = 'gridding-kernel-sig-{0}-v2'.format(np.round(sig_grid,2))
+        name = f'gridding-kernel-sig-{sig_grid:5.2f}-v2'
         out_path = '/home/jaiden/Documents/Skewspec/output/'
         np.savez_compressed(out_path + name, grid_arr = temp_weights, du = delta_u, \
             u = u_coords[i], v = v_coords[i])
@@ -468,7 +472,6 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
             3D cube of gridded weightes. 
     '''
     # Number of iterations.
-    #N_iter = len(u_coords_list)
     N_iter = u_coords_arr.shape[1]
     u_vec = u_grid[0,:]
     v_vec = v_grid[:,0]
@@ -493,11 +496,11 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
 
         # Progress bar:
         if (i+1) % 10 == 0:
-            sys.stdout.write("\rChannels processed: {0}/{1}".format((i+1),N_iter))
+            sys.stdout.write(f"\rChannels processed: {i+1}/{N_iter}".format((i+1),N_iter))
             sys.stdout.flush()
         elif (i+1) == N_iter:
             # Last iteration.
-            sys.stdout.write("\rChannels processed: {0}/{0}\n".format(N_iter))
+            sys.stdout.write(f"\rChannels processed: {N_iter}/{N_iter}\n")
             sys.stdout.flush()
         else:
             pass
