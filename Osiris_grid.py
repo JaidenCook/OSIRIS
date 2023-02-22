@@ -259,10 +259,13 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         func = gaussian_kernel # Assigning function namespace.
 
         size = sig
+
+        window_size = np.ceil(2*3*sig/du)
     elif kernel == 'blackman-harris':
         # Blackman-Harris weights cube function.
         func = blackman_harris2D # Assigning function namespace.
 
+        # Gaussian kernel redefined.
         sig_nu = sig/np.sqrt(2)
 
         # Gaussian FWHM, used to determine Blackman-Harris size.
@@ -277,23 +280,10 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
 
         # Kernel size is smaller for BH.
         window_size = int(np.ceil(size)/du) # 11 if FWHM/du = 12.
-        
-        if (window_size%2) == 0:
-            window_size += 1
 
         #print(kernel_size_nu)
         #print(f'Gaussian radius = {sig:5.3f} [lam]')
         #print(f'FWHM = {FWHM:5.3f} [lam]')
-
-        if window_size > kernel_size:
-            # In the event the output Blackman-Harris kernel is larger than the 
-            # original input kernel.
-            err_str = f'BH window has size {window_size} which is greater than' +\
-                f' the padded size {kernel_size}. \nMake {kernel_size} larger e.g 91'
-            raise ValueError(err_str)
-        else:
-            # If the Blackman-Harris kernel is not larger change the kernel size.
-            kernel_size = window_size
 
     elif kernel == 'natural':
         # Natural weight cube.
@@ -306,6 +296,23 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         print('No uniform gridding yet.')
 
         return None,None,None
+
+    # Ensuring the window size is odd.
+    if (window_size%2) == 0:
+        window_size += 1
+    else:
+        pass
+
+    if window_size > kernel_size:
+        # In the event the output Blackman-Harris kernel is larger than the 
+        # original input kernel.
+        err_str = f'BH window has size {window_size} which is greater than' +\
+            f' the padded size {kernel_size}. \nMake {kernel_size} larger e.g 91'
+        raise ValueError(err_str)
+    else:
+        # If the Blackman-Harris kernel is not larger change the kernel size.
+        kernel_size = window_size
+        
 
     # Origin centred u and v vectors.)
     
@@ -354,22 +361,11 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
     v_cent_ind_vec = np.zeros(v_coords.shape).astype('int')
 
     # Resolution required for both weighting cases.
-    #delta_u = np.abs(u_grid[0,1] - u_grid[0,0])
     delta_u = np.abs(u_vec[1] - u_vec[0])
     uv_max = np.max(u_vec)
 
     # sig_grid should already be in wavelengths.
     sig_u = sig_grid 
-
-    #
-    ## Legacy code, 27/9/22. 
-    #
-    #for ind in range(len(vis)):
-    #    u_cent_ind,v_cent_ind = Osiris.find_closest_xy(u_coords[ind],v_coords[ind],
-    #                        u_vec,v_vec)
-
-    #    u_cent_ind_vec[ind] = u_cent_ind
-    #    v_cent_ind_vec[ind] = v_cent_ind
     
     # Nearest grid centre can be found by rounding down the u_coords.
     u_grid_cent_vec = np.rint(u_coords/delta_u)*delta_u
@@ -386,7 +382,6 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
     weights_cube = calc_weights_cube(u_shift_vec,v_shift_vec,delta_u,sig_u,
                 kernel_size=kernel_size,kernel=kernel)
     
-
     # Some weighting schemes (Blackman-Harris) change the number of kernel pixels.
     kernel_size = weights_cube.shape[0]
 
@@ -484,13 +479,13 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
     try:
         # If the sig_grid parameter is a vector.
         sig_grid.shape
-        #shape_tup = sig_grid.shape
+        print('Sigma grid is a vector...')
+        #print(np.min(sig_grid),np.max(sig_grid),np.mean(sig_grid))
     except AttributeError:
         # If no vector given create one which just contains
         # the default sigma parameter.
+        print('Sigma grid is a single value...')
         sig_grid = np.ones(N_iter)*sig_grid
-
-
 
     for i in range(N_iter):
         #Looping through each frequency channel.
