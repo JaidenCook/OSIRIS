@@ -121,10 +121,16 @@ def Mean_pixel_solid_angle(N=1291,freq=136*1.28e+6,L=2,M=2,delays=[0]*16):
     sky_solid_angle_arr = np.zeros((N,N))
 
     N_ant = 16.0
-    ind_arr = beam_arr >= 1/N_ant
+    #ind_arr = beam_arr >= 1/N_ant
+    ind_arr = beam_arr >= 1/np.exp(2)
+    ind_arr = beam_arr >= 0.5#1/np.exp(2)
 
     sky_solid_angle_arr[ind_arr] = dA/(np.sin(Alt_arr[ind_arr]))
 
+    sky_solid_angle = np.sum(dA/(np.sin(Alt_arr[ind_arr])))
+
+    #print(f'Sky solid angle = {sky_solid_angle:5.5f}')
+    #print(np.max(l_arr[ind_arr]))
     dOmega_mean = np.mean(sky_solid_angle_arr[ind_arr])
 
     return dOmega_mean
@@ -274,7 +280,6 @@ class Power_spec:
         self.z = (nu_21/self.nu_o) - 1
         self.dnu = dnu # Bandwidth in [MHz].
         self.dnu_f = dnu_f # Fine channel width in [MHz].
-        #print('Redshift = %5.2f' % self.z)
 
         # Redefining the eta bins, CHIPS convention.
         Neta = len(self.eta)
@@ -293,6 +298,7 @@ class Power_spec:
 
             self.cosmo = Planck18
 
+        #Mean_solid_angle = Mean_pixel_solid_angle()
 
         # Save memory.
         del Four_sky_cube
@@ -319,7 +325,7 @@ class Power_spec:
             -------
             conv_factor
         """
-        from scipy import signal
+        #from scipy import signal
 
         # Constants
         c = 299792458.0 #[m/s]
@@ -329,13 +335,7 @@ class Power_spec:
         # Constants.
         #lam_21 = 1000*c/nu_21 #[m]
         lam_o = c/nu_o #[m]
-        #fov = 0.0706 # [sr] field of view. Approximate.
         N_chans = dnu/dnu_f
-
-        # Calculating the volume correction factor:
-        #window = signal.blackmanharris(int(N_chans))
-        #Ceff = np.sum(window)/N_chans
-        #Ceff = np.sum(window)/N_chans
 
         # Cosmological scaling parameter:
         h = cosmo.H(0).value/100
@@ -352,6 +352,7 @@ class Power_spec:
         # See Appendix page 20 Barry et al 2019 (FHD/epsilon) pipeline.
         deco_factor = 2 # Don't know if I need this.
 
+        #Omega_fov = 0.076
         # Converting a 1 Jy^2 source to mK^2 Mpc^3 h^-3.
         #conv_factor = deco_factor * (N_chans**2) * (lam_o**4/(4*kb**2)) * (1/(Omega_fov*dnu)) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
         #conv_factor =  (1/N_chans)* deco_factor * (lam_o**4/(4*kb**2)) * (dnu/Omega_fov) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
@@ -361,22 +362,20 @@ class Power_spec:
             print('==========================================================')
             print('Cosmology values')
             print('==========================================================')
-            print('Bandwidth = %5.3f ' % dnu)
-            print('DM = %5.3f [Mpc/h]' % Dm)
-            print('DH = %5.3f [Mpc/h]' % DH)
-            print('h = %5.3f' % h)
-            print('FoV = %5.4f [Sr]' % Omega_fov)
-            print('z = %5.3f' % z)
-            print('E(z) = %5.3f' % E_z)
-            print('Decoherence factor = %s' % deco_factor)
-            print('N_chans = %s' % int(N_chans))
-            print('Observed wavelength = %5.3f [m]' % lam_o)
-            print('Fine channel width = %5.3e [Hz]' % dnu_f)
-            print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
-            print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3 h^-3]' % conv_factor)
+            print(f'Bandwidth = {dnu:5.1f} [Hz]')
+            print(f'DM = {Dm:5.3f} [Mpc/h]')
+            print(f'DH = {DH:5.3f} [Mpc/h]')
+            print(f'h = {h:5.3f}')
+            print(f'FoV = {Omega_fov:5.4f} [Sr]')
+            print(f'z = {z:5.3f}')
+            print(f'E(z) = {E_z:5.3f}')
+            print(f'Decoherence factor = {deco_factor}')
+            print(f'N_chans = {N_chans}')
+            print(f'Observed wavelength = {lam_o:5.3f} [m]')
+            print(f'Fine channel width = {dnu_f:5.3e} [Hz]')
+            print(f'Volume term = {co_vol:5.3f} [sr^-1 Hz^-1 Mpc^3 h^-3]')
+            print(f'Conversion factor = {conv_factor:5.3e} [mK^2 Hz^-2 Mpc^3 h^-3]')
             print('==========================================================')
-            
-            
         else:
             pass
         
@@ -535,7 +534,7 @@ class Power_spec:
                 # Default is to calculate the horizon or beam grad.
                 wedge_cut = grad*Power_spec.wedge_factor(self.z,self.cosmo) # Nicholes horizon cosmology cut.
             
-            print('wedge_cut %5.3f' % wedge_cut)
+            print(f'wedge_cut {wedge_cut:5.3f}')
 
             # Calculating the wedge mask array.
             #wedge_ind_cube = np.array([np.logical_or(k_par < wedge_cut*k_perp, k_perp >= k_perp_min) for k_par in k_z]).T
@@ -579,8 +578,8 @@ class Power_spec:
             else:
                 kr_max = np.nanmax(self.k_r_arr)
 
-        print('k_r_min = %5.3f' % kr_min)
-        print('k_r_max = %5.3f' % kr_max)
+        print(f'k_r_min = {kr_min:5.3f}')
+        print(f'k_r_max = {kr_max:5.3f}')
 
         if log_bin_cond:
             # Logarithmically spaced bins, creates uniform bin widths in log space plots.
@@ -600,7 +599,7 @@ class Power_spec:
             dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
 
             k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
-            print('dlog_k = %5.3e' % dlog_k)
+            print(f'dlog_k = {dlog_k:5.3e}')
 
         else:
             
@@ -608,13 +607,13 @@ class Power_spec:
             dk = (kr_max - kr_min)/(N_bins + 1)
             k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
 
-            print('dk = %5.3f' % dk)
+            print(f'dk = {dk:5.3f}')
 
 
         #np.savez_compressed('/home/jaiden/Documents/Skewspec/output/' + 'k_r_bins', k_r_bins = k_r_bins)
         #print('Bin edges saved for testing purposes...')
 
-        print('N_bins = %s' % N_bins)
+        print(f'N_bins = {N_bins}')
 
         start0 = time.perf_counter()
         Power_spec1D = np.zeros(N_bins)
@@ -629,11 +628,11 @@ class Power_spec:
 
             # Progress bar:
             if (i+1) % 10 == 0:
-                sys.stdout.write("\rBins processed: {0}/{1}".format((i+1),N_bins))
+                sys.stdout.write(f"\rBins processed: {(i+1)}/{N_bins}")
                 sys.stdout.flush()
             elif (i+1) == N_bins:
                 # Last iteration.
-                sys.stdout.write("\rBins processed: {0}/{0}\n".format(N_bins))
+                sys.stdout.write(f"\rBins processed: {N_bins}/{N_bins}\n")
                 sys.stdout.flush()
             else:
                 pass
@@ -660,22 +659,27 @@ class Power_spec:
                 
         end0 = time.perf_counter()
         
-        print('1D PS calctime = %5.3f s' % (end0-start0))
+        print(f'1D PS calctime = {(end0-start0):5.3f} [s]')
+
+        # Estimating the sky width.
+        sigma_b = 1/(np.pi*sig)
+        sigma_b_prime = sigma_b/np.sqrt(2)
+
+        # Gaussian beam width.
+        w = 2*sigma_b_prime
+
+        # Using this to calculate the FoV.
+        self.Omega_fov = np.pi*w**2
 
         # Recalculating the field of view.
         #self.Omega_fov = (2*np.log(2))/(np.pi*(sig)**2) # Omega = 2 ln(2) / (pi* sig_grid^2) [Sr]
-        self.Omega_fov = (2*np.log(2))/(np.pi*(sig)**2) # Omega = 2 ln(2) / (pi* sig_grid^2) [Sr]
-        print('Sigma = %5.3f' % sig)
-        print('Field of view %5.4f [Sr]' % self.Omega_fov)
-        #self.Omega_fov = 0.0759 # Omega = 2 ln(2) / (pi* sig_grid^2) [Sr]
-
+        print(f'Sigma = {sig:5.3f} [lambda]')
+        print(f'Field of view {self.Omega_fov:5.4f} [Sr]')
 
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
         
-        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
-        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
         Cosmo_factor = (1/dnu_f**2)*Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
         print(f"Conversion Jy squared into P(k) is {Cosmo_factor:.5e}")
@@ -712,14 +716,12 @@ class Power_spec:
         
         # Defininf the number of bins.
         N_bins = int(k_perp_max/dk_r)
-        #N_bins = int(80)
         
         # Specifying the radius vector:
         kr_bins = np.linspace(0,k_perp_max,N_bins + 1)
 
         # Problems with instrument sampling. Ommiting first bin.
         kr_bins = kr_bins[1:]
-
 
         # The u_arr and v_arr should be shifted. 
         r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
@@ -745,9 +747,6 @@ class Power_spec:
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
-        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
-        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
         Cosmo_factor = (1/dnu_f**2)*Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
         # Assigning the power.
@@ -836,7 +835,7 @@ class Power_spec:
     @staticmethod
     def plot_cylindrical(Power2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
         name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,
-        title=None,horizon_cond=False,**kwargs):
+        title=None,horizon_cond=False,scale=1,**kwargs):
 
         """
         Plot the 2D cylindrically averaged power spectrum.
@@ -868,6 +867,14 @@ class Power_spec:
         #print(fov)
 
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
+
+        if scale != 1:
+            # If scale is not default, rescale the figure size.            
+            figx = fig.get_figheight()*scale
+            figy = fig.get_figwidth()*scale
+
+            fig.set_figheight(figx)
+            fig.set_figwidth(figy)
 
         if vmax:
             vmax=vmax
