@@ -270,8 +270,6 @@ class Power_spec:
             
             # Only cells with values are assigned weights.
             self.weights_cube[self.power_cube > 0.0] = 1.0
-
-            #print(np.sum(self.weights_cube))
         
         self.eta = eta # [Hz^-1]
         self.u_arr = u_arr # Should have units of wavelengths.
@@ -478,7 +476,7 @@ class Power_spec:
         return wedge_factor
 
     def Spherical(self,wedge_cond=False,N_bins=60,log_bin_cond=False,kr_min=None,kr_max=None,
-                horizon_cond=True,wedge_cut=None,sig=2.5):
+                horizon_cond=True,wedge_cut=None,sig=1.843):
         """
         Calculates the 1D spherical power spectra using the input Power object.
                 
@@ -620,9 +618,9 @@ class Power_spec:
         kr_vec = np.zeros(N_bins)
 
         # Indexing is faster in 1D arrays.
-        self.k_r_arr = self.k_r_arr.ravel()
-        self.power_cube = self.power_cube.ravel()
-        self.weights_cube = self.weights_cube.ravel()
+        #self.k_r_arr = self.k_r_arr.ravel()
+        #self.power_cube = self.power_cube.ravel()
+        #self.weights_cube = self.weights_cube.ravel()
 
         for i in range(len(k_r_bins)-1):
 
@@ -854,7 +852,8 @@ class Power_spec:
             None
         """
 
-        fov = 0.076
+        ### TODO: Change the FoV calculations. We have a FoV we can use that.
+        #fov = 0.076
         
         # Performing a rudimentary fov calculation:
         # Not 100% sure these are correct, but they create cuts similar to Trott et al 2020.

@@ -2,7 +2,7 @@
 
 __author__ = "Jaiden Cook"
 __credits__ = ["Jaiden Cook"]
-__version__ = "0.0.0"
+__version__ = "1.0.0"
 __maintainer__ = "Jaiden Cook"
 __email__ = "Jaiden.Cook@student.curtin.edu"
 
@@ -43,6 +43,168 @@ import scipy
 from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
 from scipy import stats
 import scipy.optimize as opt
+
+def Mean_pixel_solid_angle(N=1291,freq=136*1.28e+6,L=2,M=2,delays=[0]*16):
+    """
+    Estimates the variance of a temperature brightness field by integrating the power spectrum.
+            
+    Parameters
+        ----------
+        N : int
+            Image array size. Default is 1291.
+        freq : float
+            Centre band frequency.
+        L : float
+            Size in direction cosine. Default is 2.
+        M : float
+            Size in direction cosine. Default is 2.
+        delays : float, list
+            MWA primary beam delays, default is zenith pointing.
+        N : integer
+            Image size in pixel units. Default is 1291.
+        
+        Returns
+        -------
+        dOmega_mean : float
+            Expected field of fiew pixel solid angle in Steradians.
+    """
+    freq = 136*1.28e+6 #[Hz]
+
+    # Initialising the l and m vectors.
+    l_vec = np.linspace(-L/2,L/2,N)
+    m_vec = np.linspace(-M/2,M/2,N)
+
+    dl = np.abs(l_vec[1]-l_vec[0])
+    dm = np.abs(m_vec[1]-m_vec[0])
+    dA = dl*dm
+
+    # Creating the grid:
+    l_arr, m_arr = np.meshgrid(l_vec,m_vec)
+    m_arr = m_arr[::-1,:] # Should probably fix this issue with the sky-model class.
+
+    # Creating a radius array for masking purposes:
+    r_arr = np.sqrt(l_arr**2 + m_arr**2)
+
+    # Creating an index array, we want all pixels less than or equal to r = 1:
+    ind_arr = r_arr <= 1.0
+
+    # Here we want to create a new alt and az array that is the same size as l_arr and m_arr:
+    Alt_arr = np.zeros(np.shape(l_arr))
+    Az_arr = np.zeros(np.shape(l_arr))
+
+    # Now we want to determine the Altitude and Azimuth, but only in the region where r <= 1. Outside this region is 
+    # beyond the boundary of the horizon.
+    Alt_arr[ind_arr] = np.arccos(r_arr[ind_arr]) # Alt = arccos([l^2 + m^2]^(1/2))
+    Az_arr[ind_arr] = np.arctan2(l_arr[ind_arr],m_arr[ind_arr]) + np.pi #arctan2() returns [-pi,pi] we want [0,2pi].
+
+    import mwa_hyperbeam
+
+    # Creating MWA beam object.
+    beam = mwa_hyperbeam.FEEBeam()
+
+    beam_arr = np.zeros(np.shape(Alt_arr))
+
+    # Hyperbeam options.
+    amps = [1.0] * 16
+    norm_to_zenith = True
+
+    Zen_temp = np.pi/2 - Alt_arr
+
+    temp_jones = beam.calc_jones_array(Az_arr[ind_arr],Zen_temp[ind_arr],freq,delays,amps,norm_to_zenith)
+
+    xx_temp = temp_jones[:,0]*np.conjugate(temp_jones[:,0]) + temp_jones[:,1]*np.conjugate(temp_jones[:,1])
+    yy_temp = temp_jones[:,2]*np.conjugate(temp_jones[:,2]) + temp_jones[:,3]*np.conjugate(temp_jones[:,3])
+
+    beam_arr[ind_arr] = np.abs(xx_temp + yy_temp)/2
+    beam_arr[r_arr >= 1.0] = np.nan
+
+    sky_solid_angle_arr = np.zeros((N,N))
+
+    N_ant = 16.0
+    ind_arr = beam_arr >= 1/N_ant
+
+    sky_solid_angle_arr[ind_arr] = dA/(np.sin(Alt_arr[ind_arr]))
+
+    dOmega_mean = np.mean(sky_solid_angle_arr[ind_arr])
+
+    return dOmega_mean
+
+def Var_powerspec(k_r,Power1D,lam_o=1.71,N=1291,unit='Janksy'):
+    """
+    Estimates the variance of a temperature brightness field by integrating the power spectrum.
+            
+    Parameters
+        ----------
+        k_r : float, array
+            Array of k values, has units Mpc^-1 h
+        Power1D : float, array
+            Array of 1D power spectrum values. Has units mK^2 Mpc^3 h-^3.
+        lam_o : float
+            Observation frame wavelength of cosmological 21cm signal. Has units of m.
+            Default value is 1.71, redshift of 7.14.
+        N : integer
+            Image size in pixel units. Default is 1291.
+        
+        Returns
+        -------
+        Var : float
+            Power spectrum variance estimate. 
+    """
+    ### 
+    # Add this to the Osiris.Power_spec 
+    ###
+    from scipy import integrate
+
+    lam_o = 1.64
+    freq = 3e8/lam_o
+
+    # Constants. ## Fix this.
+    kb = 1380.648 # [Jy m^2 Hz K^-1] Boltzmann's constant.
+
+    # Expected pixel solid angle.
+    # Calculated from beam Beam_arr > 1/N_ant (Mort et al 2016)
+    # Parameters given so you can see the inputs.
+    #dOmega = Mean_pixel_solid_angle(N=1291,freq=136*1.28e+6,L=2,M=2,delays=[0]*16)
+    dOmega = Mean_pixel_solid_angle(N=1291,freq=freq,L=2,M=2,delays=[0]*16)
+
+    #dOmega = 2.401e-6
+
+    print('dOmega = %5.3e [Sr]' % dOmega)
+
+    # Bin size for the numerical intergration. 
+    # Problems might occur if the bins are uniform in log-space.
+    dk = np.diff(k_r)[0]
+    print('dk = %5.3f' % dk)
+
+    if unit=='Janksy':
+        # Converting from mK^2 Mpc^3 h^-3 to Jy^2 Mpc^3 h^-3
+        conv_factor = (1e-6)*((4*kb**2)/lam_o**4)*dOmega**2
+
+        Power1D = Power1D*conv_factor
+    else:
+        pass
+
+    # Normalisation factor. 
+    norm_factor = 1/(2*np.pi)**3
+    Var_PS = norm_factor*(4*np.pi)*integrate.trapezoid(k_r**2 * Power1D,x=k_r,dx=dk)
+
+    # Calculating the trapezoidal error. Estimate seems low.
+    N = len(k_r)
+    f = norm_factor*(4*np.pi)*k_r**2 * Power1D
+    M = np.abs(np.max(np.diff(f,n=2))) # maximum absolute difference.
+
+    # Error Estimate.
+    Err_up = (M*dk**3)/(12*N**2)
+
+    if unit=='Janksy':
+        print('Variance = %5.5f [Jy^2]' % Var_PS)
+        print('Variance = %5.5e [Jy^2]' % Var_PS)
+        print('Trapezoidal Error Est = %5.3e [Jy^2]' % Err_up)
+    else:
+        print('Variance = %5.5e [mK^2]' % Var_PS)
+        print('Trapezoidal Error Est = %5.3e [mK^2]' % Err_up)
+
+    return Var_PS
 
 class Power_spec:
     """
@@ -189,24 +351,26 @@ class Power_spec:
 
         # Converting a 1 Jy^2 source to mK^2 Mpc^3 h^-3.
         #conv_factor = deco_factor * (N_chans**2) * (lam_o**4/(4*kb**2)) * (1/(Omega_fov*dnu)) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
-        conv_factor =  (1/N_chans)* deco_factor * (lam_o**4/(4*kb**2)) * (dnu/Omega_fov) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
+        #conv_factor =  (1/N_chans)* deco_factor * (lam_o**4/(4*kb**2)) * (dnu/Omega_fov) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
+        conv_factor =  deco_factor * (lam_o**4/(4*kb**2)) * (dnu/Omega_fov) * co_vol * 1e+6 # [mK^2 Mpc^3 h^-3]
 
         if verbose:
             print('==========================================================')
             print('Cosmology values')
             print('==========================================================')
-            print('Bandwidth = %5.3f ' % dnu)
+            print('Bandwidth = %5.3f [Hz]' % dnu)
             print('DM = %5.3f [Mpc/h]' % Dm)
             print('DH = %5.3f [Mpc/h]' % DH)
             print('h = %5.3f' % h)
             print('FoV = %5.4f [Sr]' % Omega_fov)
+            print('z = %5.3f' % z)
             print('E(z) = %5.3f' % E_z)
             print('Decoherence factor = %s' % deco_factor)
             print('N_chans = %s' % int(N_chans))
             print('Observed wavelength = %5.3f [m]' % lam_o)
             print('Fine channel width = %5.3e [Hz]' % dnu_f)
             print('Volume term = %5.3f [sr^-1 Hz^-1 Mpc^3 h^-3]' % co_vol)
-            print('Conversion factor = %5.3f [mK^2 Hz^-2 Mpc^3 h^-3]' % conv_factor)
+            print('Conversion factor = %5.3f [mK^2 Mpc^3 sr^-2 h^-3]' % conv_factor)
             print('==========================================================')
             
             
@@ -525,6 +689,8 @@ class Power_spec:
         # Problems with instrument sampling. Ommiting first bin.
         kr_bins = kr_bins[1:]
 
+        print(kr_bins)
+
         # The u_arr and v_arr should be shifted. 
         r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
         kr_uv_arr = Power_spec.uv_to_kxky(r_uv,self.z,self.cosmo)
@@ -549,7 +715,10 @@ class Power_spec:
         # Cosmological unit conversion factor:
         dnu = self.dnu*1e+6 #[Hz] full bandwidth.
         dnu_f = self.dnu_f*1e+6 #[Hz] fine channel width.
-        Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
+        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
+        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
+        #Cosmo_factor = Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
+        Cosmo_factor = (1/dnu_f**2)*Power_spec.Power2Tb(dnu,dnu_f,self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
         # Assigning the power.
         self.Power2D = Power_spec2D*Cosmo_factor # [mK^3 Mpc^3 h^-3]
