@@ -70,7 +70,7 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
 
     return vis_deg
 
-def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False,skew_cond=False,w_ker_sample=None):
+def Vis_degrid(kernel,u_vec,v_vec,u_coords,v_coords,vis_true,w=None,phase_cond=False,w_ker_sample=None):
     """
     Visibility degridding function. Uses an input kernel, and uv point list to degrid
     visibilities.
@@ -105,59 +105,68 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False,skew_cond
         Weighted average of visibilities, corresponding to (u,v) points.
     """
 
+    # Initialising the grid centre index vectors.
+    u_cent_ind_vec = np.zeros(u_coords.shape).astype('int')
+    v_cent_ind_vec = np.zeros(v_coords.shape).astype('int')
+
+    # Resolution required for both weighting cases.
+    #delta_u = np.abs(u_grid[0,1] - u_grid[0,0])
+    delta_u = np.abs(u_vec[1] - u_vec[0])
+    uv_max = np.max(u_vec)
+
     # Need to change some parameters here. 
     kernel_size = len(kernel.kernel)
 
     # Initialising the new deridded visibility array:
-    vis_deg = np.zeros(len(u),dtype=complex)
+    vis_deg = np.zeros(len(u_coords),dtype=complex)
 
     # Setting the kernel to w=0, this is the default for no w-projection. If w != None then
     # the w-kernel is calculated and overwritten in the for loop below.
-    kernel.calc_w_kernel(w=0.0,skew_cond=skew_cond)
+    kernel.calc_w_kernel(w=0.0)
 
-    for i in range(len(u)):
+    # Nearest grid centre can be found by rounding down the u_coords.
+    u_grid_cent_vec = np.rint(u_coords/delta_u)*delta_u
+    v_grid_cent_vec = np.rint(v_coords/delta_u)*delta_u
+
+    # Can use the grid coordinate to determine the index.
+    u_cent_ind_vec = ((u_grid_cent_vec + uv_max)/delta_u).astype(int)
+    v_cent_ind_vec = ((v_grid_cent_vec + uv_max)/delta_u).astype(int)
+
+    # Calculating the shifted grid.
+    if phase_cond:
+        # Condition if phase offset is true.
+        u_shift_vec = u_coords - u_grid_cent_vec
+        v_shift_vec = v_coords - v_grid_cent_vec
+    else:
+        # Default condition don't return the offsets.
+        u_shift_vec = np.zeros(len(u_coords))
+        v_shift_vec = np.zeros(len(u_coords))
+
+    # Determining the index ranges:
+    min_u_ind_vec = u_cent_ind_vec - int(kernel_size/2)
+    max_u_ind_vec = u_cent_ind_vec + int(kernel_size/2) + 1
+    min_v_ind_vec = v_cent_ind_vec - int(kernel_size/2)
+    max_v_ind_vec = v_cent_ind_vec + int(kernel_size/2) + 1
+
+
+    for i in range(len(u_coords)):
     
-        # These should be the indices of the coordinates closest to the baseline. These coordinates
-        # should line up with the kernel.
-        if phase_cond:
-            # Condition if phase offset is true.
-            #u_ind, v_ind, u_off, v_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
-            u_ind, v_ind, uv_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
-            u_off = uv_off[0] 
-            v_off = uv_off[1]
-        else:
-            # Default condition don't return the offsets.
-            u_ind, v_ind = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec)
-            u_off=0
-            v_off=0
-
-        # Determining the index ranges:
-        min_u_ind = u_ind - int(kernel_size/2)
-        max_u_ind = u_ind + int(kernel_size/2) + 1
-        min_v_ind = v_ind - int(kernel_size/2)
-        max_v_ind = v_ind + int(kernel_size/2) + 1
-
         # Might have to define a visibility subset that is larger.
         # Defining the visibility subset:
-        vis_sub = vis_true[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
+        vis_sub = vis_true[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]]
         #vis_sub = vis_true[min_u_ind:max_u_ind, min_v_ind:max_v_ind]
         
         if np.any(w):
             # If vector of w values is given.
             # Calculating the w-kernel.
             #kernel.calc_w_kernel(w[i],u_off,v_off)
-            kernel.calc_w_kernel(w[i],-u_off,-v_off,skew_cond=skew_cond)
+            kernel.calc_w_kernel(w[i],-u_shift_vec[i],-v_shift_vec[i])
 
         else:
             #kernel.calc_w_kernel(0.0,u_off,v_off)
-            kernel.calc_w_kernel(0.0,-u_off,-v_off,skew_cond=skew_cond)
+            kernel.calc_w_kernel(0.0,-u_shift_vec[i],-v_shift_vec[i])
 
         # Weighted average degridded visibilitiy.
-        #vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
-
-        #vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct. old as of 19/7/22
-        #vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
-
         vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # Might not need to renormalise.
         vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # 
 
@@ -187,10 +196,6 @@ def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False,skew_cond
                 pass
         else:
             pass
-
-
-    #print(np.sum(temp_gauss_weights))
-    #vis_deg = vis_deg/len(vis_deg)
 
     return vis_deg
 
@@ -236,10 +241,7 @@ class w_kernel():
         #beam_grid[r_grid < 1] = beam_grid[r_grid < 1]/self.n_grid[r_grid < 1]
         self.kernel = beam_grid
 
-    def calc_w_kernel(self,w,u_off=None,v_off=None,skew_cond=False):
-
-        from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
-
+    def calc_w_kernel(self,w,u_off=None,v_off=None):
         """
         Returns the w-sky-kernel.
 
@@ -251,8 +253,6 @@ class w_kernel():
             Offset in u-coords/
         v_off : float
             Offset in v-coords
-        skew_cond : bool
-            Default False. Used when calculating skew spectrum. Squares the sky-kernel.
         
         Returns
         -------
