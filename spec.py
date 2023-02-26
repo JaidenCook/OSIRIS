@@ -102,11 +102,84 @@ class constants:
 
 class polySpectra:
     """
-    Test parent class. This is a base class that defines all the class structures.
+    Parent class for the poly spec objects. Provides a template for power spectrum
+    skew spectrum, KDE power spectrum and Mutual information spectrum calculations. 
+
+    Attributes
+    ----------
+    cube : numpy array
+        Input data cube, either power, skew or other.
+    u_arr : numpy array
+        Input u grid in units of lambda. 2D numpy array.
+    v_arr : numpy array
+        Input v grid in units of lambda. 2D numpy array.
+    eta : numpy array
+        Input eta grid in units of time.
+    nu_o : float
+        Observing frequency at the centre of the band [Hz].
+    dnu : float, default=30.72e6
+        Observing bandwidth [Hz]. Should be 30.72MHz.
+    dnu_f : float, default=80e3
+        Fine channel width [Hz]. Should be 80kHz by default.
+    weights_cube : numpy array, default=None
+        Weights of the data points. If None assumed to be naturally weighted.
+    cosmo : astropy object, default=None
+        Astropy Cosmology object, default used is Plank2018.
+
+
+    Methods
+    -------
+    uv2kxky(u,z,cosmo=None)
+        ...
+    eta2kz(eta,z,cosmo=None)
+        ...
+    Power2Tb(dnu,dnu_f,nu_o,z,cosmo,Omega_fov,verbose=True):
+        ...
+    Skew2Tb(dnu,dnu_f,nu_o,z,cosmo,Omega_fov,verbose=True)
+        ...
+    wedge_factor(z,cosmo=None)
+        ...
+    calc_kr_grid(u_grid,v_grid,eta_vec,z,cosmo=None,kperp_cond=False)
+        ...
+    calc_field_of_view(sig_u)
+        ...
+    set_wedge_to_nan(self,kx_grid,ky_grid,kz_vec,kr_min,wedge_cut=None,
+        horizon_cond=True)
+        ...
+    Spherical(self,func=np.average,wedge_cond=False,N_bins=60,sig=1.843,
+        log_bin_cond=False,kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,
+        verbose=False)
+        ...
+    Cylindrical(self,func=np.mean)
+        ...
     """
     constants = constants
-    def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu,dnu_f,
+    def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
                  weights_cube=None,cosmo=None):
+        """
+        Constructs the spectrum object.
+
+        Parameters
+        ----------
+        cube : numpy array
+            Input data cube, either power, skew or other.
+        u_arr : numpy array
+            Input u grid in units of lambda. 2D numpy array.
+        v_arr : numpy array
+            Input v grid in units of lambda. 2D numpy array.
+        eta : numpy array
+            Input eta grid in units of time.
+        nu_o : float
+            Observing frequency at the centre of the band [Hz].
+        dnu : float, default=30.72e6
+            Observing bandwidth [Hz]. Should be 30.72MHz.
+        dnu_f : float, default=80e3
+            Fine channel width [Hz]. Should be 80kHz by default.
+        weights_cube : numpy array, default=None
+            Weights of the data points. If None assumed to be naturally weighted.
+        cosmo : astropy object, default=None
+            Astropy Cosmology object, default used is Plank2018.
+        """
         self.cube = cube
         self.u_arr = u_arr # 2D u-grid, in units of wavelength.
         self.v_arr = v_arr # 2D u-grid, in units of wavelength.
@@ -120,6 +193,7 @@ class polySpectra:
 
         # Defining the observation redshift.
         self.z = (constants.nu_21/self.nu_o) - 1
+        self.nu_o = nu_o # [Hz]
         self.dnu = dnu # Bandwidth in [MHz].
         self.dnu_f = dnu_f # Fine channel width in [MHz].
         self.cosmo_factor = 1 # Depends on the spectrum. 
@@ -719,6 +793,8 @@ class polySpectra:
             Returns
             -------
         """
+        ### TODO
+        # 1) Make this a static method, and generalise it. 
 
         #bin_width = 2.5 # [lambda]
         bin_width = 3.75 # [lambda]
@@ -797,3 +873,24 @@ class skewSpec(polySpectra):
         super().__init__(cube,u_arr,v_arr,eta)
 
         self.cube = cubesqd*cube
+
+class kdeSpec(polySpectra):
+    """
+    Test child class.
+    """
+
+    def __init__(self,cube,u_arr,v_arr,eta):
+        super().__init__(cube,u_arr,v_arr,eta)
+
+        self.cube = cube
+
+class miSpec(polySpectra):
+    """
+    Class to calculate the mutual information (MI) of two input arrays.
+    """
+
+    def __init__(self,cube,cube2,u_arr,v_arr,eta):
+        super().__init__(cube,u_arr,v_arr,eta)
+
+        self.cube1 = cube
+        self.cube2 = cube2
