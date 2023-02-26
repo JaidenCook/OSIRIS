@@ -238,7 +238,7 @@ def Poly_func2D_nu(data_tuple,*a):
 
 def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',figsize = (7,7),\
     figaxs=None, xlab=r'$l$',ylab=r'$m$',clab='Intensity',lognorm=False,title=None,\
-    clim=None,vmin=None,vmax=None,contours=None,**kwargs):
+    clim=None,vmin=None,vmax=None,contours=None,savefig=False,**kwargs):
     """
     Plots a 2D input image. This input image can either be in a cartesian or polar projection.
     
@@ -358,7 +358,11 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
     
     if title:
         # Option for saving figure.
-        plt.savefig('{0}'.format(title))
+        plt.title('{0}'.format(title),fontsize=22)
+        if savefig:
+            plt.savefig('{0}'.format(title))
+        else:
+            pass
     else:
         pass
         #plt.show()
@@ -1446,12 +1450,16 @@ class MWA_uv:
         u_lam = self.u_m/wavelength 
         v_lam = self.v_m/wavelength
         w_lam = self.w_m/wavelength
+
+        # Filtering baselines with length less than 300 lambda.
+        r_lam = np.sqrt(u_lam**2 + v_lam**2)
         
         # Determining the uv_max boolean mask
         #uv_mask = (np.abs(u_lam) < uvmax)*(np.abs(v_lam) < uvmax)
         if uvmax:
             # If uvmax is given, otherwise return the entire array.
-            uv_mask = np.logical_and(np.abs(u_lam) <= uvmax, np.abs(v_lam) <= uvmax)
+            #uv_mask = np.logical_and(np.abs(u_lam) <= uvmax, np.abs(v_lam) <= uvmax)
+            uv_mask = r_lam <= uvmax
         
             self.uv_mask = uv_mask # Useful for rephasing purposes.
 
@@ -1762,12 +1770,10 @@ class Skymodel:
         self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
         #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
 
-        print('Source position (l,m) = (%5.2f,%5.2f)' % (self.l_mod,self.m_mod))
-
         # For the point source location.
-        L = (np.max(self.l_vec) - np.min(self.l_vec))
+        #L = (np.max(self.l_vec) - np.min(self.l_vec))
 
-        N = len(self.l_vec)
+        #N = len(self.l_vec)
         dA = self.dl*self.dm
 
         if np.shape(self.l_mod):
@@ -1775,6 +1781,7 @@ class Skymodel:
             n_sources = len(self.l_mod)
         else:
             # Single source case.
+            print('Source position (l,m) = (%5.2f,%5.2f)' % (self.l_mod,self.m_mod))
             n_sources = 1
 
         for i in range(n_sources):
