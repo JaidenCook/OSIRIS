@@ -41,6 +41,7 @@ from mwa_pb import primary_beam as pb
 sys.path.append(os.path.abspath("/home/jaiden/Documents/EoR/OSIRIS"))
 import Osiris
 import Osiris_spec_nu
+from spec import progress_bar
 
 def KDEpy_1D_scaled(data,weights=None,x=None,bw_method='ISJ',N_dim=256,verbose=False):
     """
@@ -526,16 +527,8 @@ def Spherical(k_r_arr,real_vis_cube_0,weights_cube_0,real_vis_cube_1,weights_cub
 
     for i in range(len(k_r_bins)-1):
 
-        # Progress bar:
-        if (i+1) % 10 == 0:
-            sys.stdout.write("\rBins processed: {0}/{1}".format((i+1),N_bins))
-            sys.stdout.flush()
-        elif (i+1) == N_bins:
-            # Last iteration.
-            sys.stdout.write("\rBins processed: {0}/{0}\n".format(N_bins))
-            sys.stdout.flush()
-        else:
-            pass
+        # Show a progress bar.
+        progress_bar(i,N_bins,percent_cond=True)
 
         # Calculating the radius:
         if log_bin_cond:
@@ -546,84 +539,10 @@ def Spherical(k_r_arr,real_vis_cube_0,weights_cube_0,real_vis_cube_1,weights_cub
         # Defining the shell array index:
         shell_ind = np.logical_and(k_r_arr >= k_r_bins[i], k_r_arr <= k_r_bins[i+1])
 
-        # Getting the shell and weight values.
-        EoR0_shell_vals = real_vis_cube_0[shell_ind]
-        EoR0_shell_weights = weights_cube_0[shell_ind]
-
-        # Getting the shell and weight values.
-        EoR1_shell_vals = real_vis_cube_1[shell_ind]
-        EoR1_shell_weights = weights_cube_1[shell_ind]
-
-        ###
-        # Some cells only have values in one grid and not the other. 
-        # We will subset these out.
-        ###
-
-        Shell_ind_non_zero = (EoR0_shell_vals != 0.0)*(EoR1_shell_vals != 0.0)
-
-        # Getting the shell and weight values.
-        EoR0_shell_vals = EoR0_shell_vals[Shell_ind_non_zero]
-        EoR0_shell_weights = EoR0_shell_weights[Shell_ind_non_zero]
-
-        # Getting the shell and weight values.
-        EoR1_shell_vals = EoR1_shell_vals[Shell_ind_non_zero]
-        EoR1_shell_weights = EoR1_shell_weights[Shell_ind_non_zero]
-
-        ##
-        #
-        ##
-        std_fac = 0.01
-
-        x_min = np.min(EoR0_shell_vals)-std_fac*np.std(EoR0_shell_vals)
-        x_max = np.max(EoR0_shell_vals)+std_fac*np.std(EoR0_shell_vals)
-        y_max = np.max(EoR1_shell_vals)+std_fac*np.std(EoR1_shell_vals)
-        y_min = np.min(EoR1_shell_vals)-std_fac*np.std(EoR1_shell_vals)
-
-        nside = 1000
-
-        x = np.linspace(x_min,x_max,nside)
-        y = np.linspace(y_min,y_max,nside)
-
-        vals_x = KDEpy_1D_scaled(EoR0_shell_vals,weights=EoR0_shell_weights,x=x,bw_method=bw)
-        vals_y = KDEpy_1D_scaled(EoR1_shell_vals,weights=EoR1_shell_weights,x=y,bw_method=bw)
-
-        xx,yy = np.meshgrid(x,y)
-
-        Vals_vec = np.empty((len(EoR0_shell_vals),2))
-
-        Vals_vec[:,0] = EoR0_shell_vals
-        Vals_vec[:,1] = EoR1_shell_vals
-
-        dx = np.abs(x[1]-x[0])
-        dy = np.abs(y[1]-y[0])
-
-        dx2D = np.abs(x[1]-x[0])
-        dy2D = np.abs(y[1]-y[0])
-
-
-        # Initialising a weights array.
-        weights = np.empty((len(EoR1_shell_weights),2))
-
-        # Assigning the weight values to the array.
-        weights[:,0] = EoR0_shell_weights
-        weights[:,1] = EoR1_shell_weights
-
-        zz = KDEpy_2D_scaled(Vals_vec,weights,xx,yy,bw_method=bw)
-
-        if i == 50:
-            scale = 0.8
-            fig,axs = plt.subplots(1,figsize=(scale*12,scale*10))
-
-            figaxs = (fig,axs)
-
-            Plot_joint_marginal_dists(xx,yy,x,y,zz,vals_x,vals_y,pxlab='EoR0',pylab='EoR1',
-                figaxs=figaxs,lw=2.5,logcond=False)
-
-        diff_ent_X = MI_metric.diff_ent_1D(vals_x,dx)
-        diff_ent_Y = MI_metric.diff_ent_1D(vals_y,dy)
-        diff_ent_pxy = MI_metric.diff_ent_2D(zz,dx2D,dy2D)
-
-        mutual_inf_k[i] = MI_metric.mutual_information(diff_ent_X,diff_ent_Y,diff_ent_pxy)
+        #mutual_inf_k[i] = MI_temp
+        mutual_inf_k[i] = MI_metric.calc_spherical_MI(real_vis_cube_0[shell_ind],real_vis_cube_1[shell_ind],
+                                            dataX_weights=weights_cube_0[shell_ind],dataY_weights=weights_cube_1[shell_ind],
+                                            plot_cond=False,bw='scott',std_fac=0.01,nside=1000)
 
 
     end0 = time.perf_counter()
@@ -651,6 +570,8 @@ class MI_metric:
         Calculate the normalised mutual information.
     information_quality_ratio(diff_ent_x,diff_ent_y,diff_ent_xy)
         Calculate the information quality ratio.
+    calc_spherical_MI(dataX_shell,dataY_shell,dataX_weights=None,dataY_weights=None,
+                      plot_cond=False,bw='scott',std_fac=0.01,nside=1000)
     """
 
     @staticmethod
@@ -778,4 +699,122 @@ class MI_metric:
         """
         MI = MI_metric.mutual_information(diff_ent_x,diff_ent_y,diff_ent_xy)
         return MI/diff_ent_xy
+    
+    def calc_spherical_MI(dataX_shell,dataY_shell,dataX_weights=None,dataY_weights=None,
+                      plot_cond=False,bw='scott',std_fac=0.01,nside=1000):
+        """
+        Calculate the spherical mutual information from two input 3D data arrays.
+
+            Parameters
+            ----------
+            dataX_shell : numpy array
+                Numpy array of X spherical shell values.
+            dataY_shell : numpy array
+                Numpy array of Y spherical shell values.
+            dataX_weights : numpy array
+                Numpy array of X spherical shell value weights.
+            dataY_weights : numpy array
+                Numpy array of Y spherical shell value weights.
+            plot_cond : bool, default=False
+                If true plot the marginal distribution.
+            bw : str, default='scott'
+                KDE bandwidth estimation method, options are 'silverman', 'ISJ', and 'scott'.
+            std_fac : float, default=0.01
+                Padding for the X and Y grid values.
+            nside : int, default=1000
+                Grid size, reduce this to decrease computation at the expense of accuracy.
+            
+
+            Returns
+            -------
+            MI_temp : float
+                Mutual information of the two spherical shells dataX_shell and dataY_shell.
+        """
+        if dataX_shell.size != dataY_shell.size:
+            # Shells should have the same number of data points.
+            err_str = f'Data1 shell size ({dataX_shell.size}) not compatible with' +\
+                f'data2 shell size ({dataY_shell.size}).'
+            raise ValueError(err_str)
+        else:
+            ###
+            # Some cells only have values in one grid and not the other. 
+            # We will subset these out.
+            ###
+            non_zero_ind = (dataX_shell != 0.0)*(dataY_shell != 0.0)
+
+            # Eliminating cells that do not have a corresponding value.
+            dataX_shell = dataX_shell[non_zero_ind]
+            dataY_shell = dataY_shell[non_zero_ind]
+
+        # Checking if there are weight values.
+        if dataX_weights and dataY_weights:
+            # If there are weight values.
+            dataX_weights = dataX_weights[non_zero_ind]
+            dataY_weights = dataY_weights[non_zero_ind]
+        else:
+            # If there are no weights give equal value to each cell.
+            dataX_weights = np.ones(dataX_shell.size)
+            dataY_weights = np.ones(dataY_shell.size)
+        
+        # Calculating integral grid min and max values.
+        x_min = np.min(dataX_shell)-std_fac*np.std(dataX_shell)
+        x_max = np.max(dataX_shell)+std_fac*np.std(dataX_shell)
+        y_max = np.max(dataY_shell)+std_fac*np.std(dataY_shell)
+        y_min = np.min(dataY_shell)-std_fac*np.std(dataY_shell)
+
+        # 1D grid coordinates.
+        x = np.linspace(x_min,x_max,nside)
+        y = np.linspace(y_min,y_max,nside)
+
+        # Calculating the X and Y probability density values.
+        px = KDEpy_1D_scaled(dataX_shell,weights=dataX_weights,x=x,bw_method=bw)
+        py = KDEpy_1D_scaled(dataY_shell,weights=dataY_weights,x=y,bw_method=bw)
+
+        # 2D meshgrid coordinates.
+        xx,yy = np.meshgrid(x,y)
+
+        # Initialising the data array for the 2D KDE.
+        data_array = np.empty((len(dataX_shell),2))
+
+        # Assigning the data values to the data array.
+        data_array[:,0] = dataX_shell
+        data_array[:,1] = dataY_shell
+
+        # Defining the grid resolution.
+        dx = np.abs(x[1]-x[0])
+        dy = np.abs(y[1]-y[0])
+
+        # Defining the 2D grid resolution.
+        dx2D = np.abs(x[1]-x[0])
+        dy2D = np.abs(y[1]-y[0])
+
+        # Initialising a weights array.
+        weights_array = np.empty((len(dataY_weights),2))
+
+        # Assigning the weight values to the array.
+        weights_array[:,0] = dataX_weights
+        weights_array[:,1] = dataY_weights
+
+        # Calculating the 2D probability density values.
+        pxy = KDEpy_2D_scaled(data_array,weights_array,xx,yy,bw_method=bw)
+
+        if plot_cond:
+            # Plot the marginal distibution.
+            scale = 0.75
+            fig,axs = plt.subplots(1,figsize=(scale*12,scale*10))
+
+            figaxs = (fig,axs)
+
+            Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,pxlab='data1',pylab='data2',
+                figaxs=figaxs,lw=2.5,logcond=False)
+
+        # Calculate the differential entropy for the X, Y and XY distributions.
+        diff_ent_X = MI_metric.diff_ent_1D(px,dx)
+        diff_ent_Y = MI_metric.diff_ent_1D(py,dy)
+        diff_ent_pxy = MI_metric.diff_ent_2D(pxy,dx2D,dy2D)
+
+        # Calculating the mutual information.
+        MI_temp = MI_metric.mutual_information(diff_ent_X,diff_ent_Y,diff_ent_pxy)
+
+        return MI_temp
 
