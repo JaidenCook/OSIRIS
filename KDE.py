@@ -747,7 +747,7 @@ class MI_metric:
             dataY_shell = dataY_shell[non_zero_ind]
 
         # Checking if there are weight values.
-        if dataX_weights and dataY_weights:
+        if np.any(dataX_weights) and np.any(dataY_weights):
             # If there are weight values.
             dataX_weights = dataX_weights[non_zero_ind]
             dataY_weights = dataY_weights[non_zero_ind]
