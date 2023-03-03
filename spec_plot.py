@@ -17,6 +17,7 @@ warnings.simplefilter('ignore', np.RankWarning)
 
 # Plotting stuff:
 import matplotlib.pyplot as plt
+import matplotlib
 
 from dataclasses import dataclass
 
