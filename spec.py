@@ -941,7 +941,6 @@ class miSpec(polySpectra,MI_metric):
     def MI_shell_wrapper(self,shell_ind):
         """
         Wrapper for calculating the MI.
-        
         """
         # Set this to True to test the plots are sensible.
         plot_cond = False
@@ -952,6 +951,9 @@ class miSpec(polySpectra,MI_metric):
         return MI
     
     def MI_spherical(self):
+        """
+        Wrapper for calculating the spherical MI.
+        """
 
         miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,flat_cond=True)
 
