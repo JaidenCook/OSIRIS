@@ -448,7 +448,7 @@ def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10)
         pass
 
     if filename:
-        plt.savefig(filename,)
+        plt.savefig(filename,bbox_inches='tight')
     else:
         plt.show()
 
@@ -801,6 +801,7 @@ class MI_metric:
         pxy = KDEpy_2D_scaled(data_array,weights_array,xx,yy,bw_method=bw)
 
         if plot_cond:
+            file_path = f"/home/jaiden/Documents/Skewspec/output/MI_outputs/{dataX_shell.size}.png"
             # Plot the marginal distibution.
             scale = 0.75
             fig,axs = plt.subplots(1,figsize=(scale*12,scale*10))
@@ -808,7 +809,7 @@ class MI_metric:
             figaxs = (fig,axs)
 
             Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,pxlab='data1',pylab='data2',
-                figaxs=figaxs,lw=2.5,logcond=False)
+                figaxs=figaxs,lw=2.5,logcond=False,filename=file_path)
 
         # Calculate the differential entropy for the X, Y and XY distributions.
         diff_ent_X = MI_metric.diff_ent_1D(px,dx)
