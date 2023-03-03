@@ -18,6 +18,8 @@ warnings.simplefilter('ignore', np.RankWarning)
 # Plotting stuff:
 import matplotlib.pyplot as plt
 
+from KDEspec import MI_metric
+
 from dataclasses import dataclass
 
 plt.style.use('seaborn-white')
@@ -185,31 +187,26 @@ class polySpectra:
         self.v_arr = v_arr # 2D u-grid, in units of wavelength.
         self.eta = eta # 1D vector of time values. 
 
-        # Redefining the eta bins as per the CHIPS convention.
-        Neta = len(self.eta)
-        eta_nu = np.array([(float(i)-0.5)/(self.dnu*1e6) for i in range(Neta)])
-        eta_nu[0] = eta_nu[1]/2
-        self.eta = eta_nu
-
         # Defining the observation redshift.
-        self.z = (constants.nu_21/self.nu_o) - 1
         self.nu_o = nu_o # [Hz]
+        self.z = (constants.nu_21/self.nu_o) - 1
         self.dnu = dnu # Bandwidth in [MHz].
         self.dnu_f = dnu_f # Fine channel width in [MHz].
         self.cosmo_factor = 1 # Depends on the spectrum. 
 
-        if np.any(weights_cube):
-            # Case for user inputted weigth cube.
-            self.weights_cube = weights_cube
-
-        else:
-            print('Natural weighting case.')
-            # Default weighting scheme is natural. Default set to not break older code.
-            self.weights_cube = np.zeros(np.shape(cube))
-            
-            # Only cells with values are assigned weights.
-            self.weights_cube[self.power_cube > 0.0] = 1.0
+        # Redefining the eta bins as per the CHIPS convention.
+        Neta = len(self.eta)
+        #eta_nu = np.array([(float(i)-0.5)/(self.dnu*1e6) for i in range(Neta)])
+        eta_nu = np.array([(float(i)-0.5)/(self.dnu) for i in range(Neta)])
+        eta_nu[0] = eta_nu[1]/2
+        self.eta = eta_nu
         
+        # Setting the weights cube.
+        self.weights_cube = np.zeros(np.shape(cube))
+            
+        # Only cells with values are assigned weights.
+        self.weights_cube[self.cube > 0.0] = 1.0
+
         if cosmo != None:
             # User inputted cosmology.
             print('Not using Plank2018 Cosmology.')
@@ -294,7 +291,7 @@ class polySpectra:
 
         # Cosmological distances:
         #DH = 3000 # [Mpc/h] Hubble distance.
-        DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
+        DH = (c/1000)/100 # approximately 3000 Mpc/h
 
         # k_||
         k_z = eta * (2*np.pi*nu_21*E_z)/(DH*(1 + z)**2) # [Mpc^-1 h]
@@ -636,7 +633,8 @@ class polySpectra:
         self.kr_grid[wedge_ind_cube] = np.NaN
     
     def Spherical(self,func=np.average,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
-                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
+                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False,
+                  flat_cond=False):
         """
         Calculates the 1D spherically averaged poly spectra using the input object.
                 
@@ -665,6 +663,9 @@ class polySpectra:
             wedge_cut : float, default=None
 
             verbose : bool, default=False
+
+            flat_cond : bool, default=False
+                If True flatten the kr_array, data arrays should also be flattened.
 
             
             Returns
@@ -738,7 +739,9 @@ class polySpectra:
         kr_vec = np.zeros(N_bins)
 
         # Indexing is faster in 1D arrays. If the arrays are filled.
-        #self.kr_grid = self.kr_grid.ravel()
+        if flat_cond:
+            self.kr_grid = self.kr_grid.ravel()
+
         #self.cube = self.cube.ravel()
         #self.weights_cube = self.weights_cube.ravel()
         
@@ -760,7 +763,8 @@ class polySpectra:
                 # Some bins don't contain data, this will ensure the script doesn't fail. These bins will be set
                 # to NaN.
                 #spec_avg_1D[i] = np.average(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
-                spec_avg_1D[i] = func(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
+                #spec_avg_1D[i] = func(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
+                spec_avg_1D[i] = func(self,shell_ind)
                 
             except ZeroDivisionError and ValueError:
                 # For bins that don't have data we will set these to NaN.
@@ -768,7 +772,7 @@ class polySpectra:
                 
         end0 = time.perf_counter()
         
-        print(f'1D spectrum calctime = {(end0-start0):5.3f} [s]')
+        print(f'\n1D spectrum calctime = {(end0-start0):5.3f} [s]')
 
         if verbose:
             print(f'Sigma = {sig:5.3f} [lambda]')
@@ -853,44 +857,103 @@ class powerSpec(polySpectra):
     Test child class.
     """
 
-    def __init__(self,cube,u_arr,v_arr,eta):
-        super().__init__(cube,u_arr,v_arr,eta)
+    def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
+                         weights_cube=None,cosmo=None):
+        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
+                         weights_cube=None,cosmo=None)
+        
 
         # Overriding attributes to suite the power-spectrum.
         self.cube = np.conjugate(cube)*cube # [Jy^2 Hz^2]
-        self.cosmo_factor = (1/(self.dnu_f*1e+6)**2)*polySpectra.Power2Tb(self.dnu*1e+6,self.dnu_f*1e+6,
+        self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Power2Tb(self.dnu,self.dnu_f,
                                             self.nu_o,self.z,self.cosmo,self.Omega_fov)
+        
+        if np.any(weights_cube):
+            # Case for user inputted weigth cube.
+            self.weights_cube = weights_cube
 
+    def avg_spherical_wrapper(self,shell_ind):
+        """
+        Wrapper function for the spherical averaging.
+        """
 
+        avg_temp = np.average(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
 
+        return avg_temp
 
 class skewSpec(polySpectra):
     """
     Test child class.
     """
 
-    def __init__(self,cube,cubesqd,u_arr,v_arr,eta):
-        super().__init__(cube,u_arr,v_arr,eta)
+    def __init__(self,cube,cubesqd,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
+                         weights_cube=None,cosmo=None):
+        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
+                         weights_cube=weights_cube,cosmo=cosmo)
 
         self.cube = cubesqd*cube
+
+        del cube,cubesqd
+
+
+    def avg_spherical_wrapper(self,shell_ind):
+
+        avg_temp = np.average(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
+
+        return avg_temp
 
 class kdeSpec(polySpectra):
     """
     Test child class.
     """
 
-    def __init__(self,cube,u_arr,v_arr,eta):
-        super().__init__(cube,u_arr,v_arr,eta)
+    def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
+                         weights_cube=None,cosmo=None):
+        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
+                         weights_cube=weights_cube,cosmo=cosmo)
 
         self.cube = cube
 
-class miSpec(polySpectra):
+class miSpec(polySpectra,MI_metric):
     """
     Class to calculate the mutual information (MI) of two input arrays.
     """
 
-    def __init__(self,cube,cube2,u_arr,v_arr,eta):
-        super().__init__(cube,u_arr,v_arr,eta)
+    def __init__(self,cube,cubeY,u_arr,v_arr,eta,nu_o,cubeX_weights=None,cubeY_weights=None,
+                 dnu=30.72e6,dnu_f=80e3,cosmo=None):
+        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
+                         cosmo=cosmo)
 
-        self.cube1 = cube
-        self.cube2 = cube2
+        self.cubeX = cube.ravel()
+        self.cubeY = cubeY.ravel()
+
+        del cube,cubeY
+
+        if np.any(cubeX_weights):
+            # If weights provided they are assigned.
+            self.cubeX_weights = cubeX_weights.ravel()
+        
+        if np.any(cubeY_weights):
+            # If weights provided they are assigned.
+            self.cubeY_weights = cubeY_weights.ravel()
+        
+
+    def MI_shell_wrapper(self,shell_ind):
+        """
+        Wrapper for calculating the MI.
+        
+        """
+        # Set this to True to test the plots are sensible.
+        plot_cond = False
+        MI = MI_metric.calc_spherical_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
+                            dataX_weights=self.cubeX_weights[shell_ind],
+                            dataY_weights=self.cubeY_weights[shell_ind],plot_cond=plot_cond)
+
+        return MI
+    
+    def MI_spherical(self):
+
+        miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,flat_cond=True)
+
+        self.MI_1D = self.spec_avg_1D
+        del self.spec_avg_1D
