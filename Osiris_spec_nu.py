@@ -1542,6 +1542,8 @@ class Skew_spec:
         if symlog_cond:
             #plt.yscale('symlog', linthresh=sym_log_scale*np.min(np.abs(Skew_spec1D)*1.5),linscaley=linscaley)
             plt.yscale('asinh',linear_width=5, base=10)#, linthresh=sym_log_scale*np.min(np.abs(Skew_spec1D)),linscaley=linscaley)
+            
+            axs.set_ylim([-1*(10**2),10**2])
         else:
             pass
 
