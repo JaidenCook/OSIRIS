@@ -1540,7 +1540,8 @@ class Skew_spec:
         # Change this to be optional depending on whether there are negative values or not.
         plt.loglog()
         if symlog_cond:
-            plt.yscale('symlog', linthresh=sym_log_scale*np.min(np.abs(Skew_spec1D)),linscaley=linscaley)
+            #plt.yscale('symlog', linthresh=sym_log_scale*np.min(np.abs(Skew_spec1D)*1.5),linscaley=linscaley)
+            plt.yscale('asinh',linear_width=5, base=10)#, linthresh=sym_log_scale*np.min(np.abs(Skew_spec1D)),linscaley=linscaley)
         else:
             pass
 
