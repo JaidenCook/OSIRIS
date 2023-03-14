@@ -1543,7 +1543,7 @@ class Skew_spec:
             #plt.yscale('symlog', linthresh=sym_log_scale*np.min(np.abs(Skew_spec1D)*1.5),linscaley=linscaley)
             plt.yscale('asinh',linear_width=5, base=10)#, linthresh=sym_log_scale*np.min(np.abs(Skew_spec1D)),linscaley=linscaley)
             
-            axs.set_ylim([-1*(10**2),10**2])
+            
         else:
             pass
 
@@ -1559,10 +1559,19 @@ class Skew_spec:
             axs.set_xlim(xlim)
         if ylim:
             axs.set_ylim(ylim)
-            if symlog_cond:
-                axs.set_yscale('symlog')
-            else:
-                pass
+        else:
+            if np.any(Skew_spec1D<0):
+                min_y = np.min(Skew_spec1D)
+                max_y = np.max(Skew_spec1D)
+                if np.abs(min_y) > np.abs(max_y):
+                    abs_max = np.abs(min_y)
+                elif np.abs(max_y) > np.abs(min_y):
+                    abs_max = np.abs(max_y)
+                
+                # Setting limits.
+                # Padding limits to avoid some weird plotting issues when the range
+                # of values is small.
+                axs.set_ylim([min_y - 0.1*abs_max,max_y + 0.1*abs_max])
 
         if xlabel:
             axs.set_xlabel(xlabel,fontsize=24)
