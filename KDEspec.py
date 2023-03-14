@@ -702,7 +702,7 @@ class MI_metric:
         MI = MI_metric.mutual_information(diff_ent_x,diff_ent_y,diff_ent_xy)
         return MI/diff_ent_xy
     
-    def calc_spherical_MI(dataX_shell,dataY_shell,dataX_weights=None,dataY_weights=None,
+    def calc_KDE_MI(dataX_shell,dataY_shell,dataX_weights=None,dataY_weights=None,
                       plot_cond=False,bw='scott',std_fac=0.01,nside=1000):
         """
         Calculate the spherical mutual information from two input 3D data arrays.
