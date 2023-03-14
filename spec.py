@@ -157,7 +157,7 @@ class polySpectra:
     """
     constants = constants
     def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                 weights_cube=None,cosmo=None):
+                 weights_cube=None,cosmo=None,uvmax=300):
         """
         Constructs the spectrum object.
 
@@ -181,11 +181,14 @@ class polySpectra:
             Weights of the data points. If None assumed to be naturally weighted.
         cosmo : astropy object, default=None
             Astropy Cosmology object, default used is Plank2018.
+        uvmax : float, defualt=300
+            uv cutoff in wavelengths.
         """
         self.cube = cube
         self.u_arr = u_arr # 2D u-grid, in units of wavelength.
         self.v_arr = v_arr # 2D u-grid, in units of wavelength.
         self.eta = eta # 1D vector of time values. 
+        self.uvmax = uvmax
 
         # Defining the observation redshift.
         self.nu_o = nu_o # [Hz]
@@ -201,11 +204,18 @@ class polySpectra:
         eta_nu[0] = eta_nu[1]/2
         self.eta = eta_nu
         
-        # Setting the weights cube.
-        self.weights_cube = np.zeros(np.shape(cube))
-            
-        # Only cells with values are assigned weights.
-        self.weights_cube[self.cube > 0.0] = 1.0
+
+        if np.any(weights_cube):
+            self.weights_cube = weights_cube
+        else:
+            # Might change this to be specific to each of the different spectra
+            # Sub classes
+
+            # Setting the weights cube.
+            self.weights_cube = np.zeros(np.shape(cube))
+                
+            # Only cells with values are assigned weights.
+            self.weights_cube[self.cube > 0.0] = 1.0
 
         if cosmo != None:
             # User inputted cosmology.
@@ -799,6 +809,9 @@ class polySpectra:
         """
         ### TODO
         # 1) Make this a static method, and generalise it. 
+        # 2) Change the input function.
+
+        start0 = time.perf_counter()
 
         #bin_width = 2.5 # [lambda]
         bin_width = 3.75 # [lambda]
@@ -848,6 +861,10 @@ class polySpectra:
 
         # Assigning the power.
         self.spec_avg_2D = spec_avg_2D*self.cosmo_factor # [mK^3 Mpc^3 h^-3]
+
+        end0 = time.perf_counter()
+        
+        print(f'\n2D spectrum calctime = {(end0-start0):5.3f} [s]')
 
         # Assigning the perpendicular and parallel components of the power spectrum.
         self.kperp = kr_vec
@@ -942,10 +959,25 @@ class miSpec(polySpectra,MI_metric):
     def MI_shell_wrapper(self,shell_ind,ind=None):
         """
         Wrapper for calculating the MI.
+
+            Parameters
+            ----------
+            self : object
+                Power object contains u and v arrays, as well as the observation redshift.
+            shell_ind : numpy array
+                Numpy array of boolean values. This is the shell index, either a spherical or
+                circular shell. If ind is not None this is spherical, circular otherwise.
+            ind : int, default=None
+                If not None, then this is the eta or kz array index. 
+
+            
+            Returns
+            -------
         """
         plot_cond = False
         # Set this to True to test the plots are sensible.
         if ind:
+            print(ind)
             # Cylindrical case.
             MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind,ind],self.cubeY[shell_ind,ind],
                                 dataX_weights=self.cubeX_weights[shell_ind,ind],
@@ -963,7 +995,6 @@ class miSpec(polySpectra,MI_metric):
         """
         Wrapper for calculating the spherical MI.
         """
-
         miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,flat_cond=True)
 
         self.MI_1D = self.spec_avg_1D
@@ -973,8 +1004,7 @@ class miSpec(polySpectra,MI_metric):
         """
         Wrapper for calculating the spherical MI.
         """
-
-        miSpec.Cylindrical(self,func=miSpec.MI_shell_wrapper,flat_cond=True)
+        miSpec.Cylindrical(self,func=miSpec.MI_shell_wrapper)
 
         self.MI_2D = self.spec_avg_2D
         del self.spec_avg_2D
