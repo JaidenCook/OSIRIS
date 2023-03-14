@@ -839,7 +839,8 @@ class polySpectra:
                     # Some bins don't contain data, this will ensure the script doesn't fail. These bins will be set
                     # to NaN.
                     #spec_avg_2D[i,j] = np.average(self.cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) 
-                    spec_avg_2D[i,j] = func(self.cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) 
+                    #spec_avg_2D[i,j] = func(self.cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) 
+                    spec_avg_2D[i,j] = func(self,temp_ind,ind=i)
                     
                 except ZeroDivisionError:
                     # For bins that don't have data we will set these to NaN.
@@ -859,8 +860,8 @@ class powerSpec(polySpectra):
 
     def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
                          weights_cube=None,cosmo=None):
-        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                         weights_cube=None,cosmo=None)
+        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
+                         weights_cube=weights_cube,cosmo=cosmo)
         
 
         # Overriding attributes to suite the power-spectrum.
@@ -938,15 +939,23 @@ class miSpec(polySpectra,MI_metric):
             self.cubeY_weights = cubeY_weights.ravel()
         
 
-    def MI_shell_wrapper(self,shell_ind):
+    def MI_shell_wrapper(self,shell_ind,ind=None):
         """
         Wrapper for calculating the MI.
         """
-        # Set this to True to test the plots are sensible.
         plot_cond = False
-        MI = MI_metric.calc_spherical_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
-                            dataX_weights=self.cubeX_weights[shell_ind],
-                            dataY_weights=self.cubeY_weights[shell_ind],plot_cond=plot_cond)
+        # Set this to True to test the plots are sensible.
+        if ind:
+            # Cylindrical case.
+            MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind,ind],self.cubeY[shell_ind,ind],
+                                dataX_weights=self.cubeX_weights[shell_ind,ind],
+                                dataY_weights=self.cubeY_weights[shell_ind,ind],
+                                plot_cond=plot_cond)
+        else:
+            # Spherical case.
+            MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
+                                dataX_weights=self.cubeX_weights[shell_ind],
+                                dataY_weights=self.cubeY_weights[shell_ind],plot_cond=plot_cond)
 
         return MI
     
@@ -959,3 +968,13 @@ class miSpec(polySpectra,MI_metric):
 
         self.MI_1D = self.spec_avg_1D
         del self.spec_avg_1D
+    
+    def MI_cylindrical(self):
+        """
+        Wrapper for calculating the spherical MI.
+        """
+
+        miSpec.Cylindrical(self,func=miSpec.MI_shell_wrapper,flat_cond=True)
+
+        self.MI_2D = self.spec_avg_2D
+        del self.spec_avg_2D
