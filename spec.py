@@ -189,6 +189,9 @@ class polySpectra:
         self.v_arr = v_arr # 2D u-grid, in units of wavelength.
         self.eta = eta # 1D vector of time values. 
         self.uvmax = uvmax
+        
+        # Overide this in the child methods.
+        self.ravel_cond = False
 
         # Defining the observation redshift.
         self.nu_o = nu_o # [Hz]
@@ -731,7 +734,7 @@ class polySpectra:
         kr_vec = np.zeros(N_bins)
 
         # Indexing is faster in 1D arrays. If the arrays are filled.
-        if len(self.cube.shape) == 1:
+        if self.ravel_cond:
             # If the data array is 1D then flatten the coordinate grid.
             self.kr_grid = self.kr_grid.ravel()
         
@@ -816,11 +819,9 @@ class polySpectra:
         # Initialising the power spectrum and radius arrays.
         spec_avg_2D = np.zeros([len(self.eta),len(kr_bins)-1])
         kr_vec = np.zeros(len(kr_bins)-1)
-
-        ######################
+        
         # If things are flattened then you need some fancy indexing.
         gridyy,gridxx = np.indices(kperp_arr.shape)
-        ######################
 
         # We only need to calculate the kperp bins once.
         # They are the same for each eta bin.
@@ -828,7 +829,6 @@ class polySpectra:
         for j in range(len(kr_bins)-1):
             temp_ind = (kperp_arr >= kr_bins[j]) & (kperp_arr <= kr_bins[j+1])
             kperp_index_list.append(temp_ind)
-
 
         # Averaging the power in annular rings for each eta slice.
         for i in range(len(self.eta)):
@@ -848,17 +848,15 @@ class polySpectra:
 
                 # Creating the 3D index array.
                 arr_ind = np.array([gridyy_temp,gridxx_temp,np.ones(N_samp_temp,dtype=int)*i])
-
-                arr_ind_ravel = np.ravel_multi_index(arr_ind, gridxx.shape + (len(self.eta),))
+                if self.ravel_cond:
+                
+                    arr_ind = np.ravel_multi_index(arr_ind, kperp_arr.shape + (len(self.eta),))
 
                 # Weighted averaging of annuli values.
                 try:
                     # Some bins don't contain data, this will ensure the script doesn't fail. These bins will be set
                     # to NaN.
-                    #spec_avg_2D[i,j] = np.average(self.cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) 
-                    #spec_avg_2D[i,j] = func(self.cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) 
-                    #spec_avg_2D[i,j] = func(self,temp_ind,ind=i)
-                    spec_avg_2D[i,j] = func(self,arr_ind_ravel,ind=i)
+                    spec_avg_2D[i,j] = func(self,arr_ind)
                     
                 except ZeroDivisionError:
                     # For bins that don't have data we will set these to NaN.
@@ -943,27 +941,48 @@ class miSpec(polySpectra,MI_metric):
     """
 
     def __init__(self,cube,cubeY,u_arr,v_arr,eta,nu_o,cubeX_weights=None,cubeY_weights=None,
-                 dnu=30.72e6,dnu_f=80e3,cosmo=None):
+                 dnu=30.72e6,dnu_f=80e3,cosmo=None,ravel_cond=True):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
                          cosmo=cosmo)
 
-        self.cubeX = cube.ravel()
-        self.cubeY = cubeY.ravel()
+        if ravel_cond:
+            self.cubeX = cube.ravel()
+            self.cubeY = cubeY.ravel()
+            self.ravel_cond = ravel_cond
+        else:
+            self.cubeX = cube
+            self.cubeY = cubeY
+            self.ravel_cond = ravel_cond
 
         del cube,cubeY
+        del self.cube, self.weights_cube
 
         if np.any(cubeX_weights):
             # If weights provided they are assigned.
-            self.cubeX_weights = cubeX_weights.ravel()
+            if ravel_cond:
+                self.cubeX_weights = cubeX_weights.ravel()
+            else:
+                self.cubeX_weights = cubeX_weights
+        else:
+            # No weights given assign weights.
+            self.cubeX_weights = np.zeros(self.cubeX.shape)
+            self.cubeX_weights[self.cubeX.shape != 0] = 1
         
         if np.any(cubeY_weights):
             # If weights provided they are assigned.
-            self.cubeY_weights = cubeY_weights.ravel()
-        
+            if ravel_cond:
+                self.cubeY_weights = cubeY_weights.ravel()
+            else:
+                self.cubeY_weights = cubeY_weights
+        else:
+            # No weights given assign weights.
+            self.cubeY_weights = np.zeros(self.cubeY.shape)
+            self.cubeY_weights[self.cubeY.shape != 0] = 1
 
-    def MI_shell_wrapper(self,shell_ind,ind=None):
+        
+    def MI_shell_wrapper(self,shell_ind):
         """
-        Wrapper for calculating the MI.
+        Wrapper for calculating the MI. Calculates both the 1D and 2D array values.
 
             Parameters
             ----------
@@ -972,30 +991,19 @@ class miSpec(polySpectra,MI_metric):
             shell_ind : numpy array
                 Numpy array of boolean values. This is the shell index, either a spherical or
                 circular shell. If ind is not None this is spherical, circular otherwise.
-            ind : int, default=None
-                If not None, then this is the eta or kz array index. 
-
             
             Returns
             -------
+            MI : float
+                Output mutual information value.
         """
         plot_cond = False
-        #print(ind)
-        # Set this to True to test the plots are sensible.
-        #if np.any(ind):
-        if ind != None:
-            #print(ind)
-            # Cylindrical case.
-            MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
-                                dataX_weights=self.cubeX_weights[shell_ind],
-                                dataY_weights=self.cubeY_weights[shell_ind],
-                                plot_cond=plot_cond)
-        else:
-            #print(ind)
-            # Spherical case.
-            MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
-                                dataX_weights=self.cubeX_weights[shell_ind],
-                                dataY_weights=self.cubeY_weights[shell_ind],plot_cond=plot_cond)
+        
+        MI = np.average(self.cubeX[shell_ind].real,weights=self.cubeX_weights[shell_ind])
+        #MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
+        #                        dataX_weights=self.cubeX_weights[shell_ind],
+        #                        dataY_weights=self.cubeY_weights[shell_ind],
+        #                        plot_cond=plot_cond)
 
         return MI
     
@@ -1006,7 +1014,7 @@ class miSpec(polySpectra,MI_metric):
         """
         miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,wedge_cond=wedge_cond,N_bins=N_bins,
                          sig=sig,log_bin_cond=log_bin_cond,kr_min=kr_min,kr_max=kr_max,
-                         horizon_cond=horizon_cond,wedge_cut=wedge_cut,verbose=verbose,)
+                         horizon_cond=horizon_cond,wedge_cut=wedge_cut,verbose=verbose)
 
         self.MI_1D = self.spec_avg_1D
         del self.spec_avg_1D
