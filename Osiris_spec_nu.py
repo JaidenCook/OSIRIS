@@ -815,6 +815,9 @@ class Power_spec:
         axs.tick_params(axis='x',labelsize=20)
         axs.tick_params(axis='y',labelsize=20)
 
+        # Changing the line widths.
+        [x.set_linewidth(2.) for x in axs.spines.values()]
+
         axs.grid(False)
 
         if figaxs:
@@ -968,6 +971,11 @@ class Power_spec:
         axs.tick_params(axis='x', labelsize=18)
         axs.tick_params(axis='y', labelsize=18)
         cb.ax.tick_params(labelsize=18)
+
+        # Changing the line widths.
+        [x.set_linewidth(2.) for x in axs.spines.values()]
+        cb.outline.set_linewidth(2.)
+        cb.outline.set_color('k')
 
         axs.grid(False)
 
@@ -1744,7 +1752,6 @@ class Skew_spec:
         [x.set_linewidth(2.) for x in axs.spines.values()]
         cb.outline.set_linewidth(2.)
         cb.outline.set_color('k')
-        #matplotlib.rcParams['axes.linewidth'] = 2
 
         axs.grid(False)
 
