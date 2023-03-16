@@ -141,7 +141,7 @@ class polySpectra:
         ...
     wedge_factor(z,cosmo=None)
         ...
-    calc_kr_grid(u_grid,v_grid,eta_vec,z,cosmo=None,kperp_cond=False)
+    calc_kr_grid(u_grid,v_grid,eta_vec,z,cosmo=None,return_kxyz=False)
         ...
     calc_field_of_view(sig_u)
         ...
@@ -497,9 +497,10 @@ class polySpectra:
         return wedge_factor
     
     @staticmethod
-    def calc_kr_grid(u_grid,v_grid,eta_vec,z,cosmo=None,kperp_cond=False):
+    def calc_kr_grid(u_grid,v_grid,eta_vec,z,cosmo=None):
         """
         Calculates the radial k-mode grid for an input u-grid, v-grid and eta-grid.
+        If eta is a single value then only calculate the grid for a single slice.
         It also performs the unit conversions from (u,v,eta) to (kx,ky,kz).
                 
             Parameters
@@ -514,19 +515,13 @@ class polySpectra:
                 Redshift value.
             cosmo : astropy object, default=None
                 Astropy cosmology object, contains the Universe cosmology.
-            kperp_cond : bool, default=False
+            return_kxyz : bool, default=False
                 If True return the kx_grid, and ky_grid values.
             
             Returns
             -------
             kr_grid : numpy array
-                3D numpy array containing the (kx,ky,kz) norm value for each voxel.
-            kx_grid : numpy array, default=None
-                Optional: if kperp_cond=True return the 2D kx_grid.
-            ky_grid : numpy array, default=None
-                Optional: if kperp_cond=True return the 2D ky_grid.
-            kz_vec : numpy array, default=None
-                Optional: if kperp_cond=True return the 1D kz_vec.
+                3D or 2D numpy array containing the (kx,ky) or (kx,ky,kz) norm value for each voxel.
         """
         if cosmo == None:
             # If no cosmology provided use the defualt Plank2018 Cosmology.
@@ -535,17 +530,23 @@ class polySpectra:
             pass
 
         # Defining the kx, ky, and kz values from u,v and eta.
-        kz_vec = polySpectra.eta2kz(eta_vec,z,cosmo) # [Mpc^-1 h]
         kx_grid = polySpectra.uv2kxky(u_grid,z,cosmo) # [Mpc^-1 h]
         ky_grid = polySpectra.uv2kxky(v_grid,z,cosmo) # [Mpc^-1 h]
 
-        # Creating 3D k_r array.
-        kr_grid = np.array([np.sqrt(kx_grid**2 + ky_grid**2 + kz**2) for kz in kz_vec]).T
+        # kz can be a float or a vector.
+        kz_vec = polySpectra.eta2kz(eta_vec,z,cosmo) # [Mpc^-1 h]
 
-        if kperp_cond:
-            return kr_grid,kx_grid,ky_grid,kz_vec
-        else:
-            return kr_grid
+        try:
+            kz_vec.shape
+
+            # Creating 3D k_r array.
+            kr_grid = np.array([np.sqrt(kx_grid**2 + ky_grid**2 + kz**2) for kz in kz_vec]).T
+        except AttributeError:
+
+            # Creating 2D k_perp array
+            kr_grid = np.sqrt(kx_grid**2 + ky_grid**2)
+
+        return kr_grid
     
     @staticmethod
     def calc_field_of_view(sig_u):
@@ -585,18 +586,12 @@ class polySpectra:
 
         return Omega_fov
 
-    def set_wedge_to_nan(self,kx_grid,ky_grid,kz_vec,kr_min,wedge_cut=None,horizon_cond=True):
+    def set_wedge_to_nan(self,kr_min,wedge_cut=None,horizon_cond=True):
         """
-        Use the kx, ky and kz grids to set the wedge values to zero. 
+        Use the kx, ky and to set the wedge values to zero. 
         
             Parameters
             ----------
-            kx_grid : numpy array, default=None
-                Optional: if kperp_cond=True return the 2D kx_grid.
-            ky_grid : numpy array, default=None
-                Optional: if kperp_cond=True return the 2D ky_grid.
-            kz_vec : numpy array, default=None
-                Optional: if kperp_cond=True return the 1D kz_vec.
             kr_min : float
                 Minimum radius value.
             wedge_cut : float, default=None
@@ -610,7 +605,8 @@ class polySpectra:
             None
         """
         # Calculating the k_perp array.
-        k_perp = np.sqrt(kx_grid**2 + ky_grid**2) # [Mpc^-1 h]
+        kz_vec = polySpectra.eta2kz(self.eta,self.z,self.cosmo) # [Mpc^-1 h]
+        k_perp = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,0,self.z,cosmo=self.cosmo) # [Mpc^-1 h]
         # Specifying a minimum k_perp.
         k_perp_min = 0.1 # [Mpc^-1 h]
 
@@ -629,7 +625,7 @@ class polySpectra:
 
         # Calculating the wedge mask array.
         wedge_ind_cube = \
-            np.array([np.logical_or(k_par < wedge_cut*k_perp, k_perp >= k_perp_min) for k_par in kz_vec]).T
+            np.array([np.logical_or(k_par < wedge_cut*k_perp, k_perp >= k_perp_min) for k_par in self.eta]).T
         #wedge_ind_cube = np.array([k_perp >= k_perp_min for k_par in kz_vec]).T
 
         print(f'wedge_cut {wedge_cut:5.3f}')
@@ -691,19 +687,9 @@ class polySpectra:
         if wedge_cond:
             # If this is True we want to set all the voxels in the foreground wedge to be
             # NaN. This incluses their weight values as well.
-            
-            # Calculating the kr_grid.
-            self.kr_grid,kx_grid,ky_grid,kz_vec = \
-                polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.eta,self.z,self.cosmo)
-            
-            # Setting the wedge values to zero.
-            polySpectra.set_wedge_to_nan(self,kx_grid,ky_grid,kz_vec,
-                                        kr_min,wedge_cut=wedge_cut,horizon_cond=horizon_cond)
-            del kx_grid,ky_grid
-
-        else:
-            # Default if we don't want to exclude the wedge.
-            self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.eta,self.z,self.cosmo)
+            polySpectra.set_wedge_to_nan(self,kr_min,wedge_cut=wedge_cut,horizon_cond=horizon_cond)
+        
+        self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.eta,self.z,self.cosmo)
 
         if kr_min:
             # User can manually input a kr min.
@@ -837,15 +823,34 @@ class polySpectra:
         spec_avg_2D = np.zeros([len(self.eta),len(kr_bins)-1])
         kr_vec = np.zeros(len(kr_bins)-1)
 
+        ######################
+        # If things are flattened then you need some fancy indexing.
+        gridyy,gridxx = np.indices(kr_uv_arr.shape)
+        ######################
+
         # Averaging the power in annular rings for each eta slice.
         for i in range(len(self.eta)):
+
+            progress_bar(i,len(self.eta),percent_cond=True)
+
             for j in range(len(kr_bins)-1):
                 
                 # Assigning the radius values. Needed for plotting purposes.
                 kr_vec[j] = ((kr_bins[j+1] + kr_bins[j])/2.0)
 
                 # Creating annunuls of boolean values.
-                temp_ind = np.logical_and(kr_uv_arr >= kr_bins[j], kr_uv_arr <= kr_bins[j+1])
+                #temp_ind = np.logical_and(kr_uv_arr >= kr_bins[j], kr_uv_arr <= kr_bins[j+1])
+                temp_ind = (kr_uv_arr >= kr_bins[j]) & (kr_uv_arr <= kr_bins[j+1])
+
+                gridyy_temp = gridyy[temp_ind]
+                gridxx_temp = gridxx[temp_ind]
+
+                N_samp_temp = int(gridxx_temp.size)
+
+                # Creating the 3D index array.
+                arr_ind = np.array([gridyy_temp,gridxx_temp,np.ones(N_samp_temp,dtype=int)*i])
+
+                arr_ind_ravel = np.ravel_multi_index(arr_ind, gridxx.shape + (len(self.eta),))
 
                 # Weighted averaging of annuli values.
                 try:
@@ -853,7 +858,8 @@ class polySpectra:
                     # to NaN.
                     #spec_avg_2D[i,j] = np.average(self.cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) 
                     #spec_avg_2D[i,j] = func(self.cube[temp_ind,i],weights=self.weights_cube[temp_ind,i]) 
-                    spec_avg_2D[i,j] = func(self,temp_ind,ind=i)
+                    #spec_avg_2D[i,j] = func(self,temp_ind,ind=i)
+                    spec_avg_2D[i,j] = func(self,arr_ind_ravel,ind=i)
                     
                 except ZeroDivisionError:
                     # For bins that don't have data we will set these to NaN.
@@ -975,15 +981,18 @@ class miSpec(polySpectra,MI_metric):
             -------
         """
         plot_cond = False
+        #print(ind)
         # Set this to True to test the plots are sensible.
-        if ind:
-            print(ind)
+        #if np.any(ind):
+        if ind != None:
+            #print(ind)
             # Cylindrical case.
-            MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind,ind],self.cubeY[shell_ind,ind],
-                                dataX_weights=self.cubeX_weights[shell_ind,ind],
-                                dataY_weights=self.cubeY_weights[shell_ind,ind],
+            MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
+                                dataX_weights=self.cubeX_weights[shell_ind],
+                                dataY_weights=self.cubeY_weights[shell_ind],
                                 plot_cond=plot_cond)
         else:
+            #print(ind)
             # Spherical case.
             MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
                                 dataX_weights=self.cubeX_weights[shell_ind],
