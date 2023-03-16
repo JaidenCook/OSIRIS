@@ -460,6 +460,44 @@ class polySpectra:
         return conv_factor
     
     @staticmethod
+    def calc_field_of_view(sig_u):
+        """
+        Calculates the field of view in steradians. The primary beam in this case is 
+        assumed to be Gaussian and defined in (l,m) space. The input given is sig_u 
+        which is the width of the FT of the beam. We can use this to determine the beam
+        in (l,m) space. 
+
+        The width is defined for the following Gaussian function G = G0 exp(-x^2/sigma^2).
+        Therefore sigma_prime = sigma/root(2). Keep this in mind. In future I may revert 
+        back to a more sensible definition.
+        
+            Parameters
+            ----------
+            sig_u : float, or numpy array
+                Value(s) of grid kernel widths.
+            
+            
+            Returns
+            -------
+            Omega_fov : float, or numpy array
+                Field of view value(s) in Sr.
+        """
+        # Estimating the sky width.
+        sigma_b = 1/(np.pi*sig_u)
+        sigma_b_prime = sigma_b/np.sqrt(2)
+
+        # Gaussian beam width.
+        w = 2*sigma_b_prime
+
+        # Using this to calculate the FoV.
+        Omega_fov = np.pi*w**2
+
+        # FoV assuming FWHM of G = G0 exp(-0.5 x^2 / sig^2) kernel definition.
+        #Omega_fov = (2*np.log(2))/(np.pi*(sig)**2) # Omega = 2 ln(2) / (pi* sig_grid^2) [Sr]
+
+        return Omega_fov
+
+    @staticmethod
     def wedge_factor(z,cosmo=None):
         """
         Nicholes horizon cosmology cut.
@@ -537,54 +575,15 @@ class polySpectra:
         kz_vec = polySpectra.eta2kz(eta_vec,z,cosmo) # [Mpc^-1 h]
 
         try:
-            kz_vec.shape
-
             # Creating 3D k_r array.
             kr_grid = np.array([np.sqrt(kx_grid**2 + ky_grid**2 + kz**2) for kz in kz_vec]).T
-        except AttributeError:
+        #except AttributeError:
+        except TypeError:
 
             # Creating 2D k_perp array
             kr_grid = np.sqrt(kx_grid**2 + ky_grid**2)
 
         return kr_grid
-    
-    @staticmethod
-    def calc_field_of_view(sig_u):
-        """
-        Calculates the field of view in steradians. The primary beam in this case is 
-        assumed to be Gaussian and defined in (l,m) space. The input given is sig_u 
-        which is the width of the FT of the beam. We can use this to determine the beam
-        in (l,m) space. 
-
-        The width is defined for the following Gaussian function G = G0 exp(-x^2/sigma^2).
-        Therefore sigma_prime = sigma/root(2). Keep this in mind. In future I may revert 
-        back to a more sensible definition.
-        
-            Parameters
-            ----------
-            sig_u : float, or numpy array
-                Value(s) of grid kernel widths.
-            
-            
-            Returns
-            -------
-            Omega_fov : float, or numpy array
-                Field of view value(s) in Sr.
-        """
-        # Estimating the sky width.
-        sigma_b = 1/(np.pi*sig_u)
-        sigma_b_prime = sigma_b/np.sqrt(2)
-
-        # Gaussian beam width.
-        w = 2*sigma_b_prime
-
-        # Using this to calculate the FoV.
-        Omega_fov = np.pi*w**2
-
-        # FoV assuming FWHM of G = G0 exp(-0.5 x^2 / sig^2) kernel definition.
-        #Omega_fov = (2*np.log(2))/(np.pi*(sig)**2) # Omega = 2 ln(2) / (pi* sig_grid^2) [Sr]
-
-        return Omega_fov
 
     def set_wedge_to_nan(self,kr_min,wedge_cut=None,horizon_cond=True):
         """
@@ -639,8 +638,7 @@ class polySpectra:
         self.kr_grid[wedge_ind_cube] = np.NaN
     
     def Spherical(self,func=np.average,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
-                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False,
-                  flat_cond=False):
+                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
         """
         Calculates the 1D spherically averaged poly spectra using the input object.
                 
@@ -670,9 +668,6 @@ class polySpectra:
 
             verbose : bool, default=False
 
-            flat_cond : bool, default=False
-                If True flatten the kr_array, data arrays should also be flattened.
-
             
             Returns
             -------
@@ -689,6 +684,7 @@ class polySpectra:
             # NaN. This incluses their weight values as well.
             polySpectra.set_wedge_to_nan(self,kr_min,wedge_cut=wedge_cut,horizon_cond=horizon_cond)
         
+        # Calculating the kr_grid.
         self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.eta,self.z,self.cosmo)
 
         if kr_min:
@@ -735,11 +731,9 @@ class polySpectra:
         kr_vec = np.zeros(N_bins)
 
         # Indexing is faster in 1D arrays. If the arrays are filled.
-        if flat_cond:
+        if len(self.cube.shape) == 1:
+            # If the data array is 1D then flatten the coordinate grid.
             self.kr_grid = self.kr_grid.ravel()
-
-        #self.cube = self.cube.ravel()
-        #self.weights_cube = self.weights_cube.ravel()
         
         for i in range(len(k_r_bins)-1):
 
@@ -799,11 +793,11 @@ class polySpectra:
 
         start0 = time.perf_counter()
 
-        #bin_width = 2.5 # [lambda]
         bin_width = 3.75 # [lambda]
         
         # Converting into cosmological values.
         dk_r = polySpectra.uv2kxky(bin_width,self.z,self.cosmo) # h Mpc^-1
+        # Calculating kperp max.
         k_perp_max = polySpectra.uv2kxky(self.uvmax,self.z,self.cosmo) # h Mpc^-1
         
         # Defininf the number of bins.
@@ -815,9 +809,9 @@ class polySpectra:
         # Problems with instrument sampling. Ommitting first bin.
         kr_bins = kr_bins[1:]
 
-        # The u_arr and v_arr should be shifted. 
-        r_uv = np.sqrt(self.u_arr**2 + self.v_arr**2)
-        kr_uv_arr = polySpectra.uv2kxky(r_uv,self.z,self.cosmo)
+        # Calculating the kperp array. 
+        kperp_arr = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,0,
+                                             self.z,cosmo=self.cosmo) # [Mpc^-1 h]
 
         # Initialising the power spectrum and radius arrays.
         spec_avg_2D = np.zeros([len(self.eta),len(kr_bins)-1])
@@ -825,23 +819,28 @@ class polySpectra:
 
         ######################
         # If things are flattened then you need some fancy indexing.
-        gridyy,gridxx = np.indices(kr_uv_arr.shape)
+        gridyy,gridxx = np.indices(kperp_arr.shape)
         ######################
+
+        # We only need to calculate the kperp bins once.
+        # They are the same for each eta bin.
+        kperp_index_list = []
+        for j in range(len(kr_bins)-1):
+            temp_ind = (kperp_arr >= kr_bins[j]) & (kperp_arr <= kr_bins[j+1])
+            kperp_index_list.append(temp_ind)
+
 
         # Averaging the power in annular rings for each eta slice.
         for i in range(len(self.eta)):
 
             progress_bar(i,len(self.eta),percent_cond=True)
 
-            for j in range(len(kr_bins)-1):
+            for j,temp_ind in enumerate(kperp_index_list):
                 
                 # Assigning the radius values. Needed for plotting purposes.
                 kr_vec[j] = ((kr_bins[j+1] + kr_bins[j])/2.0)
 
-                # Creating annunuls of boolean values.
-                #temp_ind = np.logical_and(kr_uv_arr >= kr_bins[j], kr_uv_arr <= kr_bins[j+1])
-                temp_ind = (kr_uv_arr >= kr_bins[j]) & (kr_uv_arr <= kr_bins[j+1])
-
+                # Getting annulus index values.
                 gridyy_temp = gridyy[temp_ind]
                 gridxx_temp = gridxx[temp_ind]
 
@@ -1000,11 +999,14 @@ class miSpec(polySpectra,MI_metric):
 
         return MI
     
-    def MI_spherical(self):
+    def MI_spherical(self,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
+                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
         """
         Wrapper for calculating the spherical MI.
         """
-        miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,flat_cond=True)
+        miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,wedge_cond=wedge_cond,N_bins=N_bins,
+                         sig=sig,log_bin_cond=log_bin_cond,kr_min=kr_min,kr_max=kr_max,
+                         horizon_cond=horizon_cond,wedge_cut=wedge_cut,verbose=verbose,)
 
         self.MI_1D = self.spec_avg_1D
         del self.spec_avg_1D
