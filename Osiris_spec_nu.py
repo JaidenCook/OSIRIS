@@ -1605,7 +1605,7 @@ class Skew_spec:
     @staticmethod
     def plot_cylindrical(Skew_spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
         name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,
-        title=None,horizon_cond=False,linthresh=None,linscale=None,**kwargs):
+        title=None,horizon_cond=False,**kwargs):
         """
         Plot the 2D cylindrically averaged power spectrum.
 
@@ -1649,13 +1649,19 @@ class Skew_spec:
             # to vmax.
             vmin=vmin
         else:
-            pspec_min = np.min(np.log10(Skew_spec2D[Skew_spec2D > 0]))
+            pspec_min = (np.log10(np.abs(np.min(Skew_spec2D))))
 
-            vmin = 10**pspec_min
+            if np.min(Skew_spec2D) < 0:
+
+                vmin = -1*10**pspec_min
+            else:
+                vmin = 10**pspec_min
 
         if lognorm:
             #norm = matplotlib.colors.LogNorm()
-            norm = matplotlib.colors.SymLogNorm(linthresh=linthresh,linscale=linscale,base=10)
+            #norm = matplotlib.colors.SymLogNorm(linthresh=linthresh,linscale=linscale,base=10)
+            norm = matplotlib.colors.AsinhNorm(vmin=vmin,vmax=vmax,
+                                            linear_width=0.1)
         else:
             norm = None
 
@@ -1666,15 +1672,16 @@ class Skew_spec:
         #cmap = matplotlib.cm.viridis
         cmap = matplotlib.cm.get_cmap("Spectral_r")
         cmap.set_bad('lightgray',1.)
-    
+
 
         im = axs.imshow(Skew_spec2D,cmap=cmap,origin='lower',\
                 extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],\
-                norm=norm,vmin=vmin,vmax=vmax, aspect='auto',**kwargs)
+                norm=norm, aspect='auto',**kwargs)
         
 
         # Setting the colour bars:
-        cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002, extend='both')
+        #cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002, extend='both')
+        cb = fig.colorbar(im, ax=axs, aspect=40,pad=0.02, extend='both')
 
         if clab:
             cb.set_label(label=clab,fontsize=20)
@@ -1732,6 +1739,12 @@ class Skew_spec:
         axs.tick_params(axis='x', labelsize=18)
         axs.tick_params(axis='y', labelsize=18)
         cb.ax.tick_params(labelsize=18)
+
+        # Changing the line widths.
+        [x.set_linewidth(2.) for x in axs.spines.values()]
+        cb.outline.set_linewidth(2.)
+        cb.outline.set_color('k')
+        #matplotlib.rcParams['axes.linewidth'] = 2
 
         axs.grid(False)
 
