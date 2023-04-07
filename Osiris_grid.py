@@ -112,8 +112,10 @@ def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None,*args):
     r_bit = np.sqrt(u_bit**2 + v_bit**2)
     gaussian[r_bit > 2.5*sig] = 0
 
+    # Calculating the resolution of the array.
     resolution = np.abs(u_arr[0,0]-u_arr[0,1])
 
+    # Normalising the Gaussian.
     gaussian = (1/resolution**2)*gaussian/np.sum(gaussian,axis=(0,1))
 
     return gaussian
@@ -203,9 +205,9 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
         window_vec_v_2D = np.array([blackman_harris1D(v_vec,L/radius_factor,dy) for dy in dv_vec]).T
 
         # Einstein notation used to perform outer product for 3 axes.
+        # These results have been checked agains an iterative 2D outer product approach.
         kernel2D = np.einsum('j...,i...',window_vec_u_2D,window_vec_v_2D).T
 
-        # Values outside the kernel should be set to 0.
     else:
         err_str = 'Input wrong method, default is "radial", alternative is "square".'
         raise ValueError(err_str)
