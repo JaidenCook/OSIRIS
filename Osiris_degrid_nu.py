@@ -167,8 +167,8 @@ def Vis_degrid(kernel,u_vec,v_vec,u_coords,v_coords,vis_true,w=None,phase_cond=F
             kernel.calc_w_kernel(0.0,-u_shift_vec[i],-v_shift_vec[i])
 
         # Weighted average degridded visibilitiy.
-        vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # Might not need to renormalise.
-        vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # 
+        temp_vis = np.average(vis_sub,weights=kernel.w_kernel)
+        vis_deg[i] = temp_vis.real
 
         # Don't need to save the sample.
         w_ker_sample = None
