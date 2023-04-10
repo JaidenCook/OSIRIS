@@ -35,13 +35,7 @@ plt.rc('ytick', color='k', labelsize='medium', direction='out')
 plt.rc('ytick.major', size=6, pad=4)
 plt.rc('ytick.minor', size=4, pad=4)
 
-
-
 # TODO:
-# 1) Create the parent class and populate it with Osiris_spec_nu.py functions/
-# 2) Create child powerspec and skewspec classes.
-# 3) Think about how to include the KDE and MI stuff. They might need to be a
-# separate module file.
 # 4) Generalise the plotting functions.
 
 def progress_bar(index,Niter,percent_cond=False):
@@ -141,7 +135,7 @@ class polySpectra:
         ...
     wedge_factor(z,cosmo=None)
         ...
-    calc_kr_grid(u_grid,v_grid,eta_vec,z,cosmo=None,return_kxyz=False)
+    calc_kr_grid(u_grid,v_grid,z,eta_vec=None,cosmo=None,return_kxyz=False)
         ...
     calc_field_of_view(sig_u)
         ...
@@ -157,7 +151,7 @@ class polySpectra:
     """
     constants = constants
     def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                 weights_cube=None,cosmo=None,uvmax=300):
+                 weights_cube=None,cosmo=None,uvmax=300,sig=1.843,ravel_cond=False):
         """
         Constructs the spectrum object.
 
@@ -191,7 +185,7 @@ class polySpectra:
         self.uvmax = uvmax
         
         # Overide this in the child methods.
-        self.ravel_cond = False
+        self.ravel_cond = ravel_cond
 
         # Defining the observation redshift.
         self.nu_o = nu_o # [Hz]
@@ -207,6 +201,7 @@ class polySpectra:
         eta_nu[0] = eta_nu[1]/2
         self.eta = eta_nu
         
+        self.Omega_fov = polySpectra.calc_field_of_view(sig)
 
         if np.any(weights_cube):
             self.weights_cube = weights_cube
@@ -305,6 +300,7 @@ class polySpectra:
         # Cosmological distances:
         #DH = 3000 # [Mpc/h] Hubble distance.
         DH = (c/1000)/100 # approximately 3000 Mpc/h
+        print(DH)
 
         # k_||
         k_z = eta * (2*np.pi*nu_21*E_z)/(DH*(1 + z)**2) # [Mpc^-1 h]
@@ -348,8 +344,8 @@ class polySpectra:
 
         # Cosmological distances:
         Dm = cosmo.comoving_distance(z).value*h #[Mpc/h]
-        #DH = 3000 # [Mpc/h] Hubble distance.
-        DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
+        DH = 3000 # [Mpc/h] Hubble distance.
+        #DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
 
         # Volume term.
         volume_term = (Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
@@ -425,7 +421,8 @@ class polySpectra:
         # Cosmological distances:
         Dm = cosmo.comoving_distance(z).value*h #[Mpc/h]
         #DH = 3000 # [Mpc/h] Hubble distance.
-        DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
+        #DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
+        DH = (c/1000)/100 # approximately 3000 Mpc/h
 
         # Bullshit magic number.
         # See Appendix page 20 Barry et al 2019 (FHD/epsilon) pipeline.
@@ -531,14 +528,15 @@ class polySpectra:
         # Cosmological distances:
         Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
         #DH = 3000 # [Mpc/h] Hubble distance.
-        DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
+        #DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
+        DH = (c/1000)/100 # approximately 3000 Mpc/h
 
         wedge_factor = Dm*E_z/(DH*(1 + z)) 
 
         return wedge_factor
     
     @staticmethod
-    def calc_kr_grid(u_grid,v_grid,eta_vec,z,cosmo=None):
+    def calc_kr_grid(u_grid,v_grid,z,eta_vec=None,cosmo=None):
         """
         Calculates the radial k-mode grid for an input u-grid, v-grid and eta-grid.
         If eta is a single value then only calculate the grid for a single slice.
@@ -550,10 +548,10 @@ class polySpectra:
                 2D grid of u-values in wavelengths.
             v_grid : numpy array
                 2D grid of v-values in wavelengths.
-            eta_vec : numpy array
-                1D vector of eta values, in seconds.
             z : float
                 Redshift value.
+            eta_vec : numpy array, default=None
+                1D vector of eta values, in seconds. If None 2D Grid calculation.
             cosmo : astropy object, default=None
                 Astropy cosmology object, contains the Universe cosmology.
             return_kxyz : bool, default=False
@@ -574,15 +572,19 @@ class polySpectra:
         kx_grid = polySpectra.uv2kxky(u_grid,z,cosmo) # [Mpc^-1 h]
         ky_grid = polySpectra.uv2kxky(v_grid,z,cosmo) # [Mpc^-1 h]
 
-        # kz can be a float or a vector.
-        kz_vec = polySpectra.eta2kz(eta_vec,z,cosmo) # [Mpc^-1 h]
+        if np.any(eta_vec):
+            # 3D case.
+            # kz can be a float or a vector.
+            kz_vec = polySpectra.eta2kz(eta_vec,z,cosmo) # [Mpc^-1 h]
 
-        try:
+            #print(kz_vec.shape)
+            #print(u_grid.shape,v_grid.shape)
+            #print(kx_grid.shape,ky_grid.shape)
+
             # Creating 3D k_r array.
             kr_grid = np.array([np.sqrt(kx_grid**2 + ky_grid**2 + kz**2) for kz in kz_vec]).T
-        #except AttributeError:
-        except TypeError:
-
+        else:
+            # 2D case.
             # Creating 2D k_perp array
             kr_grid = np.sqrt(kx_grid**2 + ky_grid**2)
 
@@ -608,7 +610,7 @@ class polySpectra:
         """
         # Calculating the k_perp array.
         kz_vec = polySpectra.eta2kz(self.eta,self.z,self.cosmo) # [Mpc^-1 h]
-        k_perp = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,0,self.z,cosmo=self.cosmo) # [Mpc^-1 h]
+        k_perp = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,cosmo=self.cosmo) # [Mpc^-1 h]
         # Specifying a minimum k_perp.
         k_perp_min = 0.1 # [Mpc^-1 h]
 
@@ -640,7 +642,51 @@ class polySpectra:
         self.weights_cube[wedge_ind_cube] = np.NaN
         self.kr_grid[wedge_ind_cube] = np.NaN
     
-    def Spherical(self,func=np.average,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
+
+    def avg_spherical_wrapper(self,shell_ind):
+        """
+        Wrapper for calculating the MI. Calculates both the 1D and 2D array values.
+
+            Parameters
+            ----------
+            self : object
+                Power object contains u and v arrays, as well as the observation redshift.
+            shell_ind : numpy array
+                Numpy array of boolean values. This is the shell index, either a spherical or
+                circular shell. If ind is not None this is spherical, circular otherwise.
+            
+            Returns
+            -------
+            MI : float
+                Output mutual information value.
+        """
+        try:
+            avg_shell_power = np.average(self.cube[shell_ind],
+                                         weights=self.weights_cube[shell_ind])
+        except ZeroDivisionError:
+            avg_shell_power = np.nan
+
+        return avg_shell_power
+    
+    def avgSpherical(self,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
+                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
+        """
+        Wrapper for calculating the spherical average.
+        """
+        polySpectra.Spherical(self,func=polySpectra.avg_spherical_wrapper,
+                            wedge_cond=wedge_cond,N_bins=N_bins,sig=sig,
+                            log_bin_cond=log_bin_cond,kr_min=kr_min,kr_max=kr_max,
+                            horizon_cond=horizon_cond,wedge_cut=wedge_cut,verbose=verbose)
+
+    
+    def avgCylindrical(self):
+        """
+        Wrapper for calculating the spherical average.
+        """
+        polySpectra.Cylindrical(self,func=polySpectra.avg_spherical_wrapper)
+
+
+    def Spherical(self,func,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
                   kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
         """
         Calculates the 1D spherically averaged poly spectra using the input object.
@@ -688,7 +734,7 @@ class polySpectra:
             polySpectra.set_wedge_to_nan(self,kr_min,wedge_cut=wedge_cut,horizon_cond=horizon_cond)
         
         # Calculating the kr_grid.
-        self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.eta,self.z,self.cosmo)
+        self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,self.eta,self.cosmo)
 
         if kr_min:
             # User can manually input a kr min.
@@ -752,16 +798,7 @@ class polySpectra:
             # Defining the shell array index:
             shell_ind = np.logical_and(self.kr_grid >= k_r_bins[i], self.kr_grid <= k_r_bins[i+1])
 
-            try:
-                # Some bins don't contain data, this will ensure the script doesn't fail. These bins will be set
-                # to NaN.
-                #spec_avg_1D[i] = np.average(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
-                #spec_avg_1D[i] = func(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
-                spec_avg_1D[i] = func(self,shell_ind)
-                
-            except ZeroDivisionError and ValueError:
-                # For bins that don't have data we will set these to NaN.
-                spec_avg_1D[i] = np.nan
+            spec_avg_1D[i] = func(self,shell_ind)
                 
         end0 = time.perf_counter()
         
@@ -775,7 +812,7 @@ class polySpectra:
         self.spec_avg_1D = spec_avg_1D*self.cosmo_factor # [mK^2 Mpc^3 h^-3]
         self.k_r = kr_vec
     
-    def Cylindrical(self,func=np.mean):
+    def Cylindrical(self,func):
         """
         Calculates the 2D cylindrical power spectra using the input Power object.
                 
@@ -813,7 +850,7 @@ class polySpectra:
         kr_bins = kr_bins[1:]
 
         # Calculating the kperp array. 
-        kperp_arr = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,0,
+        kperp_arr = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,
                                              self.z,cosmo=self.cosmo) # [Mpc^-1 h]
 
         # Initialising the power spectrum and radius arrays.
@@ -858,7 +895,7 @@ class polySpectra:
                     # to NaN.
                     spec_avg_2D[i,j] = func(self,arr_ind)
                     
-                except ZeroDivisionError:
+                except ZeroDivisionError and ValueError:
                     # For bins that don't have data we will set these to NaN.
                     spec_avg_2D[i,j] = np.nan
 
@@ -879,9 +916,9 @@ class powerSpec(polySpectra):
     """
 
     def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                         weights_cube=None,cosmo=None):
+                         weights_cube=None,cosmo=None,sig=1.843,ravel_cond=False):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
-                         weights_cube=weights_cube,cosmo=cosmo)
+                         weights_cube=weights_cube,cosmo=cosmo,sig=sig,ravel_cond=ravel_cond)
         
 
         # Overriding attributes to suite the power-spectrum.
@@ -892,15 +929,11 @@ class powerSpec(polySpectra):
         if np.any(weights_cube):
             # Case for user inputted weigth cube.
             self.weights_cube = weights_cube
-
-    def avg_spherical_wrapper(self,shell_ind):
-        """
-        Wrapper function for the spherical averaging.
-        """
-
-        avg_temp = np.average(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
-
-        return avg_temp
+        
+        if self.ravel_cond:
+            self.cube = self.cube.ravel()
+            self.weights_cube = self.weights_cube.ravel()
+            del cube,weights_cube
 
 class skewSpec(polySpectra):
     """
@@ -908,30 +941,36 @@ class skewSpec(polySpectra):
     """
 
     def __init__(self,cube,cubesqd,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                         weights_cube=None,cosmo=None):
+                         weights_cube=None,cosmo=None,sig=1.843):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
-                         weights_cube=weights_cube,cosmo=cosmo)
+                         weights_cube=weights_cube,cosmo=cosmo,sig=sig)
 
-        self.cube = cubesqd*cube
+        self.cube = cubesqd*np.conjugate(cube)
+        self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Skew2Tb(self.dnu,self.dnu_f,
+                                            self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
         del cube,cubesqd
 
-
-    def avg_spherical_wrapper(self,shell_ind):
-
-        avg_temp = np.average(self.cube[shell_ind],weights=self.weights_cube[shell_ind])
-
-        return avg_temp
+        if np.any(weights_cube):
+            # Case for user inputted weigth cube.
+            self.weights_cube = weights_cube
+        
+        if self.ravel_cond:
+            self.cube = self.cube.ravel()
+            self.weights_cube = self.weights_cube.ravel()
+            del cube,weights_cube
+    
+    
 
 class kdeSpec(polySpectra):
     """
-    Test child class.
+    Class to calculate the power spectrum using kernel density estimators.
     """
 
     def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                         weights_cube=None,cosmo=None):
+                         weights_cube=None,cosmo=None,sig=1.843):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
-                         weights_cube=weights_cube,cosmo=cosmo)
+                         weights_cube=weights_cube,cosmo=cosmo,sig=sig)
 
         self.cube = cube
 
@@ -941,10 +980,12 @@ class miSpec(polySpectra,MI_metric):
     """
 
     def __init__(self,cube,cubeY,u_arr,v_arr,eta,nu_o,cubeX_weights=None,cubeY_weights=None,
-                 dnu=30.72e6,dnu_f=80e3,cosmo=None,ravel_cond=True):
+                 dnu=30.72e6,dnu_f=80e3,cosmo=None,ravel_cond=True,sig=1.843):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
-                         cosmo=cosmo)
-
+                         cosmo=cosmo,sig=sig)
+        
+        # If True then the input arrays are flattened. This can speed up the calculation
+        # process.
         if ravel_cond:
             self.cubeX = cube.ravel()
             self.cubeY = cubeY.ravel()
@@ -998,13 +1039,14 @@ class miSpec(polySpectra,MI_metric):
                 Output mutual information value.
         """
         plot_cond = False
-        
-        MI = np.average(self.cubeX[shell_ind].real,weights=self.cubeX_weights[shell_ind])
-        #MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
-        #                        dataX_weights=self.cubeX_weights[shell_ind],
-        #                        dataY_weights=self.cubeY_weights[shell_ind],
-        #                        plot_cond=plot_cond)
-
+        try:
+            MI = MI_metric.calc_KDE_MI(self.cubeX[shell_ind],self.cubeY[shell_ind],
+                                dataX_weights=self.cubeX_weights[shell_ind],
+                                dataY_weights=self.cubeY_weights[shell_ind],
+                                plot_cond=plot_cond)
+        except ZeroDivisionError or ValueError:
+            MI = np.nan
+    
         return MI
     
     def MI_spherical(self,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
