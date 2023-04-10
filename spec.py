@@ -300,7 +300,6 @@ class polySpectra:
         # Cosmological distances:
         #DH = 3000 # [Mpc/h] Hubble distance.
         DH = (c/1000)/100 # approximately 3000 Mpc/h
-        print(DH)
 
         # k_||
         k_z = eta * (2*np.pi*nu_21*E_z)/(DH*(1 + z)**2) # [Mpc^-1 h]
@@ -344,8 +343,8 @@ class polySpectra:
 
         # Cosmological distances:
         Dm = cosmo.comoving_distance(z).value*h #[Mpc/h]
-        DH = 3000 # [Mpc/h] Hubble distance.
-        #DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
+        #DH = 3000 # [Mpc/h] Hubble distance.
+        DH = (c/1000)/100 # approximately 3000 Mpc/h
 
         # Volume term.
         volume_term = (Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
@@ -421,7 +420,6 @@ class polySpectra:
         # Cosmological distances:
         Dm = cosmo.comoving_distance(z).value*h #[Mpc/h]
         #DH = 3000 # [Mpc/h] Hubble distance.
-        #DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
         DH = (c/1000)/100 # approximately 3000 Mpc/h
 
         # Bullshit magic number.
@@ -528,7 +526,6 @@ class polySpectra:
         # Cosmological distances:
         Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
         #DH = 3000 # [Mpc/h] Hubble distance.
-        #DH = c/cosmo.H(0).value # approximately 3000 Mpc/h
         DH = (c/1000)/100 # approximately 3000 Mpc/h
 
         wedge_factor = Dm*E_z/(DH*(1 + z)) 
@@ -576,10 +573,6 @@ class polySpectra:
             # 3D case.
             # kz can be a float or a vector.
             kz_vec = polySpectra.eta2kz(eta_vec,z,cosmo) # [Mpc^-1 h]
-
-            #print(kz_vec.shape)
-            #print(u_grid.shape,v_grid.shape)
-            #print(kx_grid.shape,ky_grid.shape)
 
             # Creating 3D k_r array.
             kr_grid = np.array([np.sqrt(kx_grid**2 + ky_grid**2 + kz**2) for kz in kz_vec]).T
