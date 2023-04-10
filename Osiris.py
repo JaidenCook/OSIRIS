@@ -405,7 +405,7 @@ def Plot_3D(X_arr,Y_arr,Z_arr,cmap='viridis',figsize=(7,7)):
     
     plt.show()
     
-def Plot_visibilites(Vis,u_vec,v_vec,cmap='viridis',lognorm=True,figsize = (7,7)):
+def Plot_visibilites(Vis,u_vec,v_vec,cmap='viridis',lognorm=True,figsize=(7,7)):
     """
     Visibilities diagnostic plot. Plots the visibilities amplitude, the real and 
     imaginary values, and the phase for the uv-plane.
@@ -443,11 +443,10 @@ def Plot_visibilites(Vis,u_vec,v_vec,cmap='viridis',lognorm=True,figsize = (7,7)
 
     # Creating the image objects:
     im_Vis = axs[0,0].imshow(Vis_power,cmap=cmap,norm=norm,\
-                         extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])#,\
-                             #vmin=Vis_power_mean-5*Vis_power_std,vmax=Vis_power_mean+5*Vis_power_std)
-    im_Real = axs[0,1].imshow(np.real(Vis),cmap=cmap,norm=norm,\
+                         extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
+    im_Real = axs[0,1].imshow(Vis.real,cmap=cmap,norm=norm,\
                           extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
-    im_Im = axs[1,0].imshow(np.imag(Vis),cmap=cmap,norm=norm,\
+    im_Im = axs[1,0].imshow(Vis.imag,cmap=cmap,norm=norm,\
                         extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
     im_Phase = axs[1,1].imshow(np.angle(Vis,deg=True),cmap=cmap,\
                            extent=[np.min(u_vec),np.max(u_vec),np.min(v_vec),np.max(v_vec)])
@@ -515,7 +514,8 @@ def Visibilities_2D(img,X=None,Y=None,N=None,norm=None):
     
     ## Default original case:
     #print('3D case')
-    Vis = np.roll(np.roll(ifftshift(fftn(np.roll(np.roll(fftshift(img),1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
+    Vis = np.roll(np.roll(ifftshift(fftn(np.roll(np.roll(fftshift(img),
+                                                         1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
     #Vis = np.roll(np.roll(ifftshift(ifftn(np.roll(np.roll(fftshift(img),1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
 
     if X and Y and N:
