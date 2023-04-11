@@ -92,9 +92,14 @@ class constants:
     nu_21: float = c/lam_21 #[Hz]
     kb: float = 1380.649 #[Jy m^2 Hz K^-1] Boltzmann's constant.
 
-    from astropy.cosmology import Planck18
-    # In the case we don't provide a cosmology we have a prefered one.
-    cosmo = Planck18
+    # Default cosmology.
+    from astropy.cosmology import LambdaCDM
+    omega_matter = 0.31
+    omega_baryon = 0.048
+    omega_lambda = 0.69
+    hubble = 68
+    ##Create the astropy cosmology
+    cosmo = LambdaCDM(H0=hubble,Om0=omega_matter,Ode0=omega_lambda,Ob0=omega_baryon)
 
 class polySpectra:
     """
