@@ -34,6 +34,7 @@ plt.rc('ytick', color='k', labelsize='medium', direction='out')
 plt.rc('ytick.major', size=6, pad=4)
 plt.rc('ytick.minor', size=4, pad=4)
 
+from spec import constants
 
 def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
     xlabel=None,ylabel=None,step=True,scale=1,**kwargs):
@@ -41,17 +42,18 @@ def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figa
     Plot the 1D angular averaged power spectrum. If figaxs is provided allows for plotting
     more than one power spectrum.
 
-        Parameters
-        ----------
-        k_r : numpy array, float
-            1D vector of spherically radial k-modes.
-        Power1D : numpy array, float
-            1D Power.
-        
-        Returns
-        -------
-        None
+    Parameters
+    ----------
+    k_r : numpy array, float
+        1D vector of spherically radial k-modes.
+    Power1D : numpy array, float
+        1D Power.
+    
+    Returns
+    -------
+    None
     """
+    # Generalise this for both skew and power spectrum.
 
     if figaxs:
         fig = figaxs[0]
@@ -110,55 +112,66 @@ def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figa
         else:
             plt.show()
 
-
-def plot_cylindrical(Power2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
+# Add a scale parameter.
+# Solve the extent.
+def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
     name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,
-    title=None,horizon_cond=False,scale=1,**kwargs):
-
+    title=None,horizon_cond=False,Omega=0.076,z=6.8,verbose=False,**kwargs):
     """
     Plot the 2D cylindrically averaged power spectrum.
 
-        Parameters
-        ----------
-        Power2D : numpy array, float
-            2D numpy array containing the power.
-        kperp : numpy array, float
-            1D vector of perpendicular k-modes.
-        kpar : numpy array, float
-            1D vector of parallel k-modes.
-        
-        Returns
-        -------
-        None
+    Parameters
+    ----------
+    Spec2D : numpy array, float
+        2D numpy array containing the power.
+    kperp : numpy array, float
+        1D vector of perpendicular k-modes.
+    kpar : numpy array, float
+        1D vector of parallel k-modes.
+    figsize : tuple, default=(7.5,10.5)
+        Size of the figure.
+    cmap : str, default='Spectral_r'
+        Colour map to use. Default is Spectral_r, cividis, twighlight, or 
+        viridis are also good options to consider.
+    name : str, default=None
+        If a name is given the figure is saved as name.png.
+    xlim : float, default=None
+        X limits of the image pixels. In units of h Mpc^-1.
+    ylim : float, default=None
+        Y limits of the image pixels. In units of h Mpc^-1.
+    vmin : float, default=None
+        Minimum value of the colorbar.
+    vmax : float, default=None
+        Maximum value of the colorbar.
+    clab : str, default=None
+        Colorbar label. If None, based on the sign of the minimum value,
+        function will predict whether the plot is a power or skewspectrum.
+    lognrom : bool, default=True
+        Plot a lognorm colorbar. If the minimum value is negative will plot 
+        the asinh symmetric log colorbar.
+    title : str, default=None
+        If given, the plot has a title.
+    horizon_cond : bool, default=False
+        If True plot the horizon and beam lines onto the 2D image. These calculations
+        need to be double checked.
+    Omega : float, default=0.076
+        Solid angle of the MWA primary beam. Only used if horizon_cond=True.
+    z : float, default=6.8
+        Redshift of the spectrum. Only used if horizon_cond=True.
+    verbose : bool, default=False
+        If True print some additional details. Spectrum statistics.
+    
+    Returns
+    -------
+    None
     """
 
-    ### TODO: Change the FoV calculations. We have a FoV we can use that.
-    #fov = 0.076
-    
-    # Performing a rudimentary fov calculation:
-    # Not 100% sure these are correct, but they create cuts similar to Trott et al 2020.
-    sig = 4 # lambda
-    sig = 2 # lambda
-    FWHM = 2*np.sqrt(2*np.log(2))/sig
-    fov = FWHM**2 # rad**2
-
-
-    #print(fov)
-
     fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
-
-    if scale != 1:
-        # If scale is not default, rescale the figure size.            
-        figx = fig.get_figheight()*scale
-        figy = fig.get_figwidth()*scale
-
-        fig.set_figheight(figx)
-        fig.set_figwidth(figy)
 
     if vmax:
         vmax=vmax
     else:
-        pspec_max = np.max(np.log10(Power2D[Power2D > 0]))
+        pspec_max = np.max(np.log10(Spec2D[Spec2D > 0]))
         vmax = 10**pspec_max
     
     if vmin != None:
@@ -166,60 +179,77 @@ def plot_cylindrical(Power2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
         # to vmax.
         vmin=vmin
     else:
-        pspec_min = np.min(np.log10(Power2D[Power2D > 0]))
+        pspec_min = (np.log10(np.abs(np.min(Spec2D))))
 
-        vmin = 10**pspec_min
+        if np.min(Spec2D) < 0:
 
+            vmin = -1*10**pspec_min
+        else:
+            vmin = 10**pspec_min
+
+    # If Trye plot lognormal colorbar. Default=True.
     if lognorm:
-        norm = matplotlib.colors.LogNorm()
-        #norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
+        if vmin < 0:
+            norm = matplotlib.colors.AsinhNorm(vmin=vmin,vmax=vmax,
+                                           linear_width=0.1)
+        else:
+            norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
     else:
-        norm = None
+        norm = matplotlib.colors.NoNorm(vmin=vmin,vmax=vmax)
 
-    print('Min = %5.3e' % np.min(Power2D[Power2D > 0]))
-    print('Max = %5.3e' % np.max(Power2D[Power2D > 0].flatten()[0]))
+    if verbose:
+        print(f'Min = {np.min(Spec2D[Spec2D > 0]):5.3e}')
+        print(f'Max = {np.max(Spec2D[Spec2D > 0].flatten()[0]):5.3e}')
     
     # Setting NaN values to a particular colour:
-    #cmap = matplotlib.cm.viridis
-    cmap = matplotlib.cm.get_cmap("Spectral_r")
+    cmap = matplotlib.cm.get_cmap(cmap)
     cmap.set_bad('lightgray',1.)
 
-    im = axs.imshow(Power2D,cmap=cmap,origin='lower',\
+    # Creating the image object.
+    im = axs.imshow(Spec2D,cmap=cmap,origin='lower',\
             extent=[np.min(kperp),np.max(kperp),np.min(kpar),np.max(kpar)],\
-            norm=norm,vmin=vmin,vmax=vmax, aspect='auto',**kwargs)
+            norm=norm, aspect='auto',**kwargs)
     
-
     # Setting the colour bars:
-    cb = fig.colorbar(im, ax=axs, fraction=0.04, pad=0.002, extend='both')
+    cb = fig.colorbar(im, ax=axs, aspect=40,pad=0.02, extend='both')
 
     if clab:
-        cb.set_label(label=clab,fontsize=20)
+        # If label is provided in the function call.
+        pass
     else:
-        cb.set_label(label=r'$\rm{P(k_\perp,k_{||})} \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=20)
+        # If no label is provided in the function call.
+        if vmin >= 0:
+            # Default case where input spectrum is the power spectrum.
+            # Power spectrum cannot be negative.
+            clab = r'$P(k_\perp,k_{||}) \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$'
+        else:
+            # Default case where input spectrum is the skew spectrum.
+            clab = r'$S(k_\perp,k_{||}) \, [\rm{mK^3}\,\it{h^{-3}}\,\rm{Mpc^3}]$'
     
+    cb.set_label(label=clab,fontsize=20)
+
     axs.set_xscale('log')
     axs.set_yscale('log')
 
-    ####
-    from astropy.cosmology import Planck18
 
-    # Cosmological scaling parameter:
-    z = 7.14
-    h = Planck18.H(0).value/100 # Hubble parameter.
-    E_z = Planck18.efunc(z) ## Scaling function, see (Hogg 2000)
-
-    # Cosmological distances:
-    Dm = Planck18.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
-    DH = 3000 # [Mpc/h] Hubble distance.
-
-    # Full sky.
-    grad_max = 0.5*np.pi*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
-    # Primary beam FOV.
-    #grad = np.sqrt(fov)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
-    grad = 0.5*np.sqrt(fov)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
-
+    # If horizon condition is True then plot lines on the 2D plot.
     if horizon_cond:
-        
+        cosmo = constants.cosmo
+
+        # Cosmological scaling parameter:
+        h = cosmo.H(0).value/100 # Hubble parameter.
+        E_z = cosmo.efunc(z) ## Scaling function, see (Hogg 2000)
+
+        # Cosmological distances:
+        Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
+        DH = (constants.c/1000)/100 # [Mpc/h] Hubble distance.
+
+        # Full sky.
+        grad_max = 0.5*np.pi*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        # Primary beam FOV.
+        #grad = np.sqrt(Omega)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        grad = 0.5*np.sqrt(Omega)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+
         line_width = 2.2
 
         # Illustrating the EoR window and horizon lines.
@@ -249,12 +279,15 @@ def plot_cylindrical(Power2D,kperp,kpar,figsize=(7.5,10.5),cmap='viridis',
     axs.tick_params(axis='y', labelsize=18)
     cb.ax.tick_params(labelsize=18)
 
+    # Changing the line widths.
+    [x.set_linewidth(2.) for x in axs.spines.values()]
+    cb.outline.set_linewidth(2.)
+    cb.outline.set_color('k')
+
     axs.grid(False)
 
     if title:
         plt.title(title,fontsize=20)
-    else:
-        pass
 
     if name:
         plt.savefig('{0}.png'.format(name))
