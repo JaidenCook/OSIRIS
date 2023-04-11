@@ -170,7 +170,8 @@ def Vis_degrid(kernel,u_vec,v_vec,u_coords,v_coords,vis_true,w=None,phase_cond=F
 
         # Weighted average degridded visibilitiy.
         temp_vis = np.average(vis_sub,weights=kernel.w_kernel)
-        vis_deg[i] = temp_vis.real
+        #vis_deg[i] = temp_vis.real
+        vis_deg[i] = temp_vis
 
         # Don't need to save the sample.
         w_ker_sample = None
