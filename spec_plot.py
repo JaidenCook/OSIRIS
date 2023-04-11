@@ -7,7 +7,6 @@ __maintainer__ = "Jaiden Cook"
 __email__ = "Jaiden.Cook@student.curtin.edu"
 
 # Generic stuff:
-import time
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -36,8 +35,8 @@ plt.rc('ytick.minor', size=4, pad=4)
 
 from spec import constants
 
-def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figaxs=None,\
-    xlabel=None,ylabel=None,step=True,scale=1,**kwargs):
+def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,title=None,figaxs=None,
+    xlabel=None,ylabel=None,step=True,grid_cond=False,**kwargs):
     """
     Plot the 1D angular averaged power spectrum. If figaxs is provided allows for plotting
     more than one power spectrum.
@@ -46,8 +45,28 @@ def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figa
     ----------
     k_r : numpy array, float
         1D vector of spherically radial k-modes.
-    Power1D : numpy array, float
+    Spec1D : numpy array, float
         1D Power.
+    figsize : tuple, default=(7.5,10.5)
+        Size of the figure.
+    scale : float, default=1
+        Figure scaling factor.
+    xlim : float, default=None
+        X limits of the image pixels. In units of h Mpc^-1.
+    ylim : float, default=None
+        Y limits of the image pixels. In units of h Mpc^-1.
+    title : str, default=None
+        If given, the plot has a title.
+    figaxs : tuple, default=None
+        Tuple containing the matplotlib figure and axis objects. 
+    xlabel : str, default=None
+        xlabel string default is k [h Mpc^-1]
+    ylabel : str, default=None
+        ylabel string default is P(k) [mK^2 h^-3 Mpc^3]
+    step : bool, default=True
+        If True plot as a step plot.
+    grid_cond : bool, default=False
+        If True plot with a grid.
     
     Returns
     -------
@@ -56,6 +75,7 @@ def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figa
     # Generalise this for both skew and power spectrum.
 
     if figaxs:
+        # If figure and axis given.
         fig = figaxs[0]
         axs = figaxs[1]
     else:
@@ -69,35 +89,49 @@ def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figa
         fig.set_figheight(figx)
         fig.set_figwidth(figy)
 
-    plt.loglog()
+    axs.set_xscale('log')
+    if np.min(Spec1D) < 0:
+        # If there are negative values set the scale to log symmetric.
+        axs.set_xscale('asinh')
+    else:
+        # Default is loglog axes scales. This can be manually changed
+        # outside the function.
+        axs.set_xscale('log')
 
     if step:
         # Default options is a step plot.
-        axs.step(k_r,Power1D,**kwargs)
+        axs.step(k_r,Spec1D,**kwargs)
     else:
         # Line plot is more useful for comparing Power spectra with different bin sizes.
-        axs.plot(k_r,Power1D,**kwargs)
+        axs.plot(k_r,Spec1D,**kwargs)
 
-
+    # Setting the x and y axis limits.
     if xlim:
         axs.set_xlim(xlim)
     if ylim:
         axs.set_ylim(ylim)
 
+    # Determining the x and y labels.
     if xlabel:
-        axs.set_xlabel(xlabel,fontsize=24)
+        xlabel=xlabel
     else:
-        axs.set_xlabel(r'$k \,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=24)
+        xlabel=r'$k \,[\it{h}\rm{\,Mpc^{-1}}]$'
 
     if ylabel:
-        axs.set_ylabel(ylabel,fontsize=24)
+        ylabel=ylabel
     else:
-        axs.set_ylabel(r'$P(k) \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$',fontsize=24)
+        ylabel=r'$P(k) \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$'
 
-    axs.tick_params(axis='x',labelsize=20)
-    axs.tick_params(axis='y',labelsize=20)
+    axs.set_xlabel(xlabel,fontsize=24*scale)
+    axs.set_ylabel(ylabel,fontsize=24*scale)
 
-    axs.grid(False)
+    axs.tick_params(axis='x',labelsize=20*scale)
+    axs.tick_params(axis='y',labelsize=20*scale)
+
+    # Changing the line widths.
+    [x.set_linewidth(2.) for x in axs.spines.values()]
+
+    axs.grid(grid_cond)
 
     if figaxs:
         if title:
