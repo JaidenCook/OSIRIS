@@ -108,17 +108,15 @@ def plot_spherical(k_r,Power1D,figsize=(8,6),xlim=None,ylim=None,title=None,figa
         plt.tight_layout()
     
         if title:
-            plt.savefig('{0}.png'.format(title))
+            plt.savefig('{0}.png'.format(title),bbox_inches='tight')
         else:
             plt.show()
 
-# Add a scale parameter.
-# Solve the extent.
-def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
+def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),scale=1,cmap='Spectral_r',
     name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,
     title=None,horizon_cond=False,Omega=0.076,z=6.8,verbose=False,**kwargs):
     """
-    Plot the 2D cylindrically averaged power spectrum.
+    Plot the 2D cylindrically averaged Spectrum.
 
     Parameters
     ----------
@@ -130,6 +128,8 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
         1D vector of parallel k-modes.
     figsize : tuple, default=(7.5,10.5)
         Size of the figure.
+    scale : float, default=1
+        Figure scaling factor.
     cmap : str, default='Spectral_r'
         Colour map to use. Default is Spectral_r, cividis, twighlight, or 
         viridis are also good options to consider.
@@ -168,6 +168,14 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
 
     fig, axs = plt.subplots(1, figsize = figsize, dpi=75, constrained_layout=True)
 
+    if scale != 1:
+        # If scale is not default, rescale the figure size.            
+        figx = fig.get_figheight()*scale
+        figy = fig.get_figwidth()*scale
+
+        fig.set_figheight(figx)
+        fig.set_figwidth(figy)
+
     if vmax:
         vmax=vmax
     else:
@@ -190,6 +198,7 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
     # If Trye plot lognormal colorbar. Default=True.
     if lognorm:
         if vmin < 0:
+            # If less than zero make asihn symmetric lognorm colorbar.
             norm = matplotlib.colors.AsinhNorm(vmin=vmin,vmax=vmax,
                                            linear_width=0.1)
         else:
@@ -226,7 +235,7 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
             # Default case where input spectrum is the skew spectrum.
             clab = r'$S(k_\perp,k_{||}) \, [\rm{mK^3}\,\it{h^{-3}}\,\rm{Mpc^3}]$'
     
-    cb.set_label(label=clab,fontsize=20)
+    cb.set_label(label=clab,fontsize=20*scale)
 
     axs.set_xscale('log')
     axs.set_yscale('log')
@@ -271,13 +280,13 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
     else:
         axs.set_ylim([0.01,np.max(kpar)])
 
-    axs.set_xlabel(r'$k_\perp \,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=20)
-    axs.set_ylabel(r'$k_{||}\,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=20)
+    axs.set_xlabel(r'$k_\perp \,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=20*scale)
+    axs.set_ylabel(r'$k_{||}\,[\it{h}\rm{\,Mpc^{-1}}]$',fontsize=20*scale)
 
     # Setting the tick label fontsizes.
-    axs.tick_params(axis='x', labelsize=18)
-    axs.tick_params(axis='y', labelsize=18)
-    cb.ax.tick_params(labelsize=18)
+    axs.tick_params(axis='x', labelsize=18*scale)
+    axs.tick_params(axis='y', labelsize=18*scale)
+    cb.ax.tick_params(labelsize=18*scale)
 
     # Changing the line widths.
     [x.set_linewidth(2.) for x in axs.spines.values()]
@@ -287,9 +296,9 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),cmap='Spectral_r',
     axs.grid(False)
 
     if title:
-        plt.title(title,fontsize=20)
+        plt.title(title,fontsize=20*scale)
 
     if name:
-        plt.savefig('{0}.png'.format(name))
+        plt.savefig('{0}.png'.format(name),bbox_inches='tight')
     else:
         plt.show()
