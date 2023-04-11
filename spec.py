@@ -45,18 +45,18 @@ def progress_bar(index,Niter,percent_cond=False):
 
     Can convert r = sqrt(u^2 + v^2) to k_perp. Same formula.
             
-        Parameters
-        ----------
-        index : int
-            For loop index.
-        Niter : int
-            Total number of iterations.
-        percent_cond : bool, default=False
-            If True display progress in percentages.
-        
-        Returns
-        -------
-        None
+    Parameters
+    ----------
+    index : int
+        For loop index.
+    Niter : int
+        Total number of iterations.
+    percent_cond : bool, default=False
+        If True display progress in percentages.
+    
+    Returns
+    -------
+    None
     """
     import sys
     # Progress bar:
@@ -146,6 +146,13 @@ class polySpectra:
         ...
     set_wedge_to_nan(self,kx_grid,ky_grid,kz_vec,kr_min,wedge_cut=None,
         horizon_cond=True)
+        ...
+    avgWrapper(self,shell_ind)
+        ...
+    avgSpherical(self,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
+                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False
+        ...
+    avgCylindrical(self)
         ...
     Spherical(self,func=np.average,wedge_cond=False,N_bins=60,sig=1.843,
         log_bin_cond=False,kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,
@@ -239,18 +246,18 @@ class polySpectra:
         Can convert r = sqrt(u^2 + v^2) to k_perp. Same formula.
                 
         Parameters
-            ----------
-            u_arr : numpy array, float
-                NDarray of u or v values. Should be in wavelengths.
-            z : float
-                Redshift at the central frequency of the band.
-            cosmo : astropy object, default=None
-                Astropy cosmology object. Default is Plank2018 cosmology.
-            
-            Returns
-            -------
-            k_vec : numpy array, float
-                NDarray of k-mode values. Should be in units of h*Mpc^-1. 
+        ----------
+        u_arr : numpy array, float
+            NDarray of u or v values. Should be in wavelengths.
+        z : float
+            Redshift at the central frequency of the band.
+        cosmo : astropy object, default=None
+            Astropy cosmology object. Default is Plank2018 cosmology.
+        
+        Returns
+        -------
+        k_vec : numpy array, float
+            NDarray of k-mode values. Should be in units of h*Mpc^-1. 
         """
         if cosmo == None:
             # If no cosmology provided use the defualt Plank2018 Cosmology.
@@ -276,18 +283,18 @@ class polySpectra:
         Uses the Plank 2018 cosmology as default.
                 
         Parameters
-            ----------
-            eta : numpy array, float
-                1Darray of eta values. 
-            z : float
-                Redshift at the central frequency of the band.
-            cosmo : astropy object, default=None
-                Astropy cosmology object. Default is Plank2018 cosmology.
-            
-            Returns
-            -------
-            k_z : numpy array, float
-                1Darray of kz values. Should be in units of h*Mpc^-1.
+        ----------
+        eta : numpy array, float
+            1Darray of eta values. 
+        z : float
+            Redshift at the central frequency of the band.
+        cosmo : astropy object, default=None
+            Astropy cosmology object. Default is Plank2018 cosmology.
+        
+        Returns
+        -------
+        k_z : numpy array, float
+            1Darray of kz values. Should be in units of h*Mpc^-1.
         """
         if cosmo == None:
             # If no cosmology provided use the defualt Plank2018 Cosmology.
@@ -316,22 +323,22 @@ class polySpectra:
         """
         Calculate the conversion factor from Jy^2 Hz^2 to mK^2 Mpc^3 h^-3.
 
-            Parameters
-            ----------
-            dnu : float
-                Bandwidth [Hz].
-            dnu_f : float
-                Fine channel width [Hz].
-            nu_o : float
-                Observing frequency at the centre of the band [Hz].
-            z : float
-                Redshift of the observing frequency.
-            cosmo : astropy object
-                Astropy Cosmology object, default used is Plank2018.
-            
-            Returns
-            -------
-            conv_factor
+        Parameters
+        ----------
+        dnu : float
+            Bandwidth [Hz].
+        dnu_f : float
+            Fine channel width [Hz].
+        nu_o : float
+            Observing frequency at the centre of the band [Hz].
+        z : float
+            Redshift of the observing frequency.
+        cosmo : astropy object
+            Astropy Cosmology object, default used is Plank2018.
+        
+        Returns
+        -------
+        conv_factor
         """
         # Constants
         c = constants.c #[m/s]
@@ -391,22 +398,22 @@ class polySpectra:
         """
         Calculate the conversion factor from Jy^2 Hz^2 to mK^2 Mpc^3 h^-3.
 
-            Parameters
-            ----------
-            dnu : float
-                Bandwidth [Hz].
-            dnu_f : float
-                Fine channel width [Hz].
-            nu_o : float
-                Observing frequency at the centre of the band [Hz].
-            z : float
-                Redshift of the observing frequency.
-            cosmo : astropy object
-                Astropy Cosmology object, default used is Plank2018.
-            
-            Returns
-            -------
-            conv_factor
+        Parameters
+        ----------
+        dnu : float
+            Bandwidth [Hz].
+        dnu_f : float
+            Fine channel width [Hz].
+        nu_o : float
+            Observing frequency at the centre of the band [Hz].
+        z : float
+            Redshift of the observing frequency.
+        cosmo : astropy object
+            Astropy Cosmology object, default used is Plank2018.
+        
+        Returns
+        -------
+        conv_factor
         """
         # Constants
         c = constants.c #[m/s]
@@ -474,16 +481,16 @@ class polySpectra:
         Therefore sigma_prime = sigma/root(2). Keep this in mind. In future I may revert 
         back to a more sensible definition.
         
-            Parameters
-            ----------
-            sig_u : float, or numpy array
-                Value(s) of grid kernel widths.
-            
-            
-            Returns
-            -------
-            Omega_fov : float, or numpy array
-                Field of view value(s) in Sr.
+        Parameters
+        ----------
+        sig_u : float, or numpy array
+            Value(s) of grid kernel widths.
+        
+        
+        Returns
+        -------
+        Omega_fov : float, or numpy array
+            Field of view value(s) in Sr.
         """
         # Estimating the sky width.
         sigma_b = 1/(np.pi*sig_u)
@@ -506,16 +513,16 @@ class polySpectra:
         Nicholes horizon cosmology cut.
                 
         Parameters
-            ----------
-            z : float
-                Redshift.
-            cosmo : astropy object, default=None
-                Astropy cosmology object, default is None. If None use Plank18 cosmology.
-            
-            Returns
-            -------
-            wedge_factor : float
-                k|| > wedge_factor * k_perp cut.
+        ----------
+        z : float
+            Redshift.
+        cosmo : astropy object, default=None
+            Astropy cosmology object, default is None. If None use Plank18 cosmology.
+        
+        Returns
+        -------
+        wedge_factor : float
+            k|| > wedge_factor * k_perp cut.
         """
         if cosmo == None:
             # If no cosmology provided use the defualt Plank2018 Cosmology.
@@ -544,25 +551,23 @@ class polySpectra:
         If eta is a single value then only calculate the grid for a single slice.
         It also performs the unit conversions from (u,v,eta) to (kx,ky,kz).
                 
-            Parameters
-            ----------
-            u_grid : numpy array
-                2D grid of u-values in wavelengths.
-            v_grid : numpy array
-                2D grid of v-values in wavelengths.
-            z : float
-                Redshift value.
-            eta_vec : numpy array, default=None
-                1D vector of eta values, in seconds. If None 2D Grid calculation.
-            cosmo : astropy object, default=None
-                Astropy cosmology object, contains the Universe cosmology.
-            return_kxyz : bool, default=False
-                If True return the kx_grid, and ky_grid values.
-            
-            Returns
-            -------
-            kr_grid : numpy array
-                3D or 2D numpy array containing the (kx,ky) or (kx,ky,kz) norm value for each voxel.
+        Parameters
+        ----------
+        u_grid : numpy array
+            2D grid of u-values in wavelengths.
+        v_grid : numpy array
+            2D grid of v-values in wavelengths.
+        z : float
+            Redshift value.
+        eta_vec : numpy array, default=None
+            1D vector of eta values, in seconds. If None 2D Grid calculation.
+        cosmo : astropy object, default=None
+            Astropy cosmology object, contains the Universe cosmology.
+        
+        Returns
+        -------
+        kr_grid : numpy array
+            3D or 2D numpy array containing the (kx,ky) or (kx,ky,kz) norm value for each voxel.
         """
         if cosmo == None:
             # If no cosmology provided use the defualt Plank2018 Cosmology.
@@ -592,19 +597,19 @@ class polySpectra:
         """
         Use the kx, ky and to set the wedge values to zero. 
         
-            Parameters
-            ----------
-            kr_min : float
-                Minimum radius value.
-            wedge_cut : float, default=None
-                User can input their own wedge cut value.
-            horizon_cond : bool, default=True
-                If True use the horizon as the cut instead of the primary beam.
-            
-            
-            Returns
-            -------
-            None
+        Parameters
+        ----------
+        kr_min : float
+            Minimum radius value.
+        wedge_cut : float, default=None
+            User can input their own wedge cut value.
+        horizon_cond : bool, default=True
+            If True use the horizon as the cut instead of the primary beam.
+        
+        
+        Returns
+        -------
+        None
         """
         # Calculating the k_perp array.
         kz_vec = polySpectra.eta2kz(self.eta,self.z,self.cosmo) # [Mpc^-1 h]
@@ -641,22 +646,22 @@ class polySpectra:
         self.kr_grid[wedge_ind_cube] = np.NaN
     
 
-    def avg_spherical_wrapper(self,shell_ind):
+    def avgWrapper(self,shell_ind):
         """
         Wrapper for calculating the MI. Calculates both the 1D and 2D array values.
 
-            Parameters
-            ----------
-            self : object
-                Power object contains u and v arrays, as well as the observation redshift.
-            shell_ind : numpy array
-                Numpy array of boolean values. This is the shell index, either a spherical or
-                circular shell. If ind is not None this is spherical, circular otherwise.
-            
-            Returns
-            -------
-            MI : float
-                Output mutual information value.
+        Parameters
+        ----------
+        self : object
+            Power object contains u and v arrays, as well as the observation redshift.
+        shell_ind : numpy array
+            Numpy array of boolean values. This is the shell index, either a spherical or
+            circular shell. If ind is not None this is spherical, circular otherwise.
+        
+        Returns
+        -------
+        avg_shell_power : float
+            Average shell power.
         """
         try:
             avg_shell_power = np.average(self.cube[shell_ind],
@@ -670,8 +675,31 @@ class polySpectra:
                   kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
         """
         Wrapper for calculating the spherical average.
+
+        Parameters
+        ----------
+
+        wedge_cond : bool, default=False
+            If True wedge values set to NaN.
+        Nbins : int, default=60
+            Number of bines to average.
+        sig : float, default=1.843
+            Width of a Gaussian primary beam in uv space. Units of Lambda. Beam is defined
+            as e^x^2/sigma^2.
+        kr_min : float, default=None
+            Min kr value.
+        kr_max : float, default=False
+            Max kr value.
+        log_bin_cond : bool, default=False
+            If True bins are loglinear spaced.
+        horizon_cond : bool, default=True
+            If True use the horizon as the cut instead of the primary beam.
+        wedge_cut : float, default=None
+            User can input their own wedge cut value.
+        verbose : bool, default=False
+            If True, print additional details.
         """
-        polySpectra.Spherical(self,func=polySpectra.avg_spherical_wrapper,
+        polySpectra.Spherical(self,func=polySpectra.avgWrapper,
                             wedge_cond=wedge_cond,N_bins=N_bins,sig=sig,
                             log_bin_cond=log_bin_cond,kr_min=kr_min,kr_max=kr_max,
                             horizon_cond=horizon_cond,wedge_cut=wedge_cut,verbose=verbose)
@@ -681,7 +709,7 @@ class polySpectra:
         """
         Wrapper for calculating the spherical average.
         """
-        polySpectra.Cylindrical(self,func=polySpectra.avg_spherical_wrapper)
+        polySpectra.Cylindrical(self,func=polySpectra.avgWrapper)
 
 
     def Spherical(self,func,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
@@ -689,39 +717,39 @@ class polySpectra:
         """
         Calculates the 1D spherically averaged poly spectra using the input object.
                 
-            Parameters
-            ----------
-            self : object
-                Power object contains u and v arrays, as well as the observation redshift.
-            func : function, default=np.average
-                Input Averaging function, KDE, MI, mean...
-            wedge_cond : bool, default=False
+        Parameters
+        ----------
+        self : object
+            Power object contains u and v arrays, as well as the observation redshift.
+        func : function, default=np.average
+            Input Averaging function, KDE, MI, mean...
+        wedge_cond : bool, default=False
+            If True wedge values set to NaN.
+        Nbins : int, default=60
+            Number of bines to average.
+        sig : float, default=1.843
+            Width of a Gaussian primary beam in uv space. Units of Lambda. Beam is defined
+            as e^x^2/sigma^2.
+        kr_min : float, default=None
+            Min kr value.
+        kr_max : float, default=False
+            Max kr value.
+        log_bin_cond : bool, default=False
+            If True bins are loglinear spaced.
+        horizon_cond : bool, default=True
+            If True use the horizon as the cut instead of the primary beam.
+        wedge_cut : float, default=None
+            User can input their own wedge cut value.
+        verbose : bool, default=False
+            If True, print additional details.
 
-            Nbins : int, default=60
-
-            sig : float, default=1.843
-                Width of a Gaussian primary beam in uv space. Units of Lambda. Beam is defined
-                as e^x^2/sigma^2.
-
-            kr_min : float, default=None
-
-            kr_max : float, default=False
-
-            log_bin_cond : bool, default=False
-
-            horizon_cond : bool, default=True
-
-            wedge_cut : float, default=None
-
-            verbose : bool, default=False
-
-            
-            Returns
-            -------
+        
+        Returns
+        -------
+        self
         """
         ### TODO
         # 1) Add an option to have user inputted kr_bins.
-        # 2) Generalise the averaging process.
 
         # Calculating the field of view.
         self.Omega_fov = polySpectra.calc_field_of_view(sig)
@@ -761,12 +789,12 @@ class polySpectra:
             if verbose: print(f'dlog_k = {dlog_k:5.3e}')
 
         else:
-            
             # Increments.
             dk = (kr_max - kr_min)/(N_bins + 1)
             k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
 
-            if verbose: print(f'dk = {dk:5.3f}')
+            if verbose: 
+                print(f'dk = {dk:5.3f}')
 
         if verbose:
             print(f'k_r_min = {kr_min:5.3f}')
@@ -814,21 +842,18 @@ class polySpectra:
         """
         Calculates the 2D cylindrical power spectra using the input Power object.
                 
-            Parameters
-            ----------
-            self : object
-                Power object contains u and v arrays, as well as the observation redshift.
-            func : function, default=np.average
-                Input Averaging function, KDE, MI, mean...
+        Parameters
+        ----------
+        self : object
+            Power object contains u and v arrays, as well as the observation redshift.
+        func : function, default=np.average
+            Input Averaging function, KDE, MI, mean...
 
-            
-            Returns
-            -------
+        
+        Returns
+        -------
+        self
         """
-        ### TODO
-        # 1) Make this a static method, and generalise it. 
-        # 2) Change the input function.
-
         start0 = time.perf_counter()
 
         bin_width = 3.75 # [lambda]
@@ -1023,18 +1048,18 @@ class miSpec(polySpectra,MI_metric):
         """
         Wrapper for calculating the MI. Calculates both the 1D and 2D array values.
 
-            Parameters
-            ----------
-            self : object
-                Power object contains u and v arrays, as well as the observation redshift.
-            shell_ind : numpy array
-                Numpy array of boolean values. This is the shell index, either a spherical or
-                circular shell. If ind is not None this is spherical, circular otherwise.
-            
-            Returns
-            -------
-            MI : float
-                Output mutual information value.
+        Parameters
+        ----------
+        self : object
+            Power object contains u and v arrays, as well as the observation redshift.
+        shell_ind : numpy array
+            Numpy array of boolean values. This is the shell index, either a spherical or
+            circular shell. If ind is not None this is spherical, circular otherwise.
+        
+        Returns
+        -------
+        MI : float
+            Output mutual information value.
         """
         plot_cond = False
         try:
