@@ -171,7 +171,8 @@ def Var_powerspec(k_r,Power1D,lam_o=1.71,N=1291,unit='Janksy'):
     # Calculated from beam Beam_arr > 1/N_ant (Mort et al 2016)
     # Parameters given so you can see the inputs.
     #dOmega = Mean_pixel_solid_angle(N=1291,freq=136*1.28e+6,L=2,M=2,delays=[0]*16)
-    dOmega = Mean_pixel_solid_angle(N=1291,freq=freq,L=2,M=2,delays=[0]*16)
+    #dOmega = Mean_pixel_solid_angle(N=1291,freq=freq,L=2,M=2,delays=[0]*16)
+    dOmega = 1#Mean_pixel_solid_angle(N=1291,freq=freq,L=2,M=2,delays=[0]*16)
 
     #dOmega = 2.401e-6
 
