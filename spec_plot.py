@@ -92,11 +92,11 @@ def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,title=No
     axs.set_xscale('log')
     if np.min(Spec1D) < 0:
         # If there are negative values set the scale to log symmetric.
-        axs.set_xscale('asinh')
+        axs.set_yscale('asinh')
     else:
         # Default is loglog axes scales. This can be manually changed
         # outside the function.
-        axs.set_xscale('log')
+        axs.set_yscale('log')
 
     if step:
         # Default options is a step plot.
