@@ -41,8 +41,8 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
     
     for i in range(len(u)):
     
-        # These should be the indices of the coordinates closest to the baseline. 
-        # These coordinates should line up with the kernel.
+        # These should be the indices of the coordinates closest to the baseline. These coordinates
+        # should line up with the kernel.
         temp_u_ind, temp_v_ind = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec)
 
         # Determining the index ranges:
@@ -55,8 +55,7 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
         u_temp_arr = u_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
         v_temp_arr = v_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
 
-        temp_gauss_weights = Osiris.gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, 
-                                                    u[i], v[i])
+        temp_gauss_weights = Osiris.gaussian_kernel(u_temp_arr, v_temp_arr, sig_u, sig_v, u[i], v[i])
 
         # Might have to define a visibility subset that is larger.
         # Defining the visibility subset:
@@ -71,8 +70,7 @@ def Vis_degrid_gaussian(u_arr,v_arr,u_vec,v_vec,u,v,vis_true,kernel_size=31, sig
 
     return vis_deg
 
-def Vis_degrid(kernel,u_vec,v_vec,u_coords,v_coords,vis_true,w=None,phase_cond=False,
-               w_ker_sample=None):
+def Vis_degrid(kernel,u_vec,v_vec,u,v,vis_true,w=None,phase_cond=False,skew_cond=False,w_ker_sample=None):
     """
     Visibility degridding function. Uses an input kernel, and uv point list to degrid
     visibilities.
@@ -107,71 +105,61 @@ def Vis_degrid(kernel,u_vec,v_vec,u_coords,v_coords,vis_true,w=None,phase_cond=F
         Weighted average of visibilities, corresponding to (u,v) points.
     """
 
-    # Initialising the grid centre index vectors.
-    u_cent_ind_vec = np.zeros(u_coords.shape).astype('int')
-    v_cent_ind_vec = np.zeros(v_coords.shape).astype('int')
-
-    # Resolution required for both weighting cases.
-    #delta_u = np.abs(u_grid[0,1] - u_grid[0,0])
-    delta_u = np.abs(u_vec[1] - u_vec[0])
-    uv_max = np.max(u_vec)
-
     # Need to change some parameters here. 
     kernel_size = len(kernel.kernel)
 
     # Initialising the new deridded visibility array:
-    vis_deg = np.zeros(len(u_coords),dtype=complex)
+    vis_deg = np.zeros(len(u),dtype=complex)
 
     # Setting the kernel to w=0, this is the default for no w-projection. If w != None then
     # the w-kernel is calculated and overwritten in the for loop below.
-    kernel.calc_w_kernel(w=0.0)
+    kernel.calc_w_kernel(w=0.0,skew_cond=skew_cond)
 
-    # Nearest grid centre can be found by rounding down the u_coords.
-    u_grid_cent_vec = np.rint(u_coords/delta_u)*delta_u
-    v_grid_cent_vec = np.rint(v_coords/delta_u)*delta_u
-
-    # Can use the grid coordinate to determine the index.
-    u_cent_ind_vec = ((u_grid_cent_vec + uv_max)/delta_u).astype(int)
-    v_cent_ind_vec = ((v_grid_cent_vec + uv_max)/delta_u).astype(int)
-
-    # Calculating the shifted grid.
-    if phase_cond:
-        # Condition if phase offset is true.
-        u_shift_vec = u_coords - u_grid_cent_vec
-        v_shift_vec = v_coords - v_grid_cent_vec
-    else:
-        # Default condition don't return the offsets.
-        u_shift_vec = np.zeros(len(u_coords))
-        v_shift_vec = np.zeros(len(u_coords))
-
-    # Determining the index ranges:
-    min_u_ind_vec = u_cent_ind_vec - int(kernel_size/2)
-    max_u_ind_vec = u_cent_ind_vec + int(kernel_size/2) + 1
-    min_v_ind_vec = v_cent_ind_vec - int(kernel_size/2)
-    max_v_ind_vec = v_cent_ind_vec + int(kernel_size/2) + 1
-
-
-    for i in range(len(u_coords)):
+    for i in range(len(u)):
     
+        # These should be the indices of the coordinates closest to the baseline. These coordinates
+        # should line up with the kernel.
+        if phase_cond:
+            # Condition if phase offset is true.
+            #u_ind, v_ind, u_off, v_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
+            u_ind, v_ind, uv_off = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec,off_cond=phase_cond)
+            u_off = uv_off[0] 
+            v_off = uv_off[1]
+        else:
+            # Default condition don't return the offsets.
+            u_ind, v_ind = Osiris.find_closest_xy(u[i],v[i],u_vec,v_vec)
+            u_off=0
+            v_off=0
+
+        # Determining the index ranges:
+        min_u_ind = u_ind - int(kernel_size/2)
+        max_u_ind = u_ind + int(kernel_size/2) + 1
+        min_v_ind = v_ind - int(kernel_size/2)
+        max_v_ind = v_ind + int(kernel_size/2) + 1
+
         # Might have to define a visibility subset that is larger.
         # Defining the visibility subset:
-        vis_sub = vis_true[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]]
+        vis_sub = vis_true[min_v_ind:max_v_ind, min_u_ind:max_u_ind]
         #vis_sub = vis_true[min_u_ind:max_u_ind, min_v_ind:max_v_ind]
         
         if np.any(w):
             # If vector of w values is given.
             # Calculating the w-kernel.
             #kernel.calc_w_kernel(w[i],u_off,v_off)
-            kernel.calc_w_kernel(w[i],-u_shift_vec[i],-v_shift_vec[i])
+            kernel.calc_w_kernel(w[i],-u_off,-v_off,skew_cond=skew_cond)
 
         else:
             #kernel.calc_w_kernel(0.0,u_off,v_off)
-            kernel.calc_w_kernel(0.0,-u_shift_vec[i],-v_shift_vec[i])
+            kernel.calc_w_kernel(0.0,-u_off,-v_off,skew_cond=skew_cond)
 
         # Weighted average degridded visibilitiy.
-        temp_vis = np.average(vis_sub,weights=kernel.w_kernel)
-        #vis_deg[i] = temp_vis.real
-        vis_deg[i] = temp_vis
+        #vis_deg[i] = np.sum(vis_sub*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
+
+        #vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct. old as of 19/7/22
+        #vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(kernel.w_kernel) # This is correct.
+
+        vis_deg.real[i] = np.sum(vis_sub.real*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # Might not need to renormalise.
+        vis_deg.imag[i] = np.sum(vis_sub.imag*kernel.w_kernel)/np.sum(np.abs(kernel.w_kernel)) # 
 
         # Don't need to save the sample.
         w_ker_sample = None
@@ -200,13 +188,17 @@ def Vis_degrid(kernel,u_vec,v_vec,u_coords,v_coords,vis_true,w=None,phase_cond=F
         else:
             pass
 
+
+    #print(np.sum(temp_gauss_weights))
+    #vis_deg = vis_deg/len(vis_deg)
+
     return vis_deg
 
 
 class w_kernel():
     """
-    Creates the input arrays for calculating the w-sky-kernel, and saves them. 
-    Takes input w-terms and outputs the corresponding w-sky-kernel.
+    Creates the input arrays for calculating the w-sky-kernel, and saves them. Takes input w-terms
+    and outputs the corresponding w-sky-kernel.
 
     ...
 
@@ -244,7 +236,10 @@ class w_kernel():
         #beam_grid[r_grid < 1] = beam_grid[r_grid < 1]/self.n_grid[r_grid < 1]
         self.kernel = beam_grid
 
-    def calc_w_kernel(self,w,u_off=None,v_off=None):
+    def calc_w_kernel(self,w,u_off=None,v_off=None,skew_cond=False):
+
+        from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
+
         """
         Returns the w-sky-kernel.
 
@@ -256,6 +251,8 @@ class w_kernel():
             Offset in u-coords/
         v_off : float
             Offset in v-coords
+        skew_cond : bool
+            Default False. Used when calculating skew spectrum. Squares the sky-kernel.
         
         Returns
         -------
@@ -317,23 +314,19 @@ class w_kernel():
         if ker == 'sky':
             if real_cond:
                 # Plot real part of sky kernel:
-                Osiris.Plot_img(self.w_sky_ker.real,self.l_grid,self.m_grid,cmap='viridis',
-                                figsize=(5,5),clab='Response',xlab=r'$l$',ylab=r'$m$',
-                                title=title,**kwargs)
+                Osiris.Plot_img(self.w_sky_ker.real,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
+                clab='Response',xlab=r'$l$',ylab=r'$m$',title=title,**kwargs)
             elif imag_cond:
                 # Plot imag part of sky kernel:
-                Osiris.Plot_img(self.w_sky_ker.imag,self.l_grid,self.m_grid,cmap='viridis',
-                                figsize=(5,5),clab='Response',xlab=r'$l$',ylab=r'$m$',
-                                title=title,**kwargs)
+                Osiris.Plot_img(self.w_sky_ker.imag,self.l_grid,self.m_grid,cmap='viridis',figsize=(5,5),\
+                clab='Response',xlab=r'$l$',ylab=r'$m$',title=title,**kwargs)
         elif ker == 'vis':
             if real_cond:
                 # Plot real part of the w-kernel:
-                Osiris.Plot_img(self.w_kernel.real,self.u_grid,self.v_grid,cmap='viridis',
-                                figsize=(5,5),clab='Response',xlab=r'$u\,[\lambda]$',
-                                ylab=r'$v\,[\lambda]$',title=title,**kwargs)
+                Osiris.Plot_img(self.w_kernel.real,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
+                clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',title=title,**kwargs)
             elif imag_cond:
                 # Plot imag part of the w-kernel:
-                Osiris.Plot_img(self.w_kernel.imag,self.u_grid,self.v_grid,cmap='viridis',
-                                figsize=(5,5),clab='Response',xlab=r'$u\,[\lambda]$',
-                                ylab=r'$v\,[\lambda]$',title=title,**kwargs)
+                Osiris.Plot_img(self.w_kernel.imag,self.u_grid,self.v_grid,cmap='viridis',figsize=(5,5),\
+                clab='Response',xlab=r'$u\,[\lambda]$',ylab=r'$v\,[\lambda]$',title=title,**kwargs)
 

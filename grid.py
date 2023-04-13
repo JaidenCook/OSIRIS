@@ -17,21 +17,21 @@ def sigma_grid_calc(freq,D=4,epsilon=0.42,radian_cond=False):
     kernel sigma_u = 1/(pi*sigma_b). Substituting in sigma_b yields sigma_u.
     We can use this grid size to calculate the Blackman-Harris window sizes.
 
-        Parameters
-        ----------
-        freq : numpy array, float
-            Vector of frequencies, or a single frequency value in Hz.
-        D : float, default=4
-            Diameter of the MWA tile in meters.
-        epsilon : float, default=0.42
-            Scaling factor from Airy disk to a Gaussian (Nasirudin et al. 2020).
-        radian_cond : bool, default=False
-            If true return the Fourier inverse sigma. That is the beam size in 
-            direction cosines as projected onto the (l,m) plane. 
-        
-        Returns
-        -------
-        Sigma_u for a Gaussian kernel. Can return a single or numpy array.
+    Parameters
+    ----------
+    freq : numpy array, float
+        Vector of frequencies, or a single frequency value in Hz.
+    D : float, default=4
+        Diameter of the MWA tile in meters.
+    epsilon : float, default=0.42
+        Scaling factor from Airy disk to a Gaussian (Nasirudin et al. 2020).
+    radian_cond : bool, default=False
+        If true return the Fourier inverse sigma. That is the beam size in 
+        direction cosines as projected onto the (l,m) plane. 
+    
+    Returns
+    -------
+    Sigma_u for a Gaussian kernel. Can return a single or numpy array.
     """
     
     c = 3e8 # m s^-1
@@ -57,24 +57,24 @@ def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None,*args):
     du_vec is a vector and not a float, then this function returns a cube of Gaussian
     weights, 
 
-        Parameters
-        ----------
-        u_arr : numpy array, float
-            2D Visibilities u array.
-        v_arr : numpy array, float
-            2D Visibilities v array.
-        sig : numpy array, float
-            Kernel size in wavelengths.
-        du_vec : numpy array, float
-            Visibility u coordinate centre, or difference between the u grid coord,
-            and the visibility.
-        dv_vec : numpy array, float
-            Visibility v coordinate centre, or difference between the u grid coord,
-            and the visibility.
+    Parameters
+    ----------
+    u_arr : numpy array, float
+        2D Visibilities u array.
+    v_arr : numpy array, float
+        2D Visibilities v array.
+    sig : numpy array, float
+        Kernel size in wavelengths.
+    du_vec : numpy array, float
+        Visibility u coordinate centre, or difference between the u grid coord,
+        and the visibility.
+    dv_vec : numpy array, float
+        Visibility v coordinate centre, or difference between the u grid coord,
+        and the visibility.
 
-        Returns
-        -------
-        2D Gaussian weights array.
+    Returns
+    -------
+    2D Gaussian weights array.
 
     """
 
