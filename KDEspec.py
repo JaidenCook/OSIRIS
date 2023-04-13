@@ -7,7 +7,6 @@ __maintainer__ = "Jaiden Cook"
 __email__ = "Jaiden.Cook@student.curtin.edu"
 
 # Generic stuff:
-import os,sys
 import time
 import warnings
 
@@ -35,13 +34,6 @@ plt.rc('ytick', color='k', labelsize='medium', direction='out')
 plt.rc('ytick.major', size=6, pad=4)
 plt.rc('ytick.minor', size=4, pad=4)
 
-# MWA beam stuff
-from mwa_pb import primary_beam as pb
-
-sys.path.append(os.path.abspath("/home/jaiden/Documents/EoR/OSIRIS"))
-import Osiris
-import Osiris_spec_nu
-#from spec import progress_bar
 
 def KDEpy_1D_scaled(data,weights=None,x=None,bw_method='ISJ',N_dim=256,verbose=False):
     """
@@ -229,27 +221,27 @@ def KDEpy_2D_scaled(data,weights=None,xx=None,yy=None,bw_method='ISJ',N_dim=128,
 
     return zz
 
-def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10)
-    ,pxlab=None,pylab=None,method='scatter',**kwargs):
+def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
+                   pxlab=None,pylab=None,method='scatter',**kwargs):
     """
     Plot 2D scatter plot, with X and Y histograms.
 
     Parameters
     ----------
-        X_samp : array
-            ND array of mean values. The length of this array should be equal to the
-            number of Gaussian components.
-        Y_samp : array 
-            ND array of sigma values. The length of this array should be equal to the
-            number of Gaussian components.
-        figaxs : tuple 
-            Tuple containing fig and axs objects. Default is None. 
-        figsize : tuple
-            Tuple containing figure size. Default is (11,10).
-        method : string
-            2D plotting method, default is 'scatter', other choices are 'hist2d' and 'hexbin'.
-        **kwargs : 
-            plt.hist kwarg arguments. 
+    X_samp : array
+        ND array of mean values. The length of this array should be equal to the
+        number of Gaussian components.
+    Y_samp : array 
+        ND array of sigma values. The length of this array should be equal to the
+        number of Gaussian components.
+    figaxs : tuple 
+        Tuple containing fig and axs objects. Default is None. 
+    figsize : tuple
+        Tuple containing figure size. Default is (11,10).
+    method : string
+        2D plotting method, default is 'scatter', other choices are 'hist2d' and 'hexbin'.
+    **kwargs : 
+        plt.hist kwarg arguments. 
         
 
     Returns
@@ -361,29 +353,29 @@ def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10)
 
     Parameters
     ----------
-        xx : array
-            2D array of x grid values. For 2D KDE contour lines.
-        yy : array
-            2D array of y grid values. For 2D KDE contour lines.
-        x : array
-            1D array of x grid values. For 1D KDE.
-        y : array
-            1D array of y grid values. For 1D KDE.
-        pxy : array 
-            2D KDE values.
-        px : array
-            1D x KDE values.
-        py : 
-            1D y KDE values.
-        figaxs : tuple 
-            Tuple containing fig and axs objects. Default is None. 
-        figsize : tuple
-            Tuple containing figure size. Default is (11,10).
-        filename : str
-            If given output png file to filename. Include path in the name.
-        **kwargs : 
-            plt.hist kwarg arguments. 
-        
+    xx : array
+        2D array of x grid values. For 2D KDE contour lines.
+    yy : array
+        2D array of y grid values. For 2D KDE contour lines.
+    x : array
+        1D array of x grid values. For 1D KDE.
+    y : array
+        1D array of y grid values. For 1D KDE.
+    pxy : array 
+        2D KDE values.
+    px : array
+        1D x KDE values.
+    py : 
+        1D y KDE values.
+    figaxs : tuple 
+        Tuple containing fig and axs objects. Default is None. 
+    figsize : tuple
+        Tuple containing figure size. Default is (11,10).
+    filename : str
+        If given output png file to filename. Include path in the name.
+    **kwargs : 
+        plt.hist kwarg arguments. 
+    
 
     Returns
     -------
@@ -457,19 +449,19 @@ def Spherical(k_r_arr,real_vis_cube_0,weights_cube_0,real_vis_cube_1,weights_cub
     """
     Calculates the 1D spherical mutual information as a function of k.
             
-        Parameters
-        ----------
-        self : object
-            Power object contains u and v arrays, as well as the observation redshift.
-        kb : float
-            Boltzman's constant.
-        nu_21 : float
-            21cm frequency in Hz.
-        c : float
-            Speed of light km/s.
-        
-        Returns
-        -------
+    Parameters
+    ----------
+    self : object
+        Power object contains u and v arrays, as well as the observation redshift.
+    kb : float
+        Boltzman's constant.
+    nu_21 : float
+        21cm frequency in Hz.
+    c : float
+        Speed of light km/s.
+    
+    Returns
+    -------
     """
     if kr_min:
         # User can manually input a kr min.
@@ -583,17 +575,17 @@ class MI_metric:
         estimate the differential entropy. There are scipy functions that do the
         1D calculations.
 
-            Parameters
-            ----------
-            px : numpy array
-                1D vector of probability density values.
-            dx : float
-                Grid size of the 1D vector. 
-            diff_ent_xy : float
-                Differential entropy for marginal XY distribution.
-            
-            Returns
-            -------
+        Parameters
+        ----------
+        px : numpy array
+            1D vector of probability density values.
+        dx : float
+            Grid size of the 1D vector. 
+        diff_ent_xy : float
+            Differential entropy for marginal XY distribution.
+        
+        Returns
+        -------
         """
 
         return np.sum(-px*np.log(px))*dx
@@ -605,18 +597,18 @@ class MI_metric:
         estimate the differential entropy. There are scipy functions that do the
         1D calculations.
 
-            Parameters
-            ----------
-            px : numpy array
-                1D vector of probability density values.
-            dx : float
-                Grid size of the X vector. 
-            dy : float
-                Grid size of the Y vector. 
-            
-            
-            Returns
-            -------
+        Parameters
+        ----------
+        px : numpy array
+            1D vector of probability density values.
+        dx : float
+            Grid size of the X vector. 
+        dy : float
+            Grid size of the Y vector. 
+        
+        
+        Returns
+        -------
         """
 
         return np.sum(-pxy*np.log(pxy))*dx*dy
@@ -627,17 +619,17 @@ class MI_metric:
         """
         Mutual information. 
             
-            Parameters
-            ----------
-            diff_ent_x : float
-                Differential entropy for random variable X.
-            diff_ent_y : float
-                Differential entropy for random variable Y.
-            diff_ent_xy : float
-                Differential entropy for marginal XY distribution.
-            
-            Returns
-            -------
+        Parameters
+        ----------
+        diff_ent_x : float
+            Differential entropy for random variable X.
+        diff_ent_y : float
+            Differential entropy for random variable Y.
+        diff_ent_xy : float
+            Differential entropy for marginal XY distribution.
+        
+        Returns
+        -------
         """
         return diff_ent_x + diff_ent_y - diff_ent_xy
 
@@ -646,17 +638,17 @@ class MI_metric:
         """
         Distance measure, satisfies the triangle inequality.
 
-            Parameters
-            ----------
-            diff_ent_x : float
-                Differential entropy for random variable X.
-            diff_ent_y : float
-                Differential entropy for random variable Y.
-            diff_ent_xy : float
-                Differential entropy for marginal XY distribution.
-            
-            Returns
-            -------
+        Parameters
+        ----------
+        diff_ent_x : float
+            Differential entropy for random variable X.
+        diff_ent_y : float
+            Differential entropy for random variable Y.
+        diff_ent_xy : float
+            Differential entropy for marginal XY distribution.
+        
+        Returns
+        -------
         """
         return 2*diff_ent_xy - diff_ent_x - diff_ent_y
 
@@ -666,17 +658,17 @@ class MI_metric:
         Analogous to Pearson's correlation coefficient. Returns the normalised mutual 
         information.
 
-            Parameters
-            ----------
-            diff_ent_x : float
-                Differential entropy for random variable X.
-            diff_ent_y : float
-                Differential entropy for random variable Y.
-            diff_ent_xy : float
-                Differential entropy for marginal XY distribution.
-            
-            Returns
-            -------
+        Parameters
+        ----------
+        diff_ent_x : float
+            Differential entropy for random variable X.
+        diff_ent_y : float
+            Differential entropy for random variable Y.
+        diff_ent_xy : float
+            Differential entropy for marginal XY distribution.
+        
+        Returns
+        -------
         """
         MI = MI_metric.mutual_information(diff_ent_x,diff_ent_y,diff_ent_xy)
         return MI/np.sqrt(diff_ent_x*diff_ent_y)
@@ -687,17 +679,17 @@ class MI_metric:
         Quantifies the amount of information of a variable based on another variable against
         the total uncertainty H(X,Y).
 
-            Parameters
-            ----------
-            diff_ent_x : float
-                Differential entropy for random variable X.
-            diff_ent_y : float
-                Differential entropy for random variable Y.
-            diff_ent_xy : float
-                Differential entropy for marginal XY distribution.
-            
-            Returns
-            -------
+        Parameters
+        ----------
+        diff_ent_x : float
+            Differential entropy for random variable X.
+        diff_ent_y : float
+            Differential entropy for random variable Y.
+        diff_ent_xy : float
+            Differential entropy for marginal XY distribution.
+        
+        Returns
+        -------
         """
         MI = MI_metric.mutual_information(diff_ent_x,diff_ent_y,diff_ent_xy)
         return MI/diff_ent_xy
@@ -707,30 +699,30 @@ class MI_metric:
         """
         Calculate the spherical mutual information from two input 3D data arrays.
 
-            Parameters
-            ----------
-            dataX_shell : numpy array
-                Numpy array of X spherical shell values.
-            dataY_shell : numpy array
-                Numpy array of Y spherical shell values.
-            dataX_weights : numpy array
-                Numpy array of X spherical shell value weights.
-            dataY_weights : numpy array
-                Numpy array of Y spherical shell value weights.
-            plot_cond : bool, default=False
-                If true plot the marginal distribution.
-            bw : str, default='scott'
-                KDE bandwidth estimation method, options are 'silverman', 'ISJ', and 'scott'.
-            std_fac : float, default=0.01
-                Padding for the X and Y grid values.
-            nside : int, default=1000
-                Grid size, reduce this to decrease computation at the expense of accuracy.
-            
+        Parameters
+        ----------
+        dataX_shell : numpy array
+            Numpy array of X spherical shell values.
+        dataY_shell : numpy array
+            Numpy array of Y spherical shell values.
+        dataX_weights : numpy array
+            Numpy array of X spherical shell value weights.
+        dataY_weights : numpy array
+            Numpy array of Y spherical shell value weights.
+        plot_cond : bool, default=False
+            If true plot the marginal distribution.
+        bw : str, default='scott'
+            KDE bandwidth estimation method, options are 'silverman', 'ISJ', and 'scott'.
+        std_fac : float, default=0.01
+            Padding for the X and Y grid values.
+        nside : int, default=1000
+            Grid size, reduce this to decrease computation at the expense of accuracy.
+        
 
-            Returns
-            -------
-            MI_temp : float
-                Mutual information of the two spherical shells dataX_shell and dataY_shell.
+        Returns
+        -------
+        MI_temp : float
+            Mutual information of the two spherical shells dataX_shell and dataY_shell.
         """
         if dataX_shell.size != dataY_shell.size:
             # Shells should have the same number of data points.
