@@ -7,7 +7,6 @@ __maintainer__ = "Jaiden Cook"
 __email__ = "Jaiden.Cook@student.curtin.edu"
 
 # Generic stuff:
-import time
 import warnings
 
 from traitlets.traitlets import default
@@ -19,7 +18,6 @@ import numpy as np
 
 # Plotting stuff:
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 plt.style.use('seaborn-white')
 plt.rcParams['mathtext.fontset'] = 'stix'
@@ -346,8 +344,8 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
 
     plt.show()
 
-def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10)
-    ,pxlab=None,pylab=None,logcond=False,filename=None,**kwargs):
+def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10),
+                              pxlab=None,pylab=None,logcond=False,filename=None,**kwargs):
     """
     Plot 2D joint KDE distribution, and the 1D marginal distributions.
 
@@ -443,108 +441,6 @@ def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10)
         plt.savefig(filename,bbox_inches='tight')
     else:
         plt.show()
-
-def Spherical(k_r_arr,real_vis_cube_0,weights_cube_0,real_vis_cube_1,weights_cube_1,
-            N_bins=50,log_bin_cond=False,kr_min=None,kr_max=None,bw='scott'):
-    """
-    Calculates the 1D spherical mutual information as a function of k.
-            
-    Parameters
-    ----------
-    self : object
-        Power object contains u and v arrays, as well as the observation redshift.
-    kb : float
-        Boltzman's constant.
-    nu_21 : float
-        21cm frequency in Hz.
-    c : float
-        Speed of light km/s.
-    
-    Returns
-    -------
-    """
-    if kr_min:
-        # User can manually input a kr min.
-        kr_min = float(kr_min)
-        #kr_min = 0
-    else:
-        kr_min = np.nanmin(k_r_arr[k_r_arr > 0.0])
-        #kr_min = 0
-
-    if kr_max:
-        # User can manually input a kr max.
-        kr_max = float(kr_max)
-    else:
-        kr_max = np.nanmax(k_r_arr)
-
-    print('k_r_min = %5.3f' % kr_min)
-    print('k_r_max = %5.3f' % kr_max)
-
-    if log_bin_cond:
-        # Logarithmically spaced bins, creates uniform bin widths in log space plots.
-        # Binning conditions are different for log bins.
-        if N_bins == 60:
-            # Default number for lin bins is 60. If still 60 then set new default.
-            N_bins = 15
-        else:
-            # If not default N_bins = 60, user has input new number.
-            pass
-
-        # Log-linear bins.
-        log_kr_min = np.log10(kr_min)
-        log_kr_max = np.log10(kr_max)
-        
-        # Increments.
-        dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
-
-        k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
-        print('dlog_k = %5.3e' % dlog_k)
-
-    else:
-        
-        # Increments.
-        dk = (kr_max - kr_min)/(N_bins + 1)
-        k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
-
-        print('dk = %5.3f' % dk)
-
-
-    #np.savez_compressed('/home/jaiden/Documents/Skewspec/output/' + 'k_r_bins', k_r_bins = k_r_bins)
-    #print('Bin edges saved for testing purposes...')
-
-    print('N_bins = %s' % N_bins)
-
-    start0 = time.perf_counter()
-    mutual_inf_k = np.zeros(N_bins)
-    kr_vec = np.zeros(N_bins)
-
-
-    for i in range(len(k_r_bins)-1):
-
-        # Show a progress bar.
-        #progress_bar(i,N_bins,percent_cond=True)
-
-        # Calculating the radius:
-        if log_bin_cond:
-            kr_vec[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
-        else:
-            kr_vec[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
-
-        # Defining the shell array index:
-        shell_ind = np.logical_and(k_r_arr >= k_r_bins[i], k_r_arr <= k_r_bins[i+1])
-
-        #mutual_inf_k[i] = MI_temp
-        mutual_inf_k[i] = MI_metric.calc_spherical_MI(real_vis_cube_0[shell_ind],real_vis_cube_1[shell_ind],
-                                            dataX_weights=weights_cube_0[shell_ind],dataY_weights=weights_cube_1[shell_ind],
-                                            plot_cond=False,bw='scott',std_fac=0.01,nside=1000)
-
-
-    end0 = time.perf_counter()
-    
-    print('1D MI calctime = %5.3f s' % (end0-start0))
-
-    return mutual_inf_k,kr_vec
-
 
 class MI_metric:
     """
