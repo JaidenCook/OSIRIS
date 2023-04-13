@@ -7,44 +7,37 @@ __maintainer__ = "Jaiden Cook"
 __email__ = "Jaiden.Cook@student.curtin.edu"
 
 # Generic stuff:
-#%matplotlib notebook
-import os,sys
 import time
-from datetime import datetime
-import glob
-import shutil
-import re
-from math import pi
 import warnings
-import subprocess
 warnings.filterwarnings("ignore")
 
 # Array stuff:
 import numpy as np
-#warnings.simplefilter('ignore', np.RankWarning)
-
-# Parser options:
-from optparse import OptionParser
-
-# MWA beam stuff
-from mwa_pb import primary_beam as pb
 import mwa_hyperbeam
 
-sys.path.append(os.path.abspath("/home/jaiden/Documents/EoR/OSIRIS"))
+
 import Osiris
 
 def MWA_Beam_calc(Az,Alt,freq,delays):
     """
     Returns the MWA tile beam for a range of frequencies.
 
-            Parameters:
-                    Az (numpy array): 1D flattened Azimuth numpy array. [deg]
-                    Alt (numpy array): 1D flattened Altitude array. [deg]
-                    freqs (list): List of MWA coarse channels. [Hz]
-                    delays (list): List of MWA tile delays.
+    Parameters:
+    ----------
+    Azr : numpy array
+        Azimuth numpy array. [deg]
+    Alt : numpy array
+        Altitude array. [deg]
+    freq : float
+        Frequency [Hz]
+    delays : numpy array
+        List of MWA tile delays.
+    
 
-            Returns:
-                    beam_cube (numpy array): Flattened array of beam values.
+    Returns:
+    -------
+    beam : numpy array
+        Flattened array of beam values.
     """
     beam = mwa_hyperbeam.FEEBeam()
 
@@ -65,16 +58,22 @@ def MWA_Beam_vec(Az_vec,Alt_vec,freqs,delays):
     """
     Returns the MWA tile beam for a range of frequencies.
 
-            Parameters:
-                    Az_arr (numpy array): 2D Azimuth numpy array. [deg]
-                    Alt_arr (numpy array): 2D Altitude array. [deg]
-                    ind_arr (numpy array): 2D index array, all Alt/Az points with r <= 1.
-                    freqs (list): List of MWA coarse channels. [Hz]
-                    delays (list): List of MWA tile delays.
+    Parameters:
+    ----------
+    Az_vec : numpy array
+        1D Azimuth numpy array. [deg]
+    Alt_vec : numpy array
+        1D Altitude array. [deg]
+    freqs : numpy array
+        List of MWA coarse channels. [Hz]
+    delays : list 
+        List of MWA tile delays.
 
-            Returns:
-                    beam_cube (numpy array): 3D numpy array, contains the beam value for each
-                    Alt/Az for each frequency.
+    Returns:
+    -------
+    Beam_arr (numpy array): 
+        3D numpy array, contains the beam value for each
+        Alt/Az for each frequency.
     """
 
     Beam_arr = np.zeros((len(Az_vec),len(freqs)))
@@ -90,16 +89,27 @@ def MWA_beam(Az_arr, Alt_arr, ind_arr, freqs, delays, interp_cond=False):
     """
     Returns the MWA tile beam for a range of frequencies.
 
-            Parameters:
-                    Az_arr (numpy array): 2D Azimuth numpy array. [deg]
-                    Alt_arr (numpy array): 2D Altitude array. [deg]
-                    ind_arr (numpy array): 2D index array, all Alt/Az points with r <= 1.
-                    freqs (list): List of MWA coarse channels. [Hz]
-                    delays (list): List of MWA tile delays.
+    Parameters:
+    ----------
+    Az_arr : numpy array
+        2D Azimuth numpy array. [deg]
+    Alt_arr : numpy array
+        2D Altitude array. [deg]
+    ind_arr : numpy array
+        2D index array, all Alt/Az points with r <= 1.
+    freqs : numpy array
+        List of MWA coarse channels. [Hz]
+    delays : list 
+        List of MWA tile delays.
+    interp_cond : bool, default=False
+        If True interpolate the MWA primary beam as a function 
+        of frequency.
 
-            Returns:
-                    beam_cube (numpy array): 3D numpy array, contains the beam value for each
-                    Alt/Az for each frequency.
+    Returns:
+    -------
+    beam_cube (numpy array): 
+        3D numpy array, contains the beam value for each
+        Alt/Az for each frequency.
     """
 
     # Initialising the beam array:
@@ -163,19 +173,19 @@ def beam_kernel(freq_vec,N_ker_size,L,M,delays,gauss_beam=False,interp_cond=Fals
     This is used to construct the visibility degridding kernel.
 
     Parameters
-        ----------
-        freq_vec : numpy array, float
-            Vector of fine channels in Hz. 
-        N_ker_size : int
-            Size of the beam kernel. This should be an odd number.
-        L : float
-            Size of the image space array in the l-direction.
-        M : float
-            Size of the image space array in the m-direction.
+    ----------
+    freq_vec : numpy array, float
+        Vector of fine channels in Hz. 
+    N_ker_size : int
+        Size of the beam kernel. This should be an odd number.
+    L : float
+        Size of the image space array in the l-direction.
+    M : float
+        Size of the image space array in the m-direction.
 
-        Returns
-        -------
-        Beam cube.
+    Returns
+    -------
+    Beam cube.
     """
     
     ### Might be better being incorporated into the kernel object.

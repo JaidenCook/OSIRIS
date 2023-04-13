@@ -544,29 +544,28 @@ def Img_slice(Vis_slice,Nb):
     return I_out
 
 def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
-    '''
+    """
     Generate A generic 2D Gassian kernel. For gridding and weighting purposes.
 
-        Parameters
-        ----------
-        u_arr : numpy array, float
-            2D Visibilities u array.
-        v_arr : numpy array, float
-            2D Visibilities v array.
-        sig_u : numpy array, float
-            Kernel size in u.
-        sig_v : numpy array, float
-            Kernel size in v.
-        u_cent : numpy array, float
-            Visibility u coordinate centre.
-        v_cent : numpy array, float
-            Visibility v coordinate centre.
+    Parameters
+    ----------
+    u_arr : numpy array, float
+        2D Visibilities u array.
+    v_arr : numpy array, float
+        2D Visibilities v array.
+    sig_u : numpy array, float
+        Kernel size in u.
+    sig_v : numpy array, float
+        Kernel size in v.
+    u_cent : numpy array, float
+        Visibility u coordinate centre.
+    v_cent : numpy array, float
+        Visibility v coordinate centre.
 
-        Returns
-        -------
-        2D Gaussian weights array.
-
-    '''
+    Returns
+    -------
+    2D Gaussian weights array.
+    """
     ##
     ## Move this to Osiris_grid.py. Makes more sense to be there. 
     ##
@@ -583,27 +582,27 @@ def gaussian_kernel(u_arr,v_arr,sig_u,sig_v,u_cent,v_cent):
     return gaussian
 
 def find_closest_xy(x,y,x_vec,y_vec,off_cond=False):
-    '''
+    """
     Finds the indices for the (x,y) point associated to a x, y grid.
-
-        Parameters
-        ----------
-        x : numpy array, float
-            x value.
-        y : numpy array, float
-            y value.
-        x_vec : numpy array, float
-            Regular 1D uxgrid.
-        y_vec : numpy array, float
-            Regular 1D y grid.
-
-        Returns
-        -------
-        Returns closest (x,y) indices.
 
     Author : J. Line
     Modified by J. Cook
-    '''
+
+    Parameters
+    ----------
+    x : numpy array, float
+        x value.
+    y : numpy array, float
+        y value.
+    x_vec : numpy array, float
+        Regular 1D uxgrid.
+    y_vec : numpy array, float
+        Regular 1D y grid.
+
+    Returns
+    -------
+    Returns closest (x,y) indices.
+    """
     
     ##Find the difference between the gridded u coords and the desired u
     x_offs = np.abs(x_vec - x)
@@ -641,6 +640,22 @@ class MWA_uv:
     Class defines the (u,v,w) coordinates for the MWA Phase I array in 
     terms of wavelengths. It take in different pointing angles. The default
     is a zenith pointing.
+    ...
+
+    Attributes
+    ----------
+        ...
+
+
+    Methods
+    -------
+    enh2xyz(self,lat=MWA_lat):
+        ...
+    get_uvw(self,HA=H0,dec=MWA_lat)
+        ...
+    uvw_lam(self,wavelength,uvmax=None)
+        ...
+    plot_arr(self,uvmax=None,figsize=(10,10))
     """
     # Future can make it so you pass the RA and DEC of the phase centre.
     
@@ -649,21 +664,20 @@ class MWA_uv:
     ## Zenith hour angle.
     H0 = 0.0 # [deg]
     ## Array east, north, height data.
-    #array_loc = np.loadtxt('antenna_locations_MWA_phase1.txt')
-    array_loc = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/antenna_locations_MWA_phase1.txt')
+    path = "/home/jaiden/Documents/EoR/OSIRIS/data/"
+    array_loc = np.loadtxt(f'{path}antenna_locations_MWA_phase1.txt')
     
-    def __init__(self,array_loc=array_loc,test_gauss=False,test_uniform=False):
+    def __init__(self,array_loc=array_loc,test_gauss=False,test_uniform=False,path=path):
         
-
         if test_gauss:
             # Randomly generated gaussian array.
-            array_gauss = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/gaussian_antenna_locations_MWA_phase1.txt')
+            array_gauss = np.loadtxt(f'{path}gaussian_antenna_locations_MWA_phase1.txt')
             self.east = array_gauss[:,0] # [m]
             self.north = array_gauss[:,1] # [m]
             self.height = array_gauss[:,2] # [m]
         elif test_uniform:
             # Randomly generated uniform array. 
-            array_uni = np.loadtxt('/home/jaiden/Documents/EoR/OSIRIS/uniform_antenna_locations_MWA_phase1.txt')
+            array_uni = np.loadtxt(f'{path}uniform_antenna_locations_MWA_phase1.txt')
             self.east = array_uni[:,0] # [m]
             self.north = array_uni[:,1] # [m]
             self.height = array_uni[:,2] # [m]
@@ -675,13 +689,20 @@ class MWA_uv:
         
         
     def enh2xyz(self,lat=MWA_lat):
-        '''Calculates local X,Y,Z using east,north,height coords,
+        """
+        Calculates local X,Y,Z using east,north,height coords,
         and the latitude of the array. Latitude must be in radians
         
-        Default latitude is the MWA latitude.
-        
         Author: J.Line
-        '''
+
+        Parameters
+        ----------
+        lat : float, default=MWA_lat
+            Latitude of the array. Must be in radians.
+
+        Returns
+        -------
+        """
         lat = np.radians(lat)
         
         sl = np.sin(lat)
@@ -690,13 +711,21 @@ class MWA_uv:
         self.Y = self.east
         self.Z = self.north*cl + self.height*sl
         
-        #return X,Y,Z
     def get_uvw(self,HA=H0,dec=MWA_lat):
         """
         Returns the (u,v,w) coordinates for a given pointing centre and hour angle.
         The default is a zenith pointing.
 
         Author: J.Line
+
+        Parameters
+        ----------
+        dec : float, default=MWA_lat
+            Declination of the observation. Default is MWA_lat which indicates a 
+            zenith pointed observation.
+
+        Returns
+        -------
         """
         x_lengths = []
         y_lengths = []
