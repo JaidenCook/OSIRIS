@@ -444,13 +444,14 @@ class polySpectra:
         temperature_term = (lam_o**6/(8*kb**3))
 
         # Converting a 1 Jy^2 source to K^3 Mpc^6 h^-6.
-        conv_factor =  (dnu/(Omega_fov))*temperature_term*volume_term* 1e+9 # [mK^3 Mpc^3 h^-3]
+        conv_factor =  deco_factor*(dnu/(Omega_fov))*temperature_term*volume_term* 1e+9 # [mK^3 Mpc^3 h^-3]
         
         if verbose:
             print('==========================================================')
             print('Cosmology values')
             print('==========================================================')
             print(f'Bandwidth = {dnu:5.1f} [Hz]')
+            print(f'Nu21 = {nu_21:5.1f} [Hz]')
             print(f'DM = {Dm:5.3f} [Mpc/h]')
             print(f'DH = {DH:5.3f} [Mpc/h]')
             print(f'h = {h:5.3f}')
@@ -935,13 +936,14 @@ class polySpectra:
 
 class powerSpec(polySpectra):
     """
-    Test child class.
+    Class to calculate the spherical and cylindrical power spectrum.
     """
 
     def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
                          weights_cube=None,cosmo=None,sig=1.843,ravel_cond=False):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
-                         weights_cube=weights_cube,cosmo=cosmo,sig=sig,ravel_cond=ravel_cond)
+                         weights_cube=weights_cube,cosmo=cosmo,sig=sig,
+                         ravel_cond=ravel_cond)
         
 
         # Overriding attributes to suite the power-spectrum.
@@ -949,6 +951,9 @@ class powerSpec(polySpectra):
         self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Power2Tb(self.dnu,self.dnu_f,
                                             self.nu_o,self.z,self.cosmo,self.Omega_fov)
         
+        print('Power cube DC sum.')
+        print(np.sum(self.cube[:,:,0]))
+
         if np.any(weights_cube):
             # Case for user inputted weigth cube.
             self.weights_cube = weights_cube
@@ -956,22 +961,27 @@ class powerSpec(polySpectra):
         if self.ravel_cond:
             self.cube = self.cube.ravel()
             self.weights_cube = self.weights_cube.ravel()
-            del cube,weights_cube
+        
+        del cube,weights_cube
 
 class skewSpec(polySpectra):
     """
-    Test child class.
+    Class to calculate the spherical and cylindrical skew spectrum.
     """
 
     def __init__(self,cube,cubesqd,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                         weights_cube=None,cosmo=None,sig=1.843):
+                         weights_cube=None,cosmo=None,sig=1.843,ravel_cond=False):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
-                         weights_cube=weights_cube,cosmo=cosmo,sig=sig)
+                         weights_cube=weights_cube,cosmo=cosmo,sig=sig,
+                         ravel_cond=ravel_cond)
 
         self.cube = cubesqd*np.conjugate(cube)
         self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Skew2Tb(self.dnu,self.dnu_f,
                                             self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
+        print('Skew cube DC sum.')
+        print(np.sum(self.cube[:,:,0]))
+        print(np.sum(cubesqd[:,:,0]),np.sum(cube[:,:,0]))
         del cube,cubesqd
 
         if np.any(weights_cube):
@@ -981,21 +991,6 @@ class skewSpec(polySpectra):
         if self.ravel_cond:
             self.cube = self.cube.ravel()
             self.weights_cube = self.weights_cube.ravel()
-            del cube,weights_cube
-    
-    
-
-class kdeSpec(polySpectra):
-    """
-    Class to calculate the power spectrum using kernel density estimators.
-    """
-
-    def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
-                         weights_cube=None,cosmo=None,sig=1.843):
-        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
-                         weights_cube=weights_cube,cosmo=cosmo,sig=sig)
-
-        self.cube = cube
 
 class miSpec(polySpectra,MI_metric):
     """
@@ -1092,3 +1087,16 @@ class miSpec(polySpectra,MI_metric):
 
         self.MI_2D = self.spec_avg_2D
         del self.spec_avg_2D
+    
+
+class kdeSpec(polySpectra):
+    """
+    Class to calculate the power spectrum using kernel density estimators.
+    """
+
+    def __init__(self,cube,u_arr,v_arr,eta,nu_o,dnu=30.72e6,dnu_f=80e3,
+                         weights_cube=None,cosmo=None,sig=1.843):
+        super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
+                         weights_cube=weights_cube,cosmo=cosmo,sig=sig)
+
+        self.cube = cube
