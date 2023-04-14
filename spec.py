@@ -947,7 +947,7 @@ class powerSpec(polySpectra):
         
 
         # Overriding attributes to suite the power-spectrum.
-        self.cube = np.conjugate(cube)*cube # [Jy^2 Hz^2]
+        self.cube = (np.conjugate(cube)*cube).real # [Jy^2 Hz^2]
         self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Power2Tb(self.dnu,self.dnu_f,
                                             self.nu_o,self.z,self.cosmo,self.Omega_fov)
         
@@ -975,7 +975,8 @@ class skewSpec(polySpectra):
                          weights_cube=weights_cube,cosmo=cosmo,sig=sig,
                          ravel_cond=ravel_cond)
 
-        self.cube = cubesqd*np.conjugate(cube)
+        # We only need the real values.
+        self.cube = (cubesqd*np.conjugate(cube)).real # [Jy^3 Hz^2]
         self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Skew2Tb(self.dnu,self.dnu_f,
                                             self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
