@@ -386,7 +386,7 @@ class polySpectra:
             print(f'Observed wavelength = {lam_o:5.3f} [m]')
             print(f'Fine channel width = {dnu_f:5.3e} [Hz]')
             print(f'Volume term = {volume_term:5.3f} [sr^-1 Hz^-1 Mpc^3 h^-3]')
-            print(f'Conversion factor = {conv_factor:5.3e} [mK^2 Hz^-2 Mpc^3 h^-3]')
+            print(f'Conversion factor = {conv_factor:5.3e} [mK^2 Mpc^3 h^-3]')
             print('==========================================================')
         else:
             pass
@@ -463,7 +463,7 @@ class polySpectra:
             print(f'Observed wavelength = {lam_o:5.3f} [m]')
             print(f'Fine channel width = {dnu_f:5.3e} [Hz]')
             print(f'Volume term = {volume_term:5.3f} [sr^-1 Hz^-1 Mpc^3 h^-3]')
-            print(f'Conversion factor = {conv_factor:5.3e} [mK^3 Hz^-2 Mpc^3 h^-3]')
+            print(f'Conversion factor = {conv_factor:5.3e} [mK^3 Mpc^3 h^-3]')
             print('==========================================================')
         else:
             pass
