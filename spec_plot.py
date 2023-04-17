@@ -35,6 +35,7 @@ plt.rc('ytick.minor', size=4, pad=4)
 
 from spec import constants
 
+
 def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,title=None,figaxs=None,
     xlabel=None,ylabel=None,step=True,grid_cond=False,**kwargs):
     """
@@ -72,7 +73,22 @@ def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,title=No
     -------
     None
     """
-    # Generalise this for both skew and power spectrum.
+    import matplotlib.ticker as ticker
+
+    # Define a custom tick label formatting function
+    def format_tick_label(x,pos):
+        # Testing the dynamic range. If the dynamic range is too small
+        # the asymmetric log plotting is fucked. In this case we perform our
+        # own tick formatting.
+        
+        try:
+            expo = int(np.log10(np.abs(x)))
+            x_norm = x/10**(expo)
+
+            return fr"{x_norm:.1f}$\times10^{{{expo}}}$"
+        except OverflowError:
+
+            return None
 
     if figaxs:
         # If figure and axis given.
@@ -89,10 +105,39 @@ def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,title=No
         fig.set_figheight(figx)
         fig.set_figwidth(figy)
 
+    # Determining the x and y labels.
+    if xlabel:
+        xlabel=xlabel
+    else:
+        xlabel=r'$k \,[\it{h}\rm{\,Mpc^{-1}}]$'
+
+    if ylabel:
+        ylabel=ylabel
+    else:
+        ylabel=r'$P(k) \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$'
+
+    axs.set_xlabel(xlabel,fontsize=24*scale)
+    axs.set_ylabel(ylabel,fontsize=24*scale)
+
+    axs.tick_params(axis='x',labelsize=20*scale)
+    axs.tick_params(axis='y',labelsize=20*scale)
+
     axs.set_xscale('log')
     if np.min(Spec1D) < 0:
         # If there are negative values set the scale to log symmetric.
         axs.set_yscale('asinh')
+        
+        thresh_limit = 0.5
+        dynamic_range = (np.nanmax(Spec1D)/np.nanmin(Spec1D))
+        
+        if dynamic_range >= thresh_limit:
+            # Testing the dynamic range. If the dynamic range is too small
+            # the asymmetric log plotting is fucked. In this case we perform our
+            # own tick formatting.
+            print(dynamic_range)
+            axs.set_yscale('linear')
+            axs.yaxis.set_major_formatter(ticker.FuncFormatter(format_tick_label))
+            axs.tick_params(axis='y',labelsize=12*scale)
     else:
         # Default is loglog axes scales. This can be manually changed
         # outside the function.
@@ -111,22 +156,6 @@ def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,title=No
     if ylim:
         axs.set_ylim(ylim)
 
-    # Determining the x and y labels.
-    if xlabel:
-        xlabel=xlabel
-    else:
-        xlabel=r'$k \,[\it{h}\rm{\,Mpc^{-1}}]$'
-
-    if ylabel:
-        ylabel=ylabel
-    else:
-        ylabel=r'$P(k) \, [\rm{mK^2}\,\it{h^{-3}}\,\rm{Mpc^3}]$'
-
-    axs.set_xlabel(xlabel,fontsize=24*scale)
-    axs.set_ylabel(ylabel,fontsize=24*scale)
-
-    axs.tick_params(axis='x',labelsize=20*scale)
-    axs.tick_params(axis='y',labelsize=20*scale)
 
     # Changing the line widths.
     [x.set_linewidth(2.) for x in axs.spines.values()]
