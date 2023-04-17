@@ -90,7 +90,7 @@ class constants:
     c: float = 299792458.0 #[m/s]
     lam_21: float = 0.21 #[m]
     nu_21: float = c/lam_21 #[Hz]
-    kb: float = 1380.649 #[Jy m^2 Hz K^-1] Boltzmann's constant.
+    kb: float = 1380.649 #[Jy m^2 K^-1] Boltzmann's constant.
 
     # Default cosmology.
     from astropy.cosmology import LambdaCDM
