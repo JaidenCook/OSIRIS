@@ -408,6 +408,7 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
 
     
     # Performing the weighted average.
+    # Effectively primary beam correcting.
     grid_arr[weights_arr > 0.0] = grid_arr[weights_arr > 0.0]/weights_arr[weights_arr > 0.0]
 
 
