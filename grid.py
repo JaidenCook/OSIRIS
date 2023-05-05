@@ -85,18 +85,10 @@ def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None,*args):
         u_bit = (u_arr[:,:,None] - du_vec[None,None,:])/sig
         v_bit = (v_arr[:,:,None] - dv_vec[None,None,:])/sig
 
-        #u_bit = (u_arr[:,:,None] - du_vec[None,None,:])
-        #v_bit = (v_arr[:,:,None] - dv_vec[None,None,:])
     except AttributeError:
         # Defualt case where this is only one offset.
         u_bit = (u_arr - du_vec)/sig
         v_bit = (v_arr - dv_vec)/sig
-
-        #u_bit = (u_arr - du_vec)
-        #v_bit = (v_arr - dv_vec)
-
-    #amp = 1/(2*np.pi*sig**2)
-    #gaussian = amp*np.exp(-0.5*(u_bit**2 + v_bit**2))
 
     # Fourier inverse of the sig=sig_u. This is the beam size.
     sig_beam = 1/(np.pi * sig)
