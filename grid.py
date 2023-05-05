@@ -413,7 +413,7 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
 
 
     if sig_u < delta_u:
-        # Safeguard against nan, and ing value swhen sig < du.
+        # Safeguard against nan, and inf value swhen sig < du.
         grid_arr.real[np.isinf(grid_arr.real)] = 0
         grid_arr.real[np.isnan(grid_arr.real)] = 0
         grid_arr.imag[np.isnan(grid_arr.imag)] = 0
