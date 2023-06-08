@@ -338,10 +338,17 @@ def grid(grid_arr, u_coords, v_coords, vis_vec, u_vec, v_vec,
             1D array of visibilities v coordinates.
         vis_vec : numpy array, float
             1D array of complex visibilities.
-        u_grid : numpy array, float
-            2D Visibilities u grid.
-        v_grid : numpy array, float
-            2D Visibilities u grid.
+        u_vec : numpy array, float
+            1D Visibilities u grid.
+        v_vec : numpy array, float
+            1D Visibilities u grid.
+        kernel_size : float, default=91
+            Kernel grid size.
+        sig_grid : float, default=1.843
+            Kernel width in lambda.
+        kernel : str,default='gaussian'
+            Kernel type, 'blackman-harris', 'gaussian',
+            'uniform' and 'natural'.
 
         Returns
         -------
