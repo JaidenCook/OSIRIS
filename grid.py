@@ -323,7 +323,7 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
     return weights_cube
 
 
-def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec, 
+def grid(grid_arr, u_coords, v_coords, vis_vec, u_vec, v_vec, 
         kernel_size=91, sig_grid=1.843, kernel='gaussian',test_cond=False):
     """
     Gaussian and Blackman-Harris kernel gridder. 
@@ -336,7 +336,7 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
             1D array of visibilities u coordinates.
         v_coords : numpy array, float
             1D array of visibilities v coordinates.
-        vis : numpy array, float
+        vis_vec : numpy array, float
             1D array of complex visibilities.
         u_grid : numpy array, float
             2D Visibilities u grid.
@@ -390,7 +390,13 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
     max_v_ind_vec = v_cent_ind_vec + int(kernel_size/2) + 1
 
     # Looping through each visibility.
-    for i in range(len(vis)):
+    #for i in range(len(vis)):
+    for i,vis in enumerate(vis_vec):
+
+        if (vis.real == 0) and (vis.imag == 0):
+            # in testing I set some visibilities to zero,
+            # however they still get gridded, this should stop that.
+            continue
 
         temp_weights = weights_cube[:,:,i]
 
@@ -400,7 +406,7 @@ def grid(grid_arr, u_coords, v_coords, vis, u_vec, v_vec,
 
         # Adding gridded visibilities.
         grid_arr[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]] = \
-            grid_arr[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]] + vis[i]*temp_weights
+            grid_arr[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]] + vis*temp_weights
 
         # Test gridded visibilities.
         #grid_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] = \
