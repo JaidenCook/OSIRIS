@@ -214,7 +214,7 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
     return kernel2D
 
 def calc_weights_cube(u_shift_vec,v_shift_vec,du,
-        sig=2.41,kernel_size=51,kernel='gaussian'):
+        sig=1.843,kernel_size=51,kernel='gaussian'):
     """
     This function calculates the weight kernel for each input visiblity.
     The output is a weights cube, where each slice is the gridding kernel
