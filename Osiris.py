@@ -1087,8 +1087,9 @@ class Skymodel:
         # For the point source location.
         #L = (np.max(self.l_vec) - np.min(self.l_vec))
 
-        #N = len(self.l_vec)
-        dA = self.dl*self.dm
+        N = len(self.l_vec)
+        #dA = self.dl*self.dm
+        dA = 1/N**2#self.dl*self.dm
 
         if np.shape(self.l_mod):
             # Multiple source case.
