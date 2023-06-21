@@ -481,7 +481,8 @@ def Visibilities_2D(img,X=None,Y=None,N=None,norm=None):
         N : numpy array, float
             Image array pixel size, default is 'None'.
         norm : string
-            Norm condition, accepts 'forward', 'backward', and 'ortho', default is 'backward'.
+            Norm condition, accepts 'forward', 'backward', and 'ortho', 
+            default is 'backward'.
 
         Returns
         -------
@@ -498,8 +499,9 @@ def Visibilities_2D(img,X=None,Y=None,N=None,norm=None):
     ## Default original case:
     #print('3D case')
     Vis = np.roll(np.roll(ifftshift(fftn(np.roll(np.roll(fftshift(img),
-                                                         1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
-    #Vis = np.roll(np.roll(ifftshift(ifftn(np.roll(np.roll(fftshift(img),1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
+                    1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
+    #Vis = np.roll(np.roll(ifftshift(ifftn(np.roll(np.roll(fftshift(img),
+    #               1,axis=0),1,axis=1),norm=norm)),-1,axis=0),-1,axis=1)
 
     if X and Y and N:
         # Creating the Fourier grid:
