@@ -340,8 +340,8 @@ class polySpectra:
         # Check that both arrays have the same dimension.
         if len(k_r) != len(spec):
 
-            err_msg = f'len(k_r) != len(spec).'
-            raise ValueError()
+            err_msg = f'len(k_r) = {len(k_r)} != len(spec) = {len(spec)}.'
+            raise ValueError(err_msg)
 
         # Calc the Del_spectrum.
         Del_spec = spec*((k_r)**3)/(2*np.pi**2)
