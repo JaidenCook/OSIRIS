@@ -319,6 +319,37 @@ class polySpectra:
         return k_z
     
     @staticmethod
+    def spec2Del_spec(k_r,spec):
+        """
+        Converts a spectrum from unit*h^-3 Mpc^3 to unit. Here unit is usually
+        mK^2 or mK^3. 
+
+        Parameters
+        ----------
+        k_r : float, numpy array
+            k_r vector [Mpc^-1] or [h Mpc^-1]
+        spec : float, numpy aray
+            1D spectra vector in units of Mpc^3 or h^-3 Mpc^3.
+        
+        Returns
+        -------
+        Del_spec : float, numpy array
+            1D unitless vector.
+        """
+
+        # Check that both arrays have the same dimension.
+        if len(k_r) != len(spec):
+
+            err_msg = f'len(k_r) != len(spec).'
+            raise ValueError()
+
+        # Calc the Del_spectrum.
+        Del_spec = spec*((k_r)**3)/(2*np.pi**2)
+
+        return Del_spec
+
+
+    @staticmethod
     def Power2Tb(dnu,dnu_f,nu_o,z,cosmo,Omega_fov,verbose=True):
         """
         Calculate the conversion factor from Jy^2 Hz^2 to mK^2 Mpc^3 h^-3.
