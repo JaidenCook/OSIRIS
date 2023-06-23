@@ -134,9 +134,11 @@ class polySpectra:
         ...
     eta2kz(eta,z,cosmo=None)
         ...
-    Power2Tb(dnu,dnu_f,nu_o,z,cosmo,Omega_fov,verbose=True):
+    Power2Tb(dnu,dnu_f,nu_o,z,cosmo,Omega_fov,verbose=True)
         ...
     Skew2Tb(dnu,dnu_f,nu_o,z,cosmo,Omega_fov,verbose=True)
+        ...
+    spec2Del_spec(k_r,spec)
         ...
     wedge_factor(z,cosmo=None)
         ...
@@ -624,6 +626,73 @@ class polySpectra:
             kr_grid = np.sqrt(kx_grid**2 + ky_grid**2)
 
         return kr_grid
+    
+    @staticmethod
+    def calc_k_r_bins(kr_grid=None,N_bins=60,kr_min=None,kr_max=None,
+                  log_bin_cond=False,verbose=True):
+        """
+        Calculate the k_r bins for the spherical averaging.
+
+        Parameters
+        ----------
+        Nbins : int, default=60
+            Number of bines to average.
+        kr_min : float, default=None
+            Min kr value.
+        kr_max : float, default=False
+            Max kr value.
+        log_bin_cond : bool, default=False
+            If True bins are loglinear spaced.
+        verbose : bool, default=False
+            If True, print additional details.
+
+        
+        Returns
+        -------
+        k_r_bins : float, numpy array
+            Vector of k_r bin edges.
+        """
+        
+        if kr_min:
+            # User can manually input a kr min.
+            kr_min = float(kr_min)
+        else:
+            kr_min = np.nanmin(kr_grid[kr_grid > 0.0])
+
+        if kr_max:
+            # User can manually input a kr max.
+            kr_max = float(kr_max)
+        else:
+            kr_max = np.nanmax(kr_grid)
+
+        if log_bin_cond:
+            # Logarithmically spaced bins, creates uniform bin widths in log space plots.
+            # Binning conditions are different for log bins.
+
+            # Log-linear bins.
+            log_kr_min = np.log10(kr_min)
+            log_kr_max = np.log10(kr_max)
+            
+            # Increments.
+            dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
+
+            k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
+            if verbose: print(f'dlog_k = {dlog_k:5.3e}')
+
+        else:
+            # Increments.
+            dk = (kr_max - kr_min)/(N_bins + 1)
+            k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
+
+            if verbose: 
+                print(f'dk = {dk:5.3f}')
+
+        if verbose:
+            print(f'k_r_min = {kr_min:5.3f}')
+            print(f'k_r_max = {kr_max:5.3f}')
+            print(f'N_bins = {N_bins}')
+
+        return k_r_bins
 
     def set_wedge_to_nan(self,kr_min,wedge_cut=None,horizon_cond=True):
         """
@@ -744,7 +813,7 @@ class polySpectra:
         polySpectra.Cylindrical(self,func=polySpectra.avgWrapper)
 
 
-    def Spherical(self,func,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
+    def Spherical(self,func,k_r_bins=None,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
                   kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
         """
         Calculates the 1D spherically averaged poly spectra using the input object.
@@ -780,8 +849,6 @@ class polySpectra:
         -------
         self
         """
-        ### TODO
-        # 1) Add an option to have user inputted kr_bins.
 
         # Calculating the field of view.
         self.Omega_fov = polySpectra.calc_field_of_view(sig)
@@ -794,44 +861,19 @@ class polySpectra:
         # Calculating the kr_grid.
         self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,self.eta,self.cosmo)
 
-        if kr_min:
-            # User can manually input a kr min.
-            kr_min = float(kr_min)
+        # Calculate the k_r_bins.
+        if np.any(k_r_bins):
+            # User inputted bins. This will need to be tested.
+            print('Testing you fool.')
+            pass
         else:
-            kr_min = np.nanmin(self.kr_grid[self.kr_grid > 0.0])
+            # If no bins provided create them from the grid.
+            k_r_bins = polySpectra.calc_k_r_bins(kr_grid=self.kr_grid,N_bins=N_bins,
+                                                 kr_min=kr_min,kr_max=kr_max,
+                                                 log_bin_cond=log_bin_cond,verbose=verbose)
 
-        if kr_max:
-            # User can manually input a kr max.
-            kr_max = float(kr_max)
-        else:
-            kr_max = np.nanmax(self.kr_grid)
-
-        if log_bin_cond:
-            # Logarithmically spaced bins, creates uniform bin widths in log space plots.
-            # Binning conditions are different for log bins.
-
-            # Log-linear bins.
-            log_kr_min = np.log10(kr_min)
-            log_kr_max = np.log10(kr_max)
-            
-            # Increments.
-            dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
-
-            k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
-            if verbose: print(f'dlog_k = {dlog_k:5.3e}')
-
-        else:
-            # Increments.
-            dk = (kr_max - kr_min)/(N_bins + 1)
-            k_r_bins = np.linspace(kr_min,kr_max,N_bins + 1)
-
-            if verbose: 
-                print(f'dk = {dk:5.3f}')
-
-        if verbose:
-            print(f'k_r_min = {kr_min:5.3f}')
-            print(f'k_r_max = {kr_max:5.3f}')
-            print(f'N_bins = {N_bins}')
+        # For testing and integrating purposes.
+        self.k_r_bins = k_r_bins
 
         start0 = time.perf_counter()
         spec_avg_1D = np.zeros(N_bins)
