@@ -51,7 +51,7 @@ def sigma_grid_calc(freq,D=4,epsilon=0.42,radian_cond=False):
 
     return sigma
 
-def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None,*args):
+def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None):
     """
     Generate A generic 2D Gassian kernel. For gridding and weighting purposes. If
     du_vec is a vector and not a float, then this function returns a cube of Gaussian
