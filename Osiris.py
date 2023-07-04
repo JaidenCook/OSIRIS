@@ -1153,15 +1153,6 @@ class Skymodel:
         else:
             norm = matplotlib.colors.NoNorm(vmin=vmin,vmax=vmax)
 
-        if np.any(vmax):
-            vmax = vmax
-        else:
-            vmax = None
-        
-        if np.any(vmin):
-            vmin = vmin
-        else:
-            vmin = None
 
         if window and np.any(self.l_mod):
             # Case for a single source image.
@@ -1217,16 +1208,20 @@ class Skymodel:
         # Setting the colour bars:
         if np.any(vmax) and np.any(vmin):
             # Setting the limits of the colour bar. 
-            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='both')
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, 
+                              pad=0.04, extend='both', aspect=30)
         elif np.any(vmax):
             # Upper limit only.
-            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='max')
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, 
+                              pad=0.04, extend='max', aspect=30)
         elif np.any(vmin):
             # Lower limit only.
-            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, extend='min')
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, 
+                              pad=0.04, extend='min', aspect=30)
         else:
             # No limits.
-            cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04)
+            cb = fig.colorbar(im, ax=axs, fraction=0.046, 
+                              pad=0.04, aspect=30)
 
         cb.set_label(label=clab,fontsize=24)
 
