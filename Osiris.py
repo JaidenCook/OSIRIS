@@ -870,6 +870,8 @@ class Skymodel:
         self.Alt_grid = Alt_arr
         self.Az_grid = Az_arr
         
+        self.l_mod = None
+        self.m_mod = None
     
     def Gauss2D(self,Az,Zen,Sint,Az0,Zen0,theta_pa,amaj,bmin):
         """
@@ -1125,8 +1127,9 @@ class Skymodel:
             #    # Default single source case.
             #    self.model = self.model*S
 
-    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',cmap='cividis',\
-        clab=None,title=None,vmax=None,vmin=None,lognorm=False,**kwargs):
+    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),
+                     xlab=r'$l$',ylab=r'$m$',cmap='cividis',clab=None,title=None,
+                     vmax=None,vmin=None,lognorm=False,**kwargs):
         """
         This function plots a subset of the sky-model. Particularly for a single source.
         The main purpose of the functions in this pipeline is to plot the visibilities 
@@ -1135,20 +1138,20 @@ class Skymodel:
 
         fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
-        if index:
+        if index and np.any(self.l_mod):
             # Case for a single source, when there is more than one model source.
             l_mod = self.l_mod[index]
             m_mod = self.m_mod[index]
-        else:
+        elif np.any(self.l_mod):
             # Case for a single source, when there is more than one model source.
             l_mod = self.l_mod
             m_mod = self.m_mod
 
         # These values should be unpacked with kwargs.
         if lognorm:
-            norm = matplotlib.colors.LogNorm()
+            norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
         else:
-            norm = None
+            norm = matplotlib.colors.NoNorm(vmin=vmin,vmax=vmax)
 
         if np.any(vmax):
             vmax = vmax
@@ -1160,7 +1163,7 @@ class Skymodel:
         else:
             vmin = None
 
-        if window:
+        if window and np.any(self.l_mod):
             # Case for a single source image.
             # Specifying the temporary l and m indices based on window size.
             temp_l_ind = np.isclose(self.l_vec,l_mod,atol=window)
@@ -1180,29 +1183,29 @@ class Skymodel:
             m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
 
             if len(self.model[0,0,:]) > 100:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='lower',\
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],\
-                    vmin=vmin,vmax=vmax,aspect='auto')
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='lower',
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],
+                    aspect='auto',norm=norm)
             else:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='lower',\
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],\
-                    vmin=vmin,vmax=vmax,aspect='auto')
+                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='lower',
+                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],
+                    aspect='auto',norm=norm)
         else:
             if len(self.model[0,0,:]) > 100:
                 # Case for the whole sky.
                 temp_arr = np.ones(self.model[:,:,0].shape)*self.model[:,:,100]
                 temp_arr[self.r_grid > 1.0] = np.NaN
 
-                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',\
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],\
-                    vmin=vmin,vmax=vmax,aspect='auto')
+                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
+                    aspect='auto',norm=norm)
             else:
                 temp_arr = self.model[:,:,0]
                 temp_arr[self.r_grid > 1.0] = np.NaN
 
-                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',\
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],\
-                    vmin=vmin,vmax=vmax,aspect='auto')
+                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
+                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
+                    aspect='auto',norm=norm)
 
         if clab:
             # Find a better way to do this.
