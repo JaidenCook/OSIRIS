@@ -233,13 +233,14 @@ class w_kernel():
         self.m_grid = m_grid
 
         # Creating kernel radius.
-        r_grid = np.sqrt(l_grid**2 + m_grid**2)
+        self.r_grid = np.sqrt(l_grid**2 + m_grid**2)
 
         # Initialising n_arr.
-        self.n_grid = np.zeros(np.shape(r_grid))
+        self.n_grid = np.zeros(np.shape(self.r_grid))
 
         # Populating n_arr.
-        self.n_grid[r_grid < 1] = np.sqrt(1 - l_grid[r_grid < 1]**2 - m_grid[r_grid < 1]**2)
+        self.n_grid[self.r_grid < 1] = \
+            np.sqrt(1 - l_grid[self.r_grid < 1]**2 - m_grid[self.r_grid < 1]**2)
 
         #beam_grid[r_grid < 1] = beam_grid[r_grid < 1]/self.n_grid[r_grid < 1]
         self.kernel = beam_grid
@@ -291,8 +292,8 @@ class w_kernel():
         self.v_grid = v_grid
 
         # Setting and normalising the w-kernel.
-        self.w_kernel = w_kernel # 17/7/22 -- depreciated
-        ##self.w_kernel = w_kernel/np.abs(np.sum(w_kernel)) # old
+        #self.w_kernel = w_kernel # 
+        self.w_kernel = w_kernel/np.abs(np.sum(w_kernel)) # old 17/7/22 -- depreciated
 
     def plot_kernel(self,ker='sky',real_cond=True,imag_cond=False,title=None,**kwargs):
         """
