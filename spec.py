@@ -859,12 +859,16 @@ class polySpectra:
             polySpectra.set_wedge_to_nan(self,kr_min,wedge_cut=wedge_cut,horizon_cond=horizon_cond)
         
         # Calculating the kr_grid.
-        self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,self.eta,self.cosmo)
+        try:
+            # In the event that the kr_grid is already calculated don't recalculate
+            if np.any(self.kr_grid):
+                print('kr_grid exists...')
+        except AttributeError:
+            self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,self.eta,self.cosmo)
 
         # Calculate the k_r_bins.
         if np.any(k_r_bins):
             # User inputted bins. This will need to be tested.
-            print('Testing you fool.')
             pass
         else:
             # If no bins provided create them from the grid.
