@@ -941,6 +941,8 @@ class polySpectra:
         # Calculating kperp max.
         k_perp_max = polySpectra.uv2kxky(self.uvmax,self.z,self.cosmo) # h Mpc^-1
         
+        print(f'kperp max = {k_perp_max:5.3f}')
+        
         # Defininf the number of bins.
         N_bins = int(k_perp_max/dk_r)
         
