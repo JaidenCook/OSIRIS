@@ -1151,7 +1151,7 @@ class Skymodel:
         if lognorm:
             norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
         else:
-            norm = matplotlib.colors.NoNorm(vmin=vmin,vmax=vmax)
+            norm = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
 
 
         if window and np.any(self.l_mod):
