@@ -491,7 +491,6 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
         # If the sig_grid parameter is a vector.
         sig_grid.shape
         print('Sigma grid is a vector...')
-        #print(np.min(sig_grid),np.max(sig_grid),np.mean(sig_grid))
     except AttributeError:
         # If no vector given create one which just contains
         # the default sigma parameter.
