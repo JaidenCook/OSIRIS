@@ -36,8 +36,9 @@ plt.rc('ytick.minor', size=4, pad=4)
 from spec import constants
 
 
-def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,title=None,figaxs=None,
-    xlabel=None,ylabel=None,step=True,grid_cond=False,**kwargs):
+def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,
+                   title=None,figaxs=None,xlabel=None,ylabel=None,step=True,
+                   grid_cond=False,**kwargs):
     """
     Plot the 1D angular averaged power spectrum. If figaxs is provided allows for plotting
     more than one power spectrum.
@@ -267,7 +268,7 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),scale=1,cmap='Spectral
         else:
             norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
     else:
-        norm = matplotlib.colors.NoNorm(vmin=vmin,vmax=vmax)
+        norm = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
 
     if verbose:
         print(f'Min = {np.min(Spec2D[Spec2D > 0]):5.3e}')
