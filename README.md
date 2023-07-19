@@ -17,10 +17,12 @@ Once the model is generated it can then be passed to ```SNR_pipeline.py``` which
 
 ## Command Line Script Examples
 
+The pipeline scripts require the metafits files for a real observation. These can be downloaded from the MWA ASVO website ```https://asvo.mwatelescope.org/```. The metafits file is used to get the delays and the frequency channels for the observation. Alternatively in future versions these can be input parameters, or a single metafits file can be modified to have the desired MWA delays and frequency channels. 
+
 ### Example SNR_sky-model.py
 ```python SNR_sky-model.py --obsid 1080136736 --no_cenA --all_sky --save_plots --kernel_size 91```
 
-Outputs file ```1080136736_all-sky_no-cenA.npz```.
+Outputs file ```1080136736_all-sky_no-cenA.npz```. Adding the options ```--save_partial_models``` and ```--S_app``` will generate the approximate 10%, 50%, 90% and 100% apparent sky-model cubes.
 
 ### Example SNR_pipeline.py
 ```python SNR_pipeline.py --obsid 1080136736 --sky_model "../models/1080136736_all-sky_no-cenA.npz" --obs_length=10000 --beam_interp --no_wedge --kernel_size=91 --grid_kernel_size=91 --sigma_grid=4```
@@ -37,7 +39,8 @@ For questions on how to setup and run the pipeline please contact me at ```Jaide
 
 ## Supernova Remnant and Centaurus A Model
 
-The FITS file containing the Gaussian component models for the SNRs and Centaurus A can be found in the ```./pipeline``` directory, where the file is named ```CenA-GP-gauss_model-V2.fits```. The FITS file is a FITS table format, with the table columns being ```Name,RA,u_RA,DEC,u_DEC,Sint,u_Sint,Maj,u_Maj,Min,u_Min,PA,u_PA,alpha,ModelID```. For the ```Name``` columns is the same as the one from Greens catalogue which you can find here ```https://www.mrao.cam.ac.uk/surveys/snrs/```, with the exception of the CenA model components which are simply named 'cenA'. Each model has an associated ID which is stored in the ```ModelID``` column. This ID should match the ID given in greens catalogue, with the inclusion of 'cenA' which has the ID 295. Each row of the table represents a different Gaussian, where each Gaussian model component can be grouped by name or by their model ID. Therefore the Gaussian parameters for their centre, their size, their position angle and their amplitude are given by ```RA,DEC,Sint,Maj,Min,PA``` with their associated error columns designated by the prefix ```u_```.
+
+The FITS file containing the Gaussian component models for the SNRs and Centaurus A can be found in the ```./pipeline``` directory, where the file is named ```CenA-GP-gauss_model-V2.fits```. The FITS file is a FITS table format, with the table columns being ```[Name,RA,u_RA,DEC,u_DEC,Sint,u_Sint,Maj,u_Maj,Min,u_Min,PA,u_PA,alpha,ModelID]```. For the ```Name``` columns is the same as the one from Greens catalogue which you can find here ```https://www.mrao.cam.ac.uk/surveys/snrs/```, with the exception of the CenA model components which are simply named 'cenA'. Each model has an associated ID which is stored in the ```ModelID``` column. This ID should match the ID given in greens catalogue, with the inclusion of 'cenA' which has the ID 295. Each row of the table represents a different Gaussian, where each Gaussian model component can be grouped by name or by their model ID. Therefore the Gaussian parameters for their centre, their size, their position angle and their amplitude are given by ```RA,DEC,Sint,Maj,Min,PA``` with their associated error columns designated by the prefix ```u_```.
 
 ### Caveats Regarding the Model
 All flux densities are the expected 200 MHz flux density. For SNRs that were not fit (because they were too faint, small or high in declination), we simply used the existing Major, Minor, SI (spectral index) and Sint from Green's catalogue. Green's catalogue does not provide a position angle for the elliptical sizes for the Gaussians, so use these with Caution. These sources have PA=0. 
