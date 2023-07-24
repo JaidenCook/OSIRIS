@@ -1129,7 +1129,7 @@ class Skymodel:
 
     def plot_sky_mod(self,figaxs=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',
                      cmap='cividis',clab=None,title=None,vmax=None,vmin=None,
-                     lognorm=False,**kwargs):
+                     lognorm=False,fontsize=24,**kwargs):
         """
         This function plots a subset of the sky-model. Particularly for a single source.
         The main purpose of the functions in this pipeline is to plot the visibilities 
@@ -1155,8 +1155,10 @@ class Skymodel:
             Max colormap value.
         vmin : float, default=None
             Min colormap value.
-        lorgnomr : bool, default=None
+        lognorm : bool, default=None
             If True use a lognorm normalisation.
+        fontsize : int, default=24
+            Fontsize for the tick params.
         **kwargs :
             Keyword arrguments for plt.imshow().
 
@@ -1202,28 +1204,36 @@ class Skymodel:
             # Default colour bar label.
             clab = r'$I\,[\rm{Jy/Str}]$'
 
+        #pad = 0.04
+        pad = 0.005
         # Setting the colour bars:
         if np.any(vmax) and np.any(vmin):
             # Setting the limits of the colour bar. 
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, extend='both', aspect=30)
+                              pad=pad, extend='both', aspect=30)
         elif np.any(vmax):
             # Upper limit only.
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, extend='max', aspect=30)
+                              pad=pad, extend='max', aspect=30)
         elif np.any(vmin):
             # Lower limit only.
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, extend='min', aspect=30)
+                              pad=pad, extend='min', aspect=30)
         else:
             # No limits.
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, aspect=30)
+                              pad=pad, aspect=30)
 
-        cb.set_label(label=clab,fontsize=24)
+        cb.set_label(label=clab,fontsize=fontsize)
 
-        axs.set_xlabel(xlab,fontsize=24)
-        axs.set_ylabel(ylab,fontsize=24)
+        axs.set_xlabel(xlab,fontsize=fontsize)
+        axs.set_ylabel(ylab,fontsize=fontsize)
+
+        # X and Y axis tickz sizes.
+        axs.tick_params('both',labelsize=fontsize*0.8)
+
+        # Setting colorbar tickz size.
+        cb.ax.tick_params(labelsize=fontsize*0.8)
 
         im.set_clim(**kwargs)
 
