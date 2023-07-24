@@ -1127,13 +1127,37 @@ class Skymodel:
             #    # Default single source case.
             #    self.model = self.model*S
 
-    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),figaxs=None,
+    def plot_sky_mod(self,index=None,figsize=(14,14),figaxs=None,
                      xlab=r'$l$',ylab=r'$m$',cmap='cividis',clab=None,title=None,
                      vmax=None,vmin=None,lognorm=False,**kwargs):
         """
         This function plots a subset of the sky-model. Particularly for a single source.
         The main purpose of the functions in this pipeline is to plot the visibilities 
         for a single source. Additionally there is an all-sky plotting option.
+
+        Parameters
+        ----------
+        index : 
+
+        figsize : 
+
+        figaxs : 
+
+        xlab : 
+
+        ylab : 
+
+        cmap :
+
+        clab :
+
+        title :
+
+        vmax 
+
+        Returns
+        -------
+        None
         """
 
         if figaxs:
@@ -1161,49 +1185,21 @@ class Skymodel:
             norm = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
 
 
-        if window and np.any(self.l_mod):
-            # Case for a single source image.
-            # Specifying the temporary l and m indices based on window size.
-            temp_l_ind = np.isclose(self.l_vec,l_mod,atol=window)
-            temp_m_ind = np.isclose(self.m_vec,m_mod,atol=window)
+        if len(self.model[0,0,:]) > 100:
+            # Case for the whole sky.
+            temp_arr = np.ones(self.model[:,:,0].shape)*self.model[:,:,100]
+            temp_arr[self.r_grid > 1.0] = np.NaN
 
-            # Creating temporary index vectors:
-            # Use the mask array to determin the index values.
-            l_ind_vec = np.arange(len(self.l_vec))[temp_l_ind]
-            m_ind_vec = np.arange(len(self.m_vec))[temp_m_ind]
-
-            # Creating index arrays:
-            # Use the index vectors to create arrays
-            l_ind_arr, m_ind_arr = np.meshgrid(l_ind_vec, m_ind_vec)
-
-            # Creating temporary l and m arrays:
-            l_temp_arr = self.l_grid[l_ind_arr,m_ind_arr]
-            m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
-
-            if len(self.model[0,0,:]) > 100:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='lower',
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],
-                    aspect='auto',norm=norm)
-            else:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='lower',
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],
-                    aspect='auto',norm=norm)
+            im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
+                extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
+                aspect='auto',norm=norm)
         else:
-            if len(self.model[0,0,:]) > 100:
-                # Case for the whole sky.
-                temp_arr = np.ones(self.model[:,:,0].shape)*self.model[:,:,100]
-                temp_arr[self.r_grid > 1.0] = np.NaN
+            temp_arr = self.model[:,:,0]
+            temp_arr[self.r_grid > 1.0] = np.NaN
 
-                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
-                    aspect='auto',norm=norm)
-            else:
-                temp_arr = self.model[:,:,0]
-                temp_arr[self.r_grid > 1.0] = np.NaN
-
-                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
-                    aspect='auto',norm=norm)
+            im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
+                extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
+                aspect='auto',norm=norm)
 
         if clab:
             # Find a better way to do this.
