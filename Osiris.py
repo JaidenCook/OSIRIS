@@ -1127,9 +1127,9 @@ class Skymodel:
             #    # Default single source case.
             #    self.model = self.model*S
 
-    def plot_sky_mod(self,index=None,figsize=(14,14),figaxs=None,
-                     xlab=r'$l$',ylab=r'$m$',cmap='cividis',clab=None,title=None,
-                     vmax=None,vmin=None,lognorm=False,**kwargs):
+    def plot_sky_mod(self,figaxs=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',
+                     cmap='cividis',clab=None,title=None,vmax=None,vmin=None,
+                     lognorm=False,**kwargs):
         """
         This function plots a subset of the sky-model. Particularly for a single source.
         The main purpose of the functions in this pipeline is to plot the visibilities 
@@ -1137,23 +1137,28 @@ class Skymodel:
 
         Parameters
         ----------
-        index : 
-
-        figsize : 
-
-        figaxs : 
-
-        xlab : 
-
-        ylab : 
-
-        cmap :
-
-        clab :
-
-        title :
-
-        vmax 
+        figaxs : tuple
+            Contains the fig, axs objects from plt.subplots(). 
+        figsize : tuple, default=(14,14)
+            Figure size. Only matters if figaxs=None.
+        xlab : str, default=r'$l$'
+            Figure x-label.
+        ylab : str, default=r'$m$'
+            Figure y-label.
+        cmap : str, default='cividis'
+            Colormap.
+        clab : str, default=None
+            Colorbar label.
+        title : str, default=None
+            Figure title.
+        vmax : float, default=None
+            Max colormap value.
+        vmin : float, default=None
+            Min colormap value.
+        lorgnomr : bool, default=None
+            If True use a lognorm normalisation.
+        **kwargs :
+            Keyword arrguments for plt.imshow().
 
         Returns
         -------
@@ -1166,17 +1171,6 @@ class Skymodel:
             axs = figaxs[1]
         else:
             fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
-
-        #fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
-
-        if index and np.any(self.l_mod):
-            # Case for a single source, when there is more than one model source.
-            l_mod = self.l_mod[index]
-            m_mod = self.m_mod[index]
-        elif np.any(self.l_mod):
-            # Case for a single source, when there is more than one model source.
-            l_mod = self.l_mod
-            m_mod = self.m_mod
 
         # These values should be unpacked with kwargs.
         if lognorm:
