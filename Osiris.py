@@ -1127,7 +1127,7 @@ class Skymodel:
             #    # Default single source case.
             #    self.model = self.model*S
 
-    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),
+    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),figaxs=None,
                      xlab=r'$l$',ylab=r'$m$',cmap='cividis',clab=None,title=None,
                      vmax=None,vmin=None,lognorm=False,**kwargs):
         """
@@ -1136,7 +1136,14 @@ class Skymodel:
         for a single source. Additionally there is an all-sky plotting option.
         """
 
-        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+        if figaxs:
+            # If figure and axis given.
+            fig = figaxs[0]
+            axs = figaxs[1]
+        else:
+            fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+
+        #fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         if index and np.any(self.l_mod):
             # Case for a single source, when there is more than one model source.
