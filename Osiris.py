@@ -1114,7 +1114,7 @@ class Skymodel:
                 l_ind, m_ind = find_closest_xy(self.l_mod,self.m_mod,self.l_vec,self.m_vec)
 
             # Setting point source value:
-            self.model[m_ind, l_ind,:] = S[i]/dA
+            self.model[m_ind, l_ind,:] = S[i]#/dA
 
             ## Set all NaNs and values below the horizon to zero:
             #self.model[np.isnan(self.model)] = 0.0
@@ -1127,25 +1127,52 @@ class Skymodel:
             #    # Default single source case.
             #    self.model = self.model*S
 
-    def plot_sky_mod(self,window=None,index=None,figsize=(14,14),
-                     xlab=r'$l$',ylab=r'$m$',cmap='cividis',clab=None,title=None,
-                     vmax=None,vmin=None,lognorm=False,**kwargs):
+    def plot_sky_mod(self,figaxs=None,figsize=(14,14),xlab=r'$l$',ylab=r'$m$',
+                     cmap='cividis',clab=None,title=None,vmax=None,vmin=None,
+                     lognorm=False,fontsize=24,**kwargs):
         """
         This function plots a subset of the sky-model. Particularly for a single source.
         The main purpose of the functions in this pipeline is to plot the visibilities 
         for a single source. Additionally there is an all-sky plotting option.
+
+        Parameters
+        ----------
+        figaxs : tuple
+            Contains the fig, axs objects from plt.subplots(). 
+        figsize : tuple, default=(14,14)
+            Figure size. Only matters if figaxs=None.
+        xlab : str, default=r'$l$'
+            Figure x-label.
+        ylab : str, default=r'$m$'
+            Figure y-label.
+        cmap : str, default='cividis'
+            Colormap.
+        clab : str, default=None
+            Colorbar label.
+        title : str, default=None
+            Figure title.
+        vmax : float, default=None
+            Max colormap value.
+        vmin : float, default=None
+            Min colormap value.
+        lognorm : bool, default=None
+            If True use a lognorm normalisation.
+        fontsize : int, default=24
+            Fontsize for the tick params.
+        **kwargs :
+            Keyword arrguments for plt.imshow().
+
+        Returns
+        -------
+        None
         """
 
-        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
-
-        if index and np.any(self.l_mod):
-            # Case for a single source, when there is more than one model source.
-            l_mod = self.l_mod[index]
-            m_mod = self.m_mod[index]
-        elif np.any(self.l_mod):
-            # Case for a single source, when there is more than one model source.
-            l_mod = self.l_mod
-            m_mod = self.m_mod
+        if figaxs:
+            # If figure and axis given.
+            fig = figaxs[0]
+            axs = figaxs[1]
+        else:
+            fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
         # These values should be unpacked with kwargs.
         if lognorm:
@@ -1154,49 +1181,21 @@ class Skymodel:
             norm = matplotlib.colors.Normalize(vmin=vmin,vmax=vmax)
 
 
-        if window and np.any(self.l_mod):
-            # Case for a single source image.
-            # Specifying the temporary l and m indices based on window size.
-            temp_l_ind = np.isclose(self.l_vec,l_mod,atol=window)
-            temp_m_ind = np.isclose(self.m_vec,m_mod,atol=window)
+        if len(self.model[0,0,:]) > 100:
+            # Case for the whole sky.
+            temp_arr = np.ones(self.model[:,:,0].shape)*self.model[:,:,100]
+            temp_arr[self.r_grid > 1.0] = np.NaN
 
-            # Creating temporary index vectors:
-            # Use the mask array to determin the index values.
-            l_ind_vec = np.arange(len(self.l_vec))[temp_l_ind]
-            m_ind_vec = np.arange(len(self.m_vec))[temp_m_ind]
-
-            # Creating index arrays:
-            # Use the index vectors to create arrays
-            l_ind_arr, m_ind_arr = np.meshgrid(l_ind_vec, m_ind_vec)
-
-            # Creating temporary l and m arrays:
-            l_temp_arr = self.l_grid[l_ind_arr,m_ind_arr]
-            m_temp_arr = self.m_grid[l_ind_arr,m_ind_arr]
-
-            if len(self.model[0,0,:]) > 100:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,100],cmap=cmap,origin='lower',
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],
-                    aspect='auto',norm=norm)
-            else:
-                im = axs.imshow(self.model[l_ind_arr,m_ind_arr,0],cmap=cmap,origin='lower',
-                    extent=[np.min(l_temp_arr),np.max(l_temp_arr),np.min(m_temp_arr),np.max(m_temp_arr)],
-                    aspect='auto',norm=norm)
+            im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
+                extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
+                aspect='auto',norm=norm)
         else:
-            if len(self.model[0,0,:]) > 100:
-                # Case for the whole sky.
-                temp_arr = np.ones(self.model[:,:,0].shape)*self.model[:,:,100]
-                temp_arr[self.r_grid > 1.0] = np.NaN
+            temp_arr = self.model[:,:,0]
+            temp_arr[self.r_grid > 1.0] = np.NaN
 
-                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
-                    aspect='auto',norm=norm)
-            else:
-                temp_arr = self.model[:,:,0]
-                temp_arr[self.r_grid > 1.0] = np.NaN
-
-                im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
-                    extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
-                    aspect='auto',norm=norm)
+            im = axs.imshow(temp_arr,cmap=cmap,origin='lower',
+                extent=[np.min(self.l_grid),np.max(self.l_grid),np.min(self.m_grid),np.max(self.m_grid)],
+                aspect='auto',norm=norm)
 
         if clab:
             # Find a better way to do this.
@@ -1205,28 +1204,36 @@ class Skymodel:
             # Default colour bar label.
             clab = r'$I\,[\rm{Jy/Str}]$'
 
+        #pad = 0.04
+        pad = 0.005
         # Setting the colour bars:
         if np.any(vmax) and np.any(vmin):
             # Setting the limits of the colour bar. 
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, extend='both', aspect=30)
+                              pad=pad, extend='both', aspect=30)
         elif np.any(vmax):
             # Upper limit only.
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, extend='max', aspect=30)
+                              pad=pad, extend='max', aspect=30)
         elif np.any(vmin):
             # Lower limit only.
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, extend='min', aspect=30)
+                              pad=pad, extend='min', aspect=30)
         else:
             # No limits.
             cb = fig.colorbar(im, ax=axs, fraction=0.046, 
-                              pad=0.04, aspect=30)
+                              pad=pad, aspect=30)
 
-        cb.set_label(label=clab,fontsize=24)
+        cb.set_label(label=clab,fontsize=fontsize)
 
-        axs.set_xlabel(xlab,fontsize=24)
-        axs.set_ylabel(ylab,fontsize=24)
+        axs.set_xlabel(xlab,fontsize=fontsize)
+        axs.set_ylabel(ylab,fontsize=fontsize)
+
+        # X and Y axis tickz sizes.
+        axs.tick_params('both',labelsize=fontsize*0.8)
+
+        # Setting colorbar tickz size.
+        cb.ax.tick_params(labelsize=fontsize*0.8)
 
         im.set_clim(**kwargs)
 
