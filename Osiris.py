@@ -1114,7 +1114,7 @@ class Skymodel:
                 l_ind, m_ind = find_closest_xy(self.l_mod,self.m_mod,self.l_vec,self.m_vec)
 
             # Setting point source value:
-            self.model[m_ind, l_ind,:] = S[i]/dA
+            self.model[m_ind, l_ind,:] = S[i]#/dA
 
             ## Set all NaNs and values below the horizon to zero:
             #self.model[np.isnan(self.model)] = 0.0
