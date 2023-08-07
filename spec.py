@@ -224,10 +224,7 @@ class polySpectra:
             # Sub classes
 
             # Setting the weights cube.
-            self.weights_cube = np.zeros(np.shape(cube))
-                
-            # Only cells with values are assigned weights.
-            self.weights_cube[self.cube > 0.0] = 1.0
+            self.weights_cube = np.ones(np.shape(cube))
 
         if cosmo != None:
             # User inputted cosmology.
@@ -749,7 +746,7 @@ class polySpectra:
 
     def avgWrapper(self,shell_ind):
         """
-        Wrapper for calculating the MI. Calculates both the 1D and 2D array values.
+        Wrapper for calculating the average spectra. Calculates both the 1D and 2D array values.
 
         Parameters
         ----------
@@ -1032,10 +1029,6 @@ class powerSpec(polySpectra):
         
         print('Power cube DC sum.')
         print(np.sum(self.cube[:,:,0]))
-
-        if np.any(weights_cube):
-            # Case for user inputted weigth cube.
-            self.weights_cube = weights_cube
         
         if self.ravel_cond:
             self.cube = self.cube.ravel()
@@ -1061,13 +1054,8 @@ class skewSpec(polySpectra):
 
         print('Skew cube DC sum.')
         print(np.sum(self.cube[:,:,0]))
-        print(np.sum(cubesqd[:,:,0]),np.sum(cube[:,:,0]))
         del cube,cubesqd
 
-        if np.any(weights_cube):
-            # Case for user inputted weigth cube.
-            self.weights_cube = weights_cube
-        
         if self.ravel_cond:
             self.cube = self.cube.ravel()
             self.weights_cube = self.weights_cube.ravel()
