@@ -522,7 +522,7 @@ def Visibilities_2D(img,X=None,Y=None,N=None,norm=None):
         # Default case:
         return Vis
 
-def Img_slice(Vis_slice,Nb):
+def Img_slice(Vis_slice):
     '''
     Performs the inverse FFT on a 2D visibility grid.
 
@@ -538,10 +538,9 @@ def Img_slice(Vis_slice,Nb):
         2D image array.
 
     '''
-    Vis_slice = Vis_slice/Nb
-
-    I_out = (np.roll(fftshift(ifftn(np.roll(np.roll(ifftshift(Vis_slice),
-                        1,axis=0),1,axis=1),norm='forward')),-1,axis=0))
+    #I_out = np.roll(np.roll(fftshift(ifftn(np.roll(np.roll(ifftshift(Vis_slice),
+    #                    1,axis=0),1,axis=1))),-1,axis=0),-1,axis=1)
+    I_out = fftshift(ifftn(ifftshift(Vis_slice)))
     
     return I_out
 
