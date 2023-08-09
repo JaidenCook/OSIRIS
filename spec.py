@@ -101,6 +101,9 @@ class constants:
     ##Create the astropy cosmology
     cosmo = LambdaCDM(H0=hubble,Om0=omega_matter,Ode0=omega_lambda,Ob0=omega_baryon)
 
+    # plank constant
+    h = cosmo.H(0).value / 100.
+
 class polySpectra:
     """
     Parent class for the poly spec objects. Provides a template for power spectrum
