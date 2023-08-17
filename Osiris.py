@@ -841,9 +841,7 @@ class Skymodel:
         # Useful for specifying the minimum Gaussian sizes.
         # Small Gaussians should still be sampled by several pixels. This effectively
         # creates a psf.
-        #self.dl = np.abs(l_vec[1]-l_vec[0])/2 # Old as of 29/7/2022
         self.dl = np.abs(l_vec[1]-l_vec[0])
-        #self.dm = np.abs(m_vec[1]-m_vec[0])/2
         self.dm = np.abs(m_vec[1]-m_vec[0])
 
         # Creating the (l,m) plane grid:
@@ -871,6 +869,29 @@ class Skymodel:
         
         self.l_mod = None
         self.m_mod = None
+    
+    def add_model_cube(self,cube,norm=False):
+        """
+        Add a data cube to the model object. 
+        
+        Parameters
+        ----------
+        cube : numpy array, float
+            3D Data cube array, should have shape NxNxM. Where
+            M is the number of channels.
+        
+        """
+        cube_dim = cube.shape.size
+        if cube_dim < 3:
+            err_msg = f'cube has dim(cube)={cube_dim}, should have dim=3'
+            raise ValueError(err_msg)
+        
+        # Setting the sky-model.
+        self.model = cube
+
+        if norm:
+            # Normalise by 1/n, given by 1/sqrt(1 - l^2 - m^2)
+            self.model[self.ind_arr] /= np.sqrt(1 - self.r_grid[self.ind_arr]**2)
     
     def Gauss2D(self,Az,Zen,Sint,Az0,Zen0,theta_pa,amaj,bmin):
         """
