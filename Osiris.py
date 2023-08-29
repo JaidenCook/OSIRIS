@@ -790,14 +790,17 @@ class MWA_uv:
         """
         Plots the MWA uv sample for a max uv cutoff. Units are in wavelengths.
         """
+        fontsize = 24
         plt.clf()
     
         fig = plt.figure(figsize=figsize)
         ax1 = fig.add_subplot(111)
         ax1.plot(self.u_lam,self.v_lam,'k.',mfc='none',ms=1)
         ax1.plot(-self.u_lam,-self.v_lam,'k.',mfc='none',ms=1)
-        ax1.set_xlabel(r'$u\,(\lambda)$',fontsize=24)
-        ax1.set_ylabel(r'$v\,(\lambda)$',fontsize=24)
+        ax1.set_xlabel(r'$u\,(\lambda)$',fontsize=fontsize)
+        ax1.set_ylabel(r'$v\,(\lambda)$',fontsize=fontsize)
+
+        ax1.tick_params('both',fontsize=fontsize*0.85)
 
         if uvmax:
             ax1.set_xlim(-uvmax,uvmax)
@@ -870,7 +873,7 @@ class Skymodel:
         self.l_mod = None
         self.m_mod = None
     
-    def add_model_cube(self,cube,norm=False):
+    def add_model_cube(self,cube):
         """
         Add a data cube to the model object. 
         
@@ -881,7 +884,7 @@ class Skymodel:
             M is the number of channels.
         
         """
-        cube_dim = cube.shape.size
+        cube_dim = len(cube.shape)
         if cube_dim < 3:
             err_msg = f'cube has dim(cube)={cube_dim}, should have dim=3'
             raise ValueError(err_msg)
@@ -889,9 +892,25 @@ class Skymodel:
         # Setting the sky-model.
         self.model = cube
 
+    def normalise_model(self,norm=None):
+        """
+        Normalise the model by some amount. 
+        
+        Parameters
+        ----------
+        norm : numpy array, float, default=None
+            Can be a float or a numpy array with the same shape as the model.
+            If norm not given, normalise by 1/n, given by 1/sqrt(1 - l^2 - m^2).
+        """
+
         if norm:
+            self.model /= norm
+        else:
             # Normalise by 1/n, given by 1/sqrt(1 - l^2 - m^2)
-            self.model[self.ind_arr] /= np.sqrt(1 - self.r_grid[self.ind_arr]**2)
+            self.model[self.ind_arr] /= np.sqrt(1 - self.r_grid[self.ind_arr,None]**2)
+
+            self.model[np.isinf(self.model)] = 0
+            self.model[np.isnan(self.model)] = 0
     
     def Gauss2D(self,Az,Zen,Sint,Az0,Zen0,theta_pa,amaj,bmin):
         """
