@@ -786,25 +786,33 @@ class MWA_uv:
             self.v_lam = v_lam
             self.w_lam = w_lam
         
-    def plot_arr(self,uvmax=None,figsize=(10,10)):
+    def plot_arr(self,uvmax=None,figsize=(10,10),scale=1):
         """
         Plots the MWA uv sample for a max uv cutoff. Units are in wavelengths.
         """
-        fontsize = 24
-        plt.clf()
+        fontsize = 22*np.sqrt(scale)
+        #plt.clf()
     
-        fig = plt.figure(figsize=figsize)
-        ax1 = fig.add_subplot(111)
-        ax1.plot(self.u_lam,self.v_lam,'k.',mfc='none',ms=1)
-        ax1.plot(-self.u_lam,-self.v_lam,'k.',mfc='none',ms=1)
-        ax1.set_xlabel(r'$u\,(\lambda)$',fontsize=fontsize)
-        ax1.set_ylabel(r'$v\,(\lambda)$',fontsize=fontsize)
+        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
 
-        ax1.tick_params('both',fontsize=fontsize*0.85)
+        if scale != 1:
+            # If scale is not default, rescale the figure size.            
+            figx = fig.get_figheight()*scale
+            figy = fig.get_figwidth()*scale
+
+            fig.set_figheight(figx)
+            fig.set_figwidth(figy)
+
+        axs.plot(self.u_lam,self.v_lam,'k.',mfc='none',ms=1)
+        axs.plot(-self.u_lam,-self.v_lam,'k.',mfc='none',ms=1)
+        axs.set_xlabel(r'$u\,(\lambda)$',fontsize=fontsize)
+        axs.set_ylabel(r'$v\,(\lambda)$',fontsize=fontsize)
+
+        axs.tick_params('both',labelsize=fontsize)
 
         if uvmax:
-            ax1.set_xlim(-uvmax,uvmax)
-            ax1.set_ylim(-uvmax,uvmax)
+            axs.set_xlim(-uvmax,uvmax)
+            axs.set_ylim(-uvmax,uvmax)
         else:
             pass
 
