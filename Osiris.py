@@ -288,12 +288,17 @@ def Plot_img(Img,X_vec=None,Y_vec=None,projection='cartesian',cmap='cividis',fig
             pass
 
         # Setting the colour bars:
-        if np.any(vmax):
+        if np.any(vmax) or vmax == 0:
+            if np.any(vmin) or vmin == 0:
+                extend = 'both'
+            else:
+                extend = 'max'
+
             if vmax > 1000:
                 # Specifying formatting for large numbers.
-                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e',extend='max')
+                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04, format='%.1e',extend=extend)
             else:
-                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04,extend='max')
+                cb = fig.colorbar(im, ax=axs, fraction=0.046, pad=0.04,extend=extend)
         else:
             if np.nanmax(Img) > 1000:
                 # Specifying formatting for large numbers. 
@@ -1286,5 +1291,5 @@ class Skymodel:
 
         if title:
             plt.savefig('{0}.png'.format(title))
-        else:
-            plt.show()
+        #else:
+            #plt.show()
