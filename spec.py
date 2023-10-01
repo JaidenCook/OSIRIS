@@ -63,7 +63,7 @@ def progress_bar(index,Niter,percent_cond=False):
     if (index+1) % 10 == 0:
         if percent_cond:
             percent = float((index+1)/Niter)*100
-            stout_str = f'\rPercent processed {percent:5.3f} %'
+            stout_str = f'\rPercent processed {percent:5.1f} %'
         else:
             stout_str = f"\rBins processed: {(index+1)}/{Niter}"
         
@@ -477,7 +477,8 @@ class polySpectra:
         temperature_term = (lam_o**6/(8*kb**3))
 
         # Converting a 1 Jy^2 source to K^3 Mpc^6 h^-6.
-        conv_factor =  deco_factor*(dnu/(Omega_fov))*temperature_term*volume_term* 1e+9 # [mK^3 Mpc^3 h^-3]
+        #conv_factor =  deco_factor*(dnu/(Omega_fov))*temperature_term*volume_term* 1e+9 # [mK^3 Mpc^3 h^-3]
+        conv_factor =  deco_factor*(dnu/(Omega_fov/np.sqrt(2)))*temperature_term*volume_term* 1e+9 # [mK^3 Mpc^3 h^-3]
         
         if verbose:
             print('==========================================================')
@@ -1051,7 +1052,8 @@ class skewSpec(polySpectra):
                          ravel_cond=ravel_cond)
 
         # We only need the real values.
-        self.cube = (cubesqd*np.conjugate(cube)).real # [Jy^3 Hz^2]
+        #self.cube = (cubesqd*np.conjugate(cube)).real # [Jy^3 Hz^2]
+        self.cube = (cube*np.conjugate(cubesqd)).real # [Jy^3 Hz^2]
         self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Skew2Tb(self.dnu,self.dnu_f,
                                             self.nu_o,self.z,self.cosmo,self.Omega_fov)
 
