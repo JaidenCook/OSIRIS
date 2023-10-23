@@ -102,7 +102,8 @@ def gaussian_kernel(u_arr,v_arr,sig,du_vec,dv_vec,method=None):
 
     # Setting thing greater than 2.5sig to zero.
     r_bit = np.sqrt(u_bit**2 + v_bit**2)
-    gaussian[r_bit > 2.5*sig] = 0
+    #gaussian[r_bit > 2.5*sig] = 0
+    gaussian[r_bit > 2*(sig/2)] = 0
 
     # Calculating the resolution of the array.
     resolution = np.abs(u_arr[0,0]-u_arr[0,1])
@@ -146,14 +147,17 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
     a1 = 0.48829
     a2 = 0.14128
     a3 = 0.01168
+    a_level = a0 - a1 + a2 - a3
 
     def blackman_harris1D(x,X,dx):
 
-        X_shift = (x - dx + X*0.5)*2*np.pi/X
-        window1D = a0 - a1*np.cos(X_shift) + a2*np.cos(2*X_shift) - a3*np.cos(3*X_shift)
-
+        x_prime = (x - dx + X*0.5)
+        window1D = a0 - a1*np.cos(2*np.pi*x_prime/X) + \
+                    a2*np.cos(4*np.pi*x_prime/X) - \
+                    a3*np.cos(6*np.pi*x_prime/X) - a_level
+        
         # Should be zero otherwise the kernel repeats.
-        window1D[np.abs(x) > X/2] = 0
+        #window1D[np.abs(x) > X/2] = 0
 
         return window1D
 
@@ -183,7 +187,13 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
         r_prime = (r_arr_shift + L*0.5)*2*np.pi/L
 
         # Kernel.
-        kernel2D = a0 - a1*np.cos(r_prime) + a2*np.cos(2*r_prime) - a3*np.cos(3*r_prime)
+        kernel2D = a0 - a1*np.cos(r_prime) + \
+                a2*np.cos(2*r_prime) - \
+                a3*np.cos(3*r_prime) - a_level
+
+        # Values outside the kernel should be set to 0.
+        dist_factor = 1/2
+        kernel2D[r_arr_shift > dist_factor*L] = 0.0
         
     elif method == 'square':
         # uvec and vvec
@@ -193,28 +203,31 @@ def blackman_harris2D(u_arr,v_arr,L,du_vec,dv_vec,method='radial'):
         # Radius factor attempts to account for the kernel size increase due to 
         # the square shape. Might adjust in future to match area of a Gaussian beam.
         radius_factor = 1
-        window_vec_u_2D = np.array([blackman_harris1D(u_vec,L/radius_factor,dx) for dx in du_vec]).T
-        window_vec_v_2D = np.array([blackman_harris1D(v_vec,L/radius_factor,dy) for dy in dv_vec]).T
+        window_vec_u_2D = np.array([blackman_harris1D(u_vec,(L)/radius_factor,dx) for dx in du_vec]).T
+        window_vec_v_2D = np.array([blackman_harris1D(v_vec,(L)/radius_factor,dy) for dy in dv_vec]).T
+        #window_vec_u_2D = np.array([blackman_harris1D(u_vec,L/radius_factor,0) for dx in du_vec]).T
+        #window_vec_v_2D = np.array([blackman_harris1D(v_vec,L/radius_factor,0) for dy in dv_vec]).T
 
         # Einstein notation used to perform outer product for 3 axes.
         # These results have been checked agains an iterative 2D outer product approach.
-        kernel2D = np.einsum('j...,i...',window_vec_u_2D,window_vec_v_2D).T
-
+        kernel2D = np.einsum('j...,i...',window_vec_v_2D,window_vec_u_2D).T
+        
+        # Values outside the kernel should be set to 0.
+        dist_factor = 1/2
+        #kernel2D[r_arr_shift > dist_factor*L] = 0.0
+        
+        kernel2D[kernel2D < 100*a_level] = 0
     else:
         err_str = 'Input wrong method, default is "radial", alternative is "square".'
         raise ValueError(err_str)
         
-    # Values outside the kernel should be set to 0.
-    dist_factor = 1/2
-    kernel2D[r_arr_shift > dist_factor*L] = 0.0
-
     # Normalising so the weight integral is 1.
-    kernel2D = (1/resolution**2)*kernel2D/np.sum(kernel2D,axis=(0,1))
+    #kernel2D = (1/resolution**2)*kernel2D/np.sum(kernel2D,axis=(0,1))
 
     return kernel2D
 
 def calc_weights_cube(u_shift_vec,v_shift_vec,du,
-        sig=1.843,kernel_size=51,kernel='gaussian'):
+        sig=1.843,kernel_size=51,kernel='square_bh'):
     """
     This function calculates the weight kernel for each input visiblity.
     The output is a weights cube, where each slice is the gridding kernel
@@ -255,9 +268,17 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         size = sig
 
         window_size = np.ceil(2*3*sig/du)
-    elif kernel == 'blackman-harris':
+        method = None
+
+    #elif kernel == 'blackman-harris':
+    elif (kernel == 'square_bh') or (kernel == 'radial_bh'):
         # Blackman-Harris weights cube function.
         func = blackman_harris2D # Assigning function namespace.
+
+        if kernel == 'square_bh':
+            method = 'square'
+        elif kernel == 'radial_bh':
+            method = 'radial'
 
         # Gaussian kernel redefined.
         sig_nu = sig/np.sqrt(2)
@@ -273,9 +294,10 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         size = FWHM/0.3432
 
         # Kernel size is smaller for BH.
-        window_size = int(np.ceil(size)/du) # 11 if FWHM/du = 12.
+        #window_size = int(np.ceil(size)/du) # 11 if FWHM/du = 12.
+        window_size = np.rint(size/du) # 11 if FWHM/du = 12.
 
-        #print(kernel_size_nu)
+        #print(window_size,size)
         #print(f'Gaussian radius = {sig:5.3f} [lam]')
         #print(f'FWHM = {FWHM:5.3f} [lam]')
 
@@ -297,6 +319,8 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
     else:
         pass
 
+    #window_size = 91
+
     if window_size > kernel_size:
         # In the event the output Blackman-Harris kernel is larger than the 
         # original input kernel.
@@ -309,16 +333,21 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
         
 
     # Origin centred u and v vectors.)
-    
-    u_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
-    v_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
+    #u_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
+    #v_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
+    u_vec_O = (np.arange(kernel_size) - np.float(kernel_size)/2)*du
+    v_vec_O = (np.arange(kernel_size) - np.float(kernel_size)/2)*du
 
     # Calculate the u and v 2D grids.
     u_temp_arr, v_temp_arr = np.meshgrid(u_vec_O,v_vec_O)
 
     # Calculate the weights cube.
-    weights_cube = func(u_temp_arr,v_temp_arr,size,u_shift_vec,v_shift_vec,method='square')
-    #weights_cube = func(u_temp_arr,v_temp_arr,size,u_shift_vec,v_shift_vec,method='radial')
+    weights_cube = func(u_temp_arr,v_temp_arr,size,
+                        u_shift_vec,v_shift_vec,method=method)
+    #weights_cube = func(u_temp_arr,v_temp_arr,size,
+    #                    u_shift_vec,v_shift_vec,method='square')
+    #weights_cube = func(u_temp_arr,v_temp_arr,size,
+    #                   u_shift_vec,v_shift_vec,method='radial')
 
     return weights_cube
 
@@ -392,9 +421,15 @@ def grid(grid_arr, u_coords, v_coords, vis_vec, u_vec, v_vec,
 
     # Determining the index ranges:
     min_u_ind_vec = u_cent_ind_vec - int(kernel_size/2)
-    max_u_ind_vec = u_cent_ind_vec + int(kernel_size/2) + 1
     min_v_ind_vec = v_cent_ind_vec - int(kernel_size/2)
-    max_v_ind_vec = v_cent_ind_vec + int(kernel_size/2) + 1
+    if (kernel_size%2 == 0):
+        # If even sized.
+        max_u_ind_vec = u_cent_ind_vec + int(kernel_size/2)
+        max_v_ind_vec = v_cent_ind_vec + int(kernel_size/2)
+    else:
+        # If odd sized add one. Or sub 1.
+        max_u_ind_vec = u_cent_ind_vec + int(kernel_size/2) + 1
+        max_v_ind_vec = v_cent_ind_vec + int(kernel_size/2) + 1
 
     # Looping through each visibility.
     #for i in range(len(vis)):
@@ -421,7 +456,6 @@ def grid(grid_arr, u_coords, v_coords, vis_vec, u_vec, v_vec,
 
     
     # Performing the weighted average.
-    # Effectively primary beam correcting.
     grid_arr[weights_arr > 0.0] = grid_arr[weights_arr > 0.0]/weights_arr[weights_arr > 0.0]
 
 
