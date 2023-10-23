@@ -470,6 +470,7 @@ class polySpectra:
         # Bullshit magic number.
         # See Appendix page 20 Barry et al 2019 (FHD/epsilon) pipeline.
         deco_factor = 2 # Don't know if I need this.
+        #deco_factor = np.sqrt(2) # Don't know if I need this.
 
         # Volume term.
         volume_term = (Dm**2 * DH *(1 + z)**2)/(nu_21 * E_z) # [sr^-1 Hz^-1 Mpc^3 h^-3]
@@ -1037,6 +1038,8 @@ class powerSpec(polySpectra):
         if self.ravel_cond:
             self.cube = self.cube.ravel()
             self.weights_cube = self.weights_cube.ravel()
+            #self.weights_cube = np.sqrt(self.weights_cube.ravel())
+            #self.weights_cube = self.weights_cube.ravel()**2
         
         del cube,weights_cube
 
@@ -1064,6 +1067,8 @@ class skewSpec(polySpectra):
         if self.ravel_cond:
             self.cube = self.cube.ravel()
             self.weights_cube = self.weights_cube.ravel()
+            #self.weights_cube = np.sqrt(self.weights_cube.ravel())
+            #self.weights_cube = self.weights_cube.ravel()**2
 
 class miSpec(polySpectra,MI_metric):
     """

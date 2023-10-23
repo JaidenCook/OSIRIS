@@ -308,6 +308,7 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),scale=1,cmap='Spectral
     # If horizon condition is True then plot lines on the 2D plot.
     if horizon_cond:
         cosmo = constants.cosmo
+        c = constants.c #[m/s]
 
         # Cosmological scaling parameter:
         h = cosmo.H(0).value/100 # Hubble parameter.
@@ -315,20 +316,20 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),scale=1,cmap='Spectral
 
         # Cosmological distances:
         Dm = cosmo.comoving_distance(z).value*h #[Mpc/h] Transverse co-moving distance.
-        DH = (constants.c/1000)/100 # [Mpc/h] Hubble distance.
+        DH = (c/1000)/100 # [Mpc/h] Hubble distance.
 
         # Full sky.
-        grad_max = 0.5*np.pi*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        #grad_max = 0.5*np.pi*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        grad_max = (np.pi/2)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
         # Primary beam FOV.
-        #grad = np.sqrt(Omega)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
-        grad = 0.5*np.sqrt(Omega)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
+        grad = np.sqrt(Omega)*Dm*E_z/(DH*(1 + z)) # Morales et al (2012) horizon cosmology cut.
 
         line_width = 2.2
 
         # Illustrating the EoR window and horizon lines.
         axs.plot([0.1/grad_max,0.1],grad_max*np.array([0.1/grad_max,0.1]),lw=line_width,c='k')
         axs.plot([0.008,0.1/grad_max-0.0002839],[0.1,0.1],lw=line_width,c='k')
-        axs.plot([0.1,0.1],[grad_max*(0.1+0.002),1.78],lw=line_width,c='k')
+        axs.plot([0.1,0.1],[grad_max*(0.1+0.002),np.max(kpar)],lw=line_width,c='k')
         axs.plot(kperp,grad*kperp,lw=line_width,ls='--',c='k')
     else:
         pass
