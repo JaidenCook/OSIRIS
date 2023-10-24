@@ -791,7 +791,7 @@ class MWA_uv:
             self.v_lam = v_lam
             self.w_lam = w_lam
         
-    def plot_arr(self,uvmax=None,figsize=(10,10),scale=1):
+    def plot_arr(self,uvmax=None,figsize=(10,10),scale=1,**kwargs):
         """
         Plots the MWA uv sample for a max uv cutoff. Units are in wavelengths.
         """
@@ -808,8 +808,8 @@ class MWA_uv:
             fig.set_figheight(figx)
             fig.set_figwidth(figy)
 
-        axs.plot(self.u_lam,self.v_lam,'k.',mfc='none',ms=1)
-        axs.plot(-self.u_lam,-self.v_lam,'k.',mfc='none',ms=1)
+        axs.scatter(self.u_lam,self.v_lam,c='k',**kwargs)
+        axs.scatter(-self.u_lam,-self.v_lam,c='k',**kwargs)
         axs.set_xlabel(r'$u\,(\lambda)$',fontsize=fontsize)
         axs.set_ylabel(r'$v\,(\lambda)$',fontsize=fontsize)
 
