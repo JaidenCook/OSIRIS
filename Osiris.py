@@ -717,7 +717,7 @@ class MWA_uv:
         self.Y = self.east
         self.Z = self.north*cl + self.height*sl
         
-    def get_uvw(self,HA=H0,dec=MWA_lat):
+    def get_uvw(self,HA=H0,dec=MWA_lat,calc_autos=False):
         """
         Returns the (u,v,w) coordinates for a given pointing centre and hour angle.
         The default is a zenith pointing.
@@ -726,9 +726,14 @@ class MWA_uv:
 
         Parameters
         ----------
+        HA : float, default=H0
+            Hour angle of the array/observation. default is the MWA hour angle for
+            a zenith pointed observation.
         dec : float, default=MWA_lat
             Declination of the observation. Default is MWA_lat which indicates a 
             zenith pointed observation.
+        calc_autos : bool, default=False
+            If True return the conjugates and the autos. 
 
         Returns
         -------
@@ -738,15 +743,28 @@ class MWA_uv:
         z_lengths = []
 
         # Calculating for each baseline.
-        for tile1 in range(0,len(self.X)):
-            for tile2 in range(tile1+1,len(self.X)):
-                x_len = self.X[tile2] - self.X[tile1]
-                y_len = self.Y[tile2] - self.Y[tile1]
-                z_len = self.Z[tile2] - self.Z[tile1]
-        
-                x_lengths.append(x_len)
-                y_lengths.append(y_len)
-                z_lengths.append(z_len)
+        if calc_autos:
+            # Calculate the conjugates and the autos.
+            for tile1 in range(len(self.X)):
+                for tile2 in range(len(self.X)):
+                    x_len = self.X[tile2] - self.X[tile1]
+                    y_len = self.Y[tile2] - self.Y[tile1]
+                    z_len = self.Z[tile2] - self.Z[tile1]
+            
+                    x_lengths.append(x_len)
+                    y_lengths.append(y_len)
+                    z_lengths.append(z_len)
+        else:
+            # Only calculate the unique baseline combinations.
+            for tile1 in range(0,len(self.X)):
+                for tile2 in range(tile1+1,len(self.X)):
+                    x_len = self.X[tile2] - self.X[tile1]
+                    y_len = self.Y[tile2] - self.Y[tile1]
+                    z_len = self.Z[tile2] - self.Z[tile1]
+            
+                    x_lengths.append(x_len)
+                    y_lengths.append(y_len)
+                    z_lengths.append(z_len)
 
         # These are in metres not wavelengths.
         dx = np.array(x_lengths) # [m] 
