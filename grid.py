@@ -335,8 +335,8 @@ def calc_weights_cube(u_shift_vec,v_shift_vec,du,
     # Origin centred u and v vectors.)
     #u_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
     #v_vec_O = (np.arange(kernel_size) - (kernel_size-1)/2)*du
-    u_vec_O = (np.arange(kernel_size) - np.float(kernel_size)/2)*du
-    v_vec_O = (np.arange(kernel_size) - np.float(kernel_size)/2)*du
+    u_vec_O = (np.arange(kernel_size) - np.float64(kernel_size)/2)*du
+    v_vec_O = (np.arange(kernel_size) - np.float64(kernel_size)/2)*du
 
     # Calculate the u and v 2D grids.
     u_temp_arr, v_temp_arr = np.meshgrid(u_vec_O,v_vec_O)
