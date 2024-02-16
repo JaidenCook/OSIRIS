@@ -668,8 +668,8 @@ class polySpectra:
             kr_max = np.nanmax(kr_grid)
 
         if log_bin_cond:
-            # Logarithmically spaced bins, creates uniform bin widths in log space plots.
-            # Binning conditions are different for log bins.
+            # Logarithmically spaced bins, creates uniform bin widths in log 
+            # space plots. Binning conditions are different for log bins.
 
             # Log-linear bins.
             log_kr_min = np.log10(kr_min)
@@ -678,7 +678,8 @@ class polySpectra:
             # Increments.
             dlog_k = (log_kr_max - log_kr_min)/(N_bins + 1)
 
-            k_r_bins = np.logspace(log_kr_min - dlog_k/2,log_kr_max + dlog_k/2,N_bins + 1)
+            k_r_bins = np.logspace(log_kr_min - dlog_k/2,
+                                   log_kr_max + dlog_k/2,N_bins + 1)
             if verbose: print(f'dlog_k = {dlog_k:5.3e}')
 
         else:
@@ -716,9 +717,11 @@ class polySpectra:
         """
         # Calculating the k_perp array.
         kz_vec = polySpectra.eta2kz(self.eta,self.z,self.cosmo) # [Mpc^-1 h]
-        k_perp = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,cosmo=self.cosmo) # [Mpc^-1 h]
+        k_perp = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,
+                                          cosmo=self.cosmo) # [Mpc^-1 h]
         # Specifying a minimum k_perp.
-        k_perp_min = 0.1 # [Mpc^-1 h]
+        #k_perp_min = 0.1 # [Mpc^-1 h]
+        k_perp_min = 0.045 # [Mpc^-1 h]
 
         if wedge_cut:
             # Option to manually input a wedge cut value.
@@ -735,18 +738,20 @@ class polySpectra:
 
         # Calculating the wedge mask array.
         wedge_ind_cube = \
-            np.array([np.logical_or(k_par < wedge_cut*k_perp, k_perp >= k_perp_min) for k_par in self.eta]).T
-        #wedge_ind_cube = np.array([k_perp >= k_perp_min for k_par in kz_vec]).T
-
+            np.array([np.logical_or(k_par < wedge_cut*k_perp, 
+                                    k_perp >= k_perp_min) for k_par in kz_vec]).T
+        
         print(f'wedge_cut {wedge_cut:5.3f}')
 
         # Setting all k_par modes greater than some mode set to True.
-        wedge_ind_cube[:,:,kz_vec < kr_min] = True
+        kpar_min = 0.09
+        wedge_ind_cube[:,:,kz_vec <= kpar_min] = True
+
+        if self.ravel_cond:
+            wedge_ind_cube = wedge_ind_cube.ravel()
 
         # Setting the foreground wedge to zero.
-        self.cube[wedge_ind_cube] = np.NaN
-        self.weights_cube[wedge_ind_cube] = np.NaN
-        self.kr_grid[wedge_ind_cube] = np.NaN
+        self.weights_cube[wedge_ind_cube] = 0
     
 
     def avgWrapper(self,shell_ind):
@@ -774,8 +779,9 @@ class polySpectra:
 
         return avg_shell_power
     
-    def avgSpherical(self,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
-                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
+    def avgSpherical(self,wedge_cond=False,N_bins=60,sig=1.843,
+                     log_bin_cond=False,kr_min=None,kr_max=None,
+                     horizon_cond=True,wedge_cut=None,verbose=False):
         """
         Wrapper for calculating the spherical average.
 
@@ -787,8 +793,8 @@ class polySpectra:
         Nbins : int, default=60
             Number of bines to average.
         sig : float, default=1.843
-            Width of a Gaussian primary beam in uv space. Units of Lambda. Beam is defined
-            as e^x^2/sigma^2.
+            Width of a Gaussian primary beam in uv space. Units of Lambda. 
+            Beam is defined as e^x^2/sigma^2.
         kr_min : float, default=None
             Min kr value.
         kr_max : float, default=False
@@ -804,8 +810,9 @@ class polySpectra:
         """
         polySpectra.Spherical(self,func=polySpectra.avgWrapper,
                             wedge_cond=wedge_cond,N_bins=N_bins,sig=sig,
-                            log_bin_cond=log_bin_cond,kr_min=kr_min,kr_max=kr_max,
-                            horizon_cond=horizon_cond,wedge_cut=wedge_cut,verbose=verbose)
+                            log_bin_cond=log_bin_cond,kr_min=kr_min,
+                            kr_max=kr_max,horizon_cond=horizon_cond,
+                            wedge_cut=wedge_cut,verbose=verbose)
 
     
     def avgCylindrical(self):
@@ -815,15 +822,17 @@ class polySpectra:
         polySpectra.Cylindrical(self,func=polySpectra.avgWrapper)
 
 
-    def Spherical(self,func,k_r_bins=None,wedge_cond=False,N_bins=60,sig=1.843,log_bin_cond=False,
-                  kr_min=None,kr_max=None,horizon_cond=True,wedge_cut=None,verbose=False):
+    def Spherical(self,func,k_r_bins=None,wedge_cond=False,N_bins=60,sig=1.843,
+                  log_bin_cond=False,kr_min=None,kr_max=None,horizon_cond=True,
+                  wedge_cut=None,verbose=False):
         """
         Calculates the 1D spherically averaged poly spectra using the input object.
                 
         Parameters
         ----------
         self : object
-            Power object contains u and v arrays, as well as the observation redshift.
+            Power object contains u and v arrays, as well as the observation 
+            redshift.
         func : function, default=np.average
             Input Averaging function, KDE, MI, mean...
         wedge_cond : bool, default=False
@@ -831,8 +840,8 @@ class polySpectra:
         Nbins : int, default=60
             Number of bines to average.
         sig : float, default=1.843
-            Width of a Gaussian primary beam in uv space. Units of Lambda. Beam is defined
-            as e^x^2/sigma^2.
+            Width of a Gaussian primary beam in uv space. Units of Lambda. 
+            Beam is defined as e^x^2/sigma^2.
         kr_min : float, default=None
             Min kr value.
         kr_max : float, default=False
@@ -854,11 +863,6 @@ class polySpectra:
 
         # Calculating the field of view.
         self.Omega_fov = polySpectra.calc_field_of_view(sig)
-
-        if wedge_cond:
-            # If this is True we want to set all the voxels in the foreground wedge to be
-            # NaN. This incluses their weight values as well.
-            polySpectra.set_wedge_to_nan(self,kr_min,wedge_cut=wedge_cut,horizon_cond=horizon_cond)
         
         # Calculating the kr_grid.
         try:
@@ -866,7 +870,8 @@ class polySpectra:
             if np.any(self.kr_grid):
                 print('kr_grid exists...')
         except AttributeError:
-            self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,self.eta,self.cosmo)
+            self.kr_grid = polySpectra.calc_kr_grid(self.u_arr,self.v_arr,self.z,
+                                                    self.eta,self.cosmo)
 
         # Calculate the k_r_bins.
         if np.any(k_r_bins):
@@ -874,9 +879,11 @@ class polySpectra:
             pass
         else:
             # If no bins provided create them from the grid.
-            k_r_bins = polySpectra.calc_k_r_bins(kr_grid=self.kr_grid,N_bins=N_bins,
-                                                 kr_min=kr_min,kr_max=kr_max,
-                                                 log_bin_cond=log_bin_cond,verbose=verbose)
+            k_r_bins = polySpectra.calc_k_r_bins(kr_grid=self.kr_grid,
+                                                 N_bins=N_bins,kr_min=kr_min,
+                                                 kr_max=kr_max,
+                                                 log_bin_cond=log_bin_cond,
+                                                 verbose=verbose)
 
         # For testing and integrating purposes.
         self.k_r_bins = k_r_bins
@@ -890,6 +897,12 @@ class polySpectra:
             # If the data array is 1D then flatten the coordinate grid.
             self.kr_grid = self.kr_grid.ravel()
         
+        if wedge_cond:
+            # If this is True we want to set all the voxels in the foreground 
+            # wedge to be NaN. This incluses their weight values as well.
+            polySpectra.set_wedge_to_nan(self,kr_min,wedge_cut=wedge_cut,
+                                         horizon_cond=horizon_cond)
+
         for i in range(len(k_r_bins)-1):
 
             # Show a progress bar.
@@ -897,12 +910,13 @@ class polySpectra:
 
             # Calculating the radius:
             if log_bin_cond:
-                kr_vec[i] = 10**(0.5*(np.log10(k_r_bins[i+1]) + np.log10(k_r_bins[i])))
+                kr_vec[i] = 10**(0.5*(np.log10(k_r_bins[i+1])+np.log10(k_r_bins[i])))
             else:
                 kr_vec[i] = ((k_r_bins[i+1] + k_r_bins[i])/2.0)
 
             # Defining the shell array index:
-            shell_ind = np.logical_and(self.kr_grid >= k_r_bins[i], self.kr_grid <= k_r_bins[i+1])
+            shell_ind = np.logical_and(self.kr_grid >= k_r_bins[i], 
+                                       self.kr_grid <= k_r_bins[i+1])
 
             spec_avg_1D[i] = func(self,shell_ind)
                 
@@ -925,7 +939,8 @@ class polySpectra:
         Parameters
         ----------
         self : object
-            Power object contains u and v arrays, as well as the observation redshift.
+            Power object contains u and v arrays, as well as the observation 
+            redshift.
         func : function, default=np.average
             Input Averaging function, KDE, MI, mean...
 
@@ -989,10 +1004,12 @@ class polySpectra:
                 N_samp_temp = int(gridxx_temp.size)
 
                 # Creating the 3D index array.
-                arr_ind = np.array([gridyy_temp,gridxx_temp,np.ones(N_samp_temp,dtype=int)*i])
+                arr_ind = np.array([gridyy_temp,gridxx_temp,
+                                    np.ones(N_samp_temp,dtype=int)*i])
                 if self.ravel_cond:
                 
-                    arr_ind = np.ravel_multi_index(arr_ind, kperp_arr.shape + (len(self.eta),))
+                    arr_ind = np.ravel_multi_index(arr_ind, 
+                                                   kperp_arr.shape+(len(self.eta),))
 
                 # Weighted averaging of annuli values.
                 try:
@@ -1029,8 +1046,9 @@ class powerSpec(polySpectra):
 
         # Overriding attributes to suite the power-spectrum.
         self.cube = (np.conjugate(cube)*cube).real # [Jy^2 Hz^2]
-        self.cosmo_factor = (1/(self.dnu_f)**2)*polySpectra.Power2Tb(self.dnu,self.dnu_f,
-                                            self.nu_o,self.z,self.cosmo,self.Omega_fov)
+        self.cosmo_factor = polySpectra.Power2Tb(self.dnu,self.dnu_f,self.nu_o,
+                                                 self.z,self.cosmo,
+                                                 self.Omega_fov)*(1/(self.dnu_f)**2)
         
         print('Power cube DC sum.')
         print(np.sum(self.cube[:,:,0]))
@@ -1075,8 +1093,9 @@ class miSpec(polySpectra,MI_metric):
     Class to calculate the mutual information (MI) of two input arrays.
     """
 
-    def __init__(self,cube,cubeY,u_arr,v_arr,eta,nu_o,cubeX_weights=None,cubeY_weights=None,
-                 dnu=30.72e6,dnu_f=80e3,cosmo=None,ravel_cond=True,sig=1.843):
+    def __init__(self,cube,cubeY,u_arr,v_arr,eta,nu_o,cubeX_weights=None,
+                 cubeY_weights=None,dnu=30.72e6,dnu_f=80e3,cosmo=None,
+                 ravel_cond=True,sig=1.843):
         super().__init__(cube,u_arr,v_arr,eta,nu_o,dnu=dnu,dnu_f=dnu_f,
                          cosmo=cosmo,sig=sig)
         
@@ -1124,10 +1143,12 @@ class miSpec(polySpectra,MI_metric):
         Parameters
         ----------
         self : object
-            Power object contains u and v arrays, as well as the observation redshift.
+            Power object contains u and v arrays, as well as the observation 
+            redshift.
         shell_ind : numpy array
-            Numpy array of boolean values. This is the shell index, either a spherical or
-            circular shell. If ind is not None this is spherical, circular otherwise.
+            Numpy array of boolean values. This is the shell index, either a 
+            spherical or circular shell. If ind is not None this is spherical, 
+            circular otherwise.
         
         Returns
         -------
@@ -1150,9 +1171,10 @@ class miSpec(polySpectra,MI_metric):
         """
         Wrapper for calculating the spherical MI.
         """
-        miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,wedge_cond=wedge_cond,N_bins=N_bins,
-                         sig=sig,log_bin_cond=log_bin_cond,kr_min=kr_min,kr_max=kr_max,
-                         horizon_cond=horizon_cond,wedge_cut=wedge_cut,verbose=verbose)
+        miSpec.Spherical(self,func=miSpec.MI_shell_wrapper,wedge_cond=wedge_cond,
+                         N_bins=N_bins,sig=sig,log_bin_cond=log_bin_cond,
+                         kr_min=kr_min,kr_max=kr_max,horizon_cond=horizon_cond,
+                         wedge_cut=wedge_cut,verbose=verbose)
 
         self.MI_1D = self.spec_avg_1D
         del self.spec_avg_1D
