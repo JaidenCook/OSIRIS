@@ -997,11 +997,11 @@ class Skymodel:
         sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
         sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
 
-        # Checking to see if the new widths are smaller than the pixel sampling scale.
-        #if sigx < self.dl: # Old as of 29/07/2022
+        # Checking to see if the new widths are smaller than the pixel sampling 
+        # scale.
         if sigx < self.dl/2:
-            # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
-            # and the new sigma x.
+            # If smaller than the minimum size, set the size to be the 
+            # quadrature sum of the smallest scale, and the new sigma x.
             #sigx = np.sqrt(self.dl**2 + sigx**2)
             sigx = np.sqrt(0.25*self.dl**2 + sigx**2)
         else:
@@ -1060,9 +1060,10 @@ class Skymodel:
 
 
         # Converting the the Alt and Az into l and m coordinates:
-        self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
-        self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
-        #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
+        # Slant Orthographic Project
+        self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))
+        self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))
+        #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))
 
         if np.shape(self.l_mod):
             n_sources = len(self.l_mod)
@@ -1107,9 +1108,10 @@ class Skymodel:
                 temp_maj = np.radians(Maj[i])
                 temp_min = np.radians(Min[i])
         
-                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod[i]),\
-                                np.pi/2 - np.radians(Alt_mod[i]),np.radians(PA[i]),\
-                                temp_maj, temp_min)
+                Gauss_temp = self.Gauss2D(Az_temp_arr,np.pi/2-Alt_temp_arr, 
+                                          1.0,2*np.pi-np.radians(Az_mod[i]),
+                                          np.pi/2-np.radians(Alt_mod[i]),
+                                          np.radians(PA[i]),temp_maj,temp_min)
             
                 # Creating temporary array which has dimensions of (l,m,frequency).
                 Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]

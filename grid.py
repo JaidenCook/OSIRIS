@@ -443,12 +443,18 @@ def grid(grid_arr, u_coords, v_coords, vis_vec, u_vec, v_vec,
         temp_weights = weights_cube[:,:,i]
 
         # Adding Gaussian weights to weights arr.
-        weights_arr[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]] = \
-            weights_arr[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]] + temp_weights
+        weights_arr[min_v_ind_vec[i]:max_v_ind_vec[i],
+                    min_u_ind_vec[i]:max_u_ind_vec[i]] = \
+                        weights_arr[min_v_ind_vec[i]:max_v_ind_vec[i],
+                                    min_u_ind_vec[i]:max_u_ind_vec[i]] + \
+                                        temp_weights
 
         # Adding gridded visibilities.
-        grid_arr[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]] = \
-            grid_arr[min_v_ind_vec[i]:max_v_ind_vec[i], min_u_ind_vec[i]:max_u_ind_vec[i]] + vis*temp_weights
+        grid_arr[min_v_ind_vec[i]:max_v_ind_vec[i], 
+                 min_u_ind_vec[i]:max_u_ind_vec[i]] = \
+                    grid_arr[min_v_ind_vec[i]:max_v_ind_vec[i], 
+                             min_u_ind_vec[i]:max_u_ind_vec[i]] + \
+                                vis*temp_weights
 
         # Test gridded visibilities.
         #grid_arr[min_v_ind:max_v_ind, min_u_ind:max_u_ind] = \
@@ -456,7 +462,8 @@ def grid(grid_arr, u_coords, v_coords, vis_vec, u_vec, v_vec,
 
     
     # Performing the weighted average.
-    grid_arr[weights_arr > 0.0] = grid_arr[weights_arr > 0.0]/weights_arr[weights_arr > 0.0]
+    grid_arr[weights_arr > 0.0] = \
+        grid_arr[weights_arr > 0.0]/weights_arr[weights_arr > 0.0]
 
 
     if sig_u < delta_u:
@@ -470,16 +477,17 @@ def grid(grid_arr, u_coords, v_coords, vis_vec, u_vec, v_vec,
         # Testing the grid kernel size.
         name = f'gridding-kernel-sig-{sig_grid:5.2f}-v2'
         out_path = '/home/jaiden/Documents/Skewspec/output/'
-        np.savez_compressed(out_path + name, grid_arr = temp_weights, du = delta_u, \
-            u = u_coords[i], v = v_coords[i])
+        np.savez_compressed(out_path + name, grid_arr=temp_weights, du=delta_u, 
+                            u=u_coords[i], v=v_coords[i])
     else:
         pass
 
     return grid_arr, weights_arr
 
 
-def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
-    grid_arr_cube,vis_weights_cube,weighting='gaussian',kernel_size=51,sig_grid=2.41):
+def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,grid_arr_cube,
+              vis_weights_cube,weighting='gaussian',kernel_size=51,
+              sig_grid=2.41):
     '''
     Wrapper function for iteratively gridding visibility frequency slices.
 
@@ -491,17 +499,17 @@ def grid_cube(u_coords_arr,v_coords_arr,vis_arr,u_grid,v_grid,\
             2D array of 2 [lambda] baseline values Nbaselines x Nchans.
         vis_arr : numpy array, float
             Complex 2D array of visibilities Nbaselines x Nchans.
-        u_arr : numpy array, float
+        u_grid : numpy array, float
             2D Visibilities u grid.
-        v_arr : numpy array, float
+        v_grid : numpy array, float
             2D Visibilities u grid.
         grid_arr_cube : numpy array, float
             Container for gridded visibilities.
         vis_weights_cube : numpy array, float
             Containter for gridded weights.
         weighting : string,
-            Specify the type of gridding 'natural' or 'gaussian' which is default.
-        kernel : integer,
+            Specify the type of gridding 'gaussian' is default.
+        kernel_size : integer,
             Grid Gaussian kernel pixel size, default is 7.
         sig_grid : float,
             Width of Gaussian gridding kernel, default size is 0.5 wavelengths. 
