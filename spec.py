@@ -890,6 +890,7 @@ class polySpectra:
 
         start0 = time.perf_counter()
         spec_avg_1D = np.zeros(N_bins)
+        Nbins_vec = np.zeros(N_bins)
         kr_vec = np.zeros(N_bins)
 
         # Indexing is faster in 1D arrays. If the arrays are filled.
@@ -919,6 +920,9 @@ class polySpectra:
                                        self.kr_grid <= k_r_bins[i+1])
 
             spec_avg_1D[i] = func(self,shell_ind)
+
+            # Getting how many bins not zero.
+            Nbins_vec[i] = self.weights_cube[shell_ind][self.weights_cube[shell_ind] > 0].size
                 
         end0 = time.perf_counter()
         
@@ -931,6 +935,7 @@ class polySpectra:
 
         self.spec_avg_1D = spec_avg_1D*self.cosmo_factor # [mK^2 Mpc^3 h^-3]
         self.k_r = kr_vec
+        self.Nbins_vec = Nbins_vec
     
     def Cylindrical(self,func):
         """
