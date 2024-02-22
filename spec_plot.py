@@ -178,7 +178,8 @@ def plot_spherical(k_r,Spec1D,figsize=(8,6),scale=1,xlim=None,ylim=None,
 
 def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),scale=1,cmap='Spectral_r',
     name=None,xlim=None,ylim=None,vmin=None,vmax=None,clab=None,lognorm=True,
-    title=None,horizon_cond=False,Omega=0.076,z=6.8,verbose=False,**kwargs):
+    title=None,horizon_cond=False,Omega=0.076,z=6.8,verbose=False,
+    linear_width=0.1,**kwargs):
     """
     Plot the 2D cylindrically averaged Spectrum.
 
@@ -264,7 +265,7 @@ def plot_cylindrical(Spec2D,kperp,kpar,figsize=(7.5,10.5),scale=1,cmap='Spectral
         if vmin < 0:
             # If less than zero make asihn symmetric lognorm colorbar.
             norm = matplotlib.colors.AsinhNorm(vmin=vmin,vmax=vmax,
-                                           linear_width=0.1)
+                                           linear_width=linear_width)
         else:
             norm = matplotlib.colors.LogNorm(vmin=vmin,vmax=vmax)
     else:
