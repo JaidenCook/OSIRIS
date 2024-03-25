@@ -39,10 +39,6 @@ plt.rc('ytick.minor', size=4, pad=4)
 import scipy
 from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
 
-
-# MWA beam stuff
-from mwa_pb import primary_beam as pb
-
 def mwa_alt_az_za(obsid, ra=None, dec=None, degrees=False):
     """
     Calculate the altitude, azumith and zenith for an obsid
