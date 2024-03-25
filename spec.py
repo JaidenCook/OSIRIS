@@ -965,7 +965,7 @@ class polySpectra:
         
         print(f'kperp max = {k_perp_max:5.3f}')
         
-        # Defininf the number of bins.
+        # Defining the number of bins.
         N_bins = int(k_perp_max/dk_r)
         
         # Specifying the radius vector:
@@ -980,6 +980,7 @@ class polySpectra:
 
         # Initialising the power spectrum and radius arrays.
         spec_avg_2D = np.zeros([len(self.eta),len(kr_bins)-1])
+        Nbins_arr = np.zeros([len(self.eta),len(kr_bins)-1])
         kr_vec = np.zeros(len(kr_bins)-1)
         
         # If things are flattened then you need some fancy indexing.
@@ -1022,12 +1023,20 @@ class polySpectra:
                     # to NaN.
                     spec_avg_2D[i,j] = func(self,arr_ind)
                     
+                    # Getting number of non zero bins.
+                    Nbins_arr[i,j] = self.weights_cube[arr_ind][self.weights_cube[arr_ind] > 0].size
+                    #print(self.weights_cube[arr_ind][self.weights_cube[arr_ind] > 0].size)
+                    
                 except ZeroDivisionError and ValueError:
                     # For bins that don't have data we will set these to NaN.
                     spec_avg_2D[i,j] = np.nan
+                    
+                    #
+                    Nbins_arr[i,j] = np.nan
 
         # Assigning the power.
         self.spec_avg_2D = spec_avg_2D*self.cosmo_factor # [mK^3 Mpc^3 h^-3]
+        self.Nbins_arr = Nbins_arr
 
         end0 = time.perf_counter()
         
