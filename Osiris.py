@@ -1070,7 +1070,6 @@ class Skymodel:
         # Slant Orthographic Project
         self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))
         self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))
-        #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))
 
         if np.shape(self.l_mod):
             Ncomp= len(self.l_mod)
