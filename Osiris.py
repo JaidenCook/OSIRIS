@@ -1018,8 +1018,9 @@ class Skymodel:
         sigx = sigx/self.dl
         sigy = sigy/self.dm
         Speak = Sint/(sigx*sigy*2*np.pi)
-
-        theta = theta_pa
+        
+        #theta = theta_pa
+        theta = theta_pa - Az0
         
         a = (np.cos(theta)**2)/(2.0*sigx**2) + (np.sin(theta)**2)/(2.0*sigy**2)
         b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
@@ -1027,14 +1028,15 @@ class Skymodel:
 
         # Shifting the coordinate system to the origin.
         xx = np.sin(Zen)*np.cos(Az)/self.dl
-        xx -= 0.5*(xx[0,0]+xx[0,-1])
+        xx -= 0.5*(np.nanmin(xx)+np.nanmax(xx))
         yy = -np.sin(Zen)*np.sin(Az)/self.dm
-        yy -= 0.5*(yy[0,0]+yy[-1,0])
+        yy -= 0.5*(np.nanmin(yy)+np.nanmax(yy))
 
         gauss = np.exp(-(a*(xx)**2 + 2*b*(xx)*(yy) + c*(yy)**2))
 
         # Setting everything outside a certain range to zero.
-        gauss[gauss < 0.1] = 0.0
+        gauss[gauss < 0.05] = 0.0
+        gauss[np.isnan(gauss)] = 0.0
 
         return Speak*gauss
     
@@ -1075,8 +1077,8 @@ class Skymodel:
         else:
             Ncomp= 1
 
-        for i in tqdm(range(Ncomp)):
-        #for i in range(Ncomp):
+        #for i in tqdm(range(Ncomp)):
+        for i in range(Ncomp):
             # Creating temporary close l and m mask arrays:
             try:
                 len(self.l_mod)
@@ -1085,7 +1087,7 @@ class Skymodel:
                     window = window_size
                 else:
                     # If no window given set one using the major axis size.
-                    window = np.radians(Maj[i]) + 3*self.dl
+                    window = np.radians(np.sqrt(Maj[i]**2 + Min[i])) + 3*self.dl
 
                 temp_l_ind = np.isclose(self.l_vec,self.l_mod[i],
                                         atol=window)
@@ -1096,7 +1098,7 @@ class Skymodel:
                     window = window_size
                 else:
                     # If no window given set one using the major axis size.
-                    window_size = np.radians(Maj) + 3*self.dl
+                    window = np.radians(np.sqrt(Maj[i]**2 + Min[i])) + 3*self.dl
                     
                 # Single source case.
                 temp_l_ind = np.isclose(self.l_vec,self.l_mod,
