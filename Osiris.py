@@ -8,6 +8,7 @@ __email__ = "Jaiden.Cook@student.curtin.edu"
 
 # Generic stuff:
 import time
+import os
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -39,11 +40,7 @@ plt.rc('ytick.minor', size=4, pad=4)
 import scipy
 from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
 
-
-# MWA beam stuff
-from mwa_pb import primary_beam as pb
-
-def mwa_alt_az_za(obsid, ra=None, dec=None, degrees=False):
+def mwa_alt_az_za(obsid,ra=None,dec=None,degrees=False):
     """
     Calculate the altitude, azumith and zenith for an obsid
     Parameters
@@ -66,27 +63,24 @@ def mwa_alt_az_za(obsid, ra=None, dec=None, degrees=False):
     Za : float
         Zenith angle in radians or degrees.
     """
-
-    #
-    ## This function should be moved to the MWA_array class as a static function
-    #
-
     from astropy.time import Time
     from astropy.coordinates import SkyCoord, AltAz, EarthLocation
     from astropy import units as u
-   
-    obstime = Time(float(obsid),format='gps')
+    
+    if isinstance(obsid,np.ndarray):
+        obstime=Time(obsid.astype(np.float64),format='gps')
+    else:
+        obstime=Time(float(obsid),format='gps')
+    
    
     if degrees:
-        sky_posn = SkyCoord(ra, dec, unit=(u.deg,u.deg))
+        sky_posn = SkyCoord(ra,dec,unit=(u.deg,u.deg))
     else:
-        sky_posn = SkyCoord(ra, dec, unit=(u.hourangle,u.deg))
+        sky_posn = SkyCoord(ra,dec,unit=(u.hourangle,u.deg))
     
     earth_location = EarthLocation.of_site('Murchison Widefield Array')
     # Manual coordinates for MWA location.
-    #earth_location = EarthLocation.from_geodetic(lon="116:40:14.93", lat="-26:42:11.95", height=377.8)
-    
-    altaz = sky_posn.transform_to(AltAz(obstime=obstime, location=earth_location))
+    altaz = sky_posn.transform_to(AltAz(obstime=obstime,location=earth_location))
     
     Alt = altaz.alt.deg
     Az = altaz.az.deg
@@ -670,10 +664,11 @@ class MWA_uv:
     ## Zenith hour angle.
     H0 = 0.0 # [deg]
     ## Array east, north, height data.
-    path = "/home/jaiden/Documents/EoR/OSIRIS/data/"
+    path = f"{os.path.dirname(__file__)}/data/"
     array_loc = np.loadtxt(f'{path}antenna_locations_MWA_phase1.txt')
     
-    def __init__(self,array_loc=array_loc,test_gauss=False,test_uniform=False,path=path):
+    def __init__(self,array_loc=array_loc,test_gauss=False,test_uniform=False,
+                 path=path):
         
         if test_gauss:
             # Randomly generated gaussian array.
@@ -938,11 +933,12 @@ class Skymodel:
             self.model /= norm
         else:
             # Normalise by 1/n, given by 1/sqrt(1 - l^2 - m^2)
-            self.model[self.ind_arr] /= np.sqrt(1 - self.r_grid[self.ind_arr,None]**2)
+            self.model[self.ind_arr] /= np.sqrt(1-self.r_grid[self.ind_arr,None]**2)
 
             self.model[np.isinf(self.model)] = 0
             self.model[np.isnan(self.model)] = 0
     
+    #
     def Gauss2D(self,Az,Zen,Sint,Az0,Zen0,theta_pa,amaj,bmin):
         """
         Generates 2D Gaussian array.
@@ -951,20 +947,20 @@ class Skymodel:
         ----------
         Az : numpy array, float
             2D azimuth numpy array. [rad]
-        Az0 : numpy array, float
-            Azimuth angle of the Gaussian centre. [rad]
         Zen : numpy array, float
             2D zenith numpy array. [rad]
+        Sint : numpy array, float
+            Source integrated flux density.
+        Az0 : numpy array, float
+            Azimuth angle of the Gaussian centre. [rad]
         Zen0 : numpy array, float
             Zenith angle of the centre of the Gaussian. [rad]
+        theta_pa : numpy array, float
+            Gaussian position angle. [rad]
         amaj : numpy array, float
             Gaussian major axis. [deg]
         bmin : numpy array, float
-            Gaussian minor axis. [deg]
-        theta_pa : numpy array, float
-            Gaussian position angle. [rad]
-        Sint : numpy array, float
-            Source integrated flux density.
+            Gaussian minor axis. [deg] 
 
         Returns
         -------
@@ -994,45 +990,56 @@ class Skymodel:
         sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
 
         # Adjusting for offset position from zenith. Accounting for projection effects.
-        sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
-        sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
-
+        #sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
+        #sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
+        #sigx = sigx*np.sqrt((np.sin(theta_pa-Az0))**2 + (np.cos(theta_pa-Az0)*np.cos(Zen0))**2)
+        #sigy = sigy*np.sqrt((np.cos(theta_pa-Az0))**2 + (np.sin(theta_pa-Az0)*np.cos(Zen0))**2)
         # Checking to see if the new widths are smaller than the pixel sampling 
         # scale.
         if sigx < self.dl/2:
             # If smaller than the minimum size, set the size to be the 
             # quadrature sum of the smallest scale, and the new sigma x.
-            #sigx = np.sqrt(self.dl**2 + sigx**2)
             sigx = np.sqrt(0.25*self.dl**2 + sigx**2)
         else:
             pass
 
         # Checking to see if the new widths are smaller than the pixel sampling scale.
-        #if sigy < self.dl: #Old as of 29/07/2022
         if sigy < self.dl/2: #Old as of 29/07/2022
             # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
             # and the new sigma y.
-            #sigy = np.sqrt(self.dl**2 + sigy**2)
             sigy = np.sqrt(0.25*self.dl**2 + sigy**2)
         else:
             pass
 
         # Deriving the peak amplitude from the integrated amplitude.
+        sigx = sigx/self.dl
+        sigy = sigy/self.dm
         Speak = Sint/(sigx*sigy*2*np.pi)
-
-        #theta = theta_pa + Az0
+        
         theta = theta_pa
+        #Az0 = np.nanmedian(Az)
+        #theta = theta_pa + Az0
         
         a = (np.cos(theta)**2)/(2.0*sigx**2) + (np.sin(theta)**2)/(2.0*sigy**2)
         b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
         c = (np.sin(theta)**2)/(2.0*sigx**2) + (np.cos(theta)**2)/(2.0*sigy**2)
 
-        x_shft = np.sin(Zen)*np.cos(Az) - np.sin(Zen0)*np.cos(Az0)
-        y_shft = -np.sin(Zen)*np.sin(Az) + np.sin(Zen0)*np.sin(Az0)
-        
-        return Speak*np.exp(-(a*(x_shft)**2 + 2*b*(x_shft)*(y_shft) + c*(y_shft)**2))
+        # Shifting the coordinate system to the origin.
+        xx = np.sin(Zen)*np.cos(Az)/self.dl
+        xx -= 0.5*(np.nanmin(xx)+np.nanmax(xx))
+        yy = -np.sin(Zen)*np.sin(Az)/self.dm
+        yy -= 0.5*(np.nanmin(yy)+np.nanmax(yy))
+
+        gauss = np.exp(-(a*(xx)**2 + 2*b*(xx)*(yy) + c*(yy)**2))
+
+        # Setting everything outside a certain range to zero.
+        gauss[gauss < 0.05] = 0.0
+        gauss[np.isnan(gauss)] = 0.0
+
+        return Speak*gauss
     
-    def add_Gaussian_sources(self, Az_mod, Alt_mod, Maj, Min, PA, S, window_size):
+    def add_Gaussian_sources(self,Az_mod,Alt_mod,Maj,Min,PA,S,
+                             window_size=None):
         """
         Adds 'N' number of Gaussian objects to a sky-model object. 
 
@@ -1057,31 +1064,44 @@ class Skymodel:
         -------
         None
         """
-
-
         # Converting the the Alt and Az into l and m coordinates:
         # Slant Orthographic Project
         self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))
         self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))
-        #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))
 
         if np.shape(self.l_mod):
-            n_sources = len(self.l_mod)
+            Ncomp= len(self.l_mod)
         else:
-            n_sources = 1
+            Ncomp= 1
 
-        #for i in range(n_sources):
-        for i in tqdm(range(n_sources)):
-
+        #for i in tqdm(range(Ncomp)):
+        for i in range(Ncomp):
             # Creating temporary close l and m mask arrays:
-            if np.shape(self.l_mod):
+            try:
+                len(self.l_mod)
                 # Multiple source case where shape(l_mod) is not None type.
-                temp_l_ind = np.isclose(self.l_vec,self.l_mod[i],atol=window_size)
-                temp_m_ind = np.isclose(self.m_vec,self.m_mod[i],atol=window_size)
-            else:
+                if np.any(window_size):
+                    window = window_size
+                else:
+                    # If no window given set one using the major axis size.
+                    window = np.radians(np.sqrt(Maj[i]**2 + Min[i])) + 3*self.dl
+
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod[i],
+                                        atol=window)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod[i],
+                                        atol=window)
+            except TypeError:
+                if np.any(window_size):
+                    window = window_size
+                else:
+                    # If no window given set one using the major axis size.
+                    window = np.radians(np.sqrt(Maj[i]**2 + Min[i])) + 3*self.dl
+                    
                 # Single source case.
-                temp_l_ind = np.isclose(self.l_vec,self.l_mod,atol=window_size)
-                temp_m_ind = np.isclose(self.m_vec,self.m_mod,atol=window_size)
+                temp_l_ind = np.isclose(self.l_vec,self.l_mod,
+                                        atol=window)
+                temp_m_ind = np.isclose(self.m_vec,self.m_mod,
+                                        atol=window)
     
             # Creating temporary index vectors:
             # Use the mask array to determin the index values.
@@ -1098,9 +1118,12 @@ class Skymodel:
 
             # Creating temporary Azimuth and Altitude arrays:
             ## This is the way it is described in Thompson. Section 3.1 Pg 71 Second Edition.
-            Alt_temp_arr = np.arccos(np.sqrt(l_temp_arr**2 + m_temp_arr**2)) # Alt = arccos([l^2 + m^2]^(1/2))
-            #Az_temp_arr = np.arctan2(m_temp_arr,l_temp_arr) + np.pi  #arctan2() returns [-pi,pi] we want [0,2pi].
-            Az_temp_arr = 2*np.pi - (np.arctan2(l_temp_arr,-m_temp_arr) + np.pi)  #arctan2() returns [-pi,pi] we want [0,2pi].
+            # Alt = arccos([l^2 + m^2]^(1/2))
+            Alt_temp_arr = np.arccos(np.sqrt(l_temp_arr**2 + m_temp_arr**2)) 
+            #arctan2() returns [-pi,pi] we want [0,2pi].
+            #Az_temp_arr = 2*np.pi - (np.arctan2(l_temp_arr,-m_temp_arr) + np.pi)
+            Az_temp_arr = 2*np.pi - (np.arctan2(m_temp_arr,-l_temp_arr) + np.pi)
+            #Az_temp_arr = (np.arctan2(l_temp_arr,-m_temp_arr) + np.pi)
 
             # converting the major and minor axes into (l,m) coords.
             if np.shape(self.l_mod):
@@ -1108,34 +1131,46 @@ class Skymodel:
                 temp_maj = np.radians(Maj[i])
                 temp_min = np.radians(Min[i])
         
-                Gauss_temp = self.Gauss2D(Az_temp_arr,np.pi/2-Alt_temp_arr, 
-                                          1.0,2*np.pi-np.radians(Az_mod[i]),
+                Gauss_temp = self.Gauss2D(Az_temp_arr,np.pi/2-Alt_temp_arr,1.0,
+                                          np.radians(Az_mod[i]),
                                           np.pi/2-np.radians(Alt_mod[i]),
                                           np.radians(PA[i]),temp_maj,temp_min)
+                #Gauss_temp = self.Gauss2D(Az_temp_arr,np.pi/2-Alt_temp_arr,1.0,
+                #                          2*np.pi-np.radians(Az_mod[i]),
+                #                          np.pi/2-np.radians(Alt_mod[i]),
+                #                          np.radians(PA[i]),temp_maj,temp_min)
             
                 # Creating temporary array which has dimensions of (l,m,frequency).
                 Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
-
+                #print(Gauss_temp)
                 # scaling the array by the integrated frequency dependent flux density, and adding to the model.
-                self.model[l_ind_arr,m_ind_arr,:] += S[i,:]*Gauss_temp_arr
-
+                if len(S.shape) == 2:
+                    # This is true if more than one frequency is given.
+                    self.model[m_ind_arr,l_ind_arr,:] += S[i,:]*Gauss_temp_arr
+                else:
+                    # This is true if only one frequency is given.
+                    self.model[m_ind_arr,l_ind_arr,:] += S[i]*Gauss_temp_arr
             else:
                 # Single source case.
                 temp_maj = np.radians(Maj)
                 temp_min = np.radians(Min)
 
-                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod),\
-                                np.pi/2 - np.radians(Alt_mod),np.radians(PA),\
-                                temp_maj, temp_min)
+                #Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 
+                #                          1.0, 2*np.pi - np.radians(Az_mod),
+                #                          np.pi/2 - np.radians(Alt_mod),
+                #                          np.radians(PA), temp_maj, temp_min)
+                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 
+                                          1.0, np.radians(Az_mod),
+                                          np.pi/2 - np.radians(Alt_mod),
+                                          np.radians(PA), temp_maj, temp_min)
 
                 # Creating temporary array which has dimensions of (l,m,frequency).
                 Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
 
                 # scaling the array by the integrated frequency dependent flux density, and adding to the model.
-                self.model[l_ind_arr,m_ind_arr,:] += S*Gauss_temp_arr
+                self.model[m_ind_arr,l_ind_arr,:] += S*Gauss_temp_arr
 
             ## Set all NaNs and values below the horizon to zero:
-            #self.model[self.r_arr > 1.0,:] = 0.0
             self.model[np.isnan(self.model)] = 0.0
 
     def add_point_sources(self, Az_mod, Alt_mod, S):
@@ -1158,35 +1193,32 @@ class Skymodel:
         # Converting the the Alt and Az into l and m coordinates:
         self.l_mod = np.cos(np.radians(Alt_mod))*np.sin(np.radians(Az_mod))# Slant Orthographic Project
         self.m_mod = np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
-        #self.m_mod = -np.cos(np.radians(Alt_mod))*np.cos(np.radians(Az_mod))# Slant Orthographic Project
-
-        # For the point source location.
-        #L = (np.max(self.l_vec) - np.min(self.l_vec))
-
+        
         N = len(self.l_vec)
-        #dA = self.dl*self.dm
-        dA = 1/N**2#self.dl*self.dm
 
         if np.shape(self.l_mod):
             # Multiple source case.
-            n_sources = len(self.l_mod)
+            Ncomp= len(self.l_mod)
         else:
             # Single source case.
-            print('Source position (l,m) = (%5.2f,%5.2f)' % (self.l_mod,self.m_mod))
-            n_sources = 1
+            print(f'Source position (l,m) = ({self.l_mod:5.2f},{self.m_mod:5.2f})')
+            Ncomp= 1
 
-        for i in range(n_sources):
+        for i in range(Ncomp):
 
             # Creating temporary close l and m mask arrays:
             if np.shape(self.l_mod):
                 # Multiple source case where shape(l_mod) is not None type.
-                l_ind, m_ind = find_closest_xy(self.l_mod[i],self.m_mod[i],self.l_vec,self.m_vec)
+                l_ind, m_ind = find_closest_xy(self.l_mod[i],self.m_mod[i],
+                                               self.l_vec,self.m_vec)
             else:
                 # Single source case.
-                l_ind, m_ind = find_closest_xy(self.l_mod,self.m_mod,self.l_vec,self.m_vec)
+                l_ind, m_ind = find_closest_xy(self.l_mod,self.m_mod,
+                                               self.l_vec,self.m_vec)
 
             # Setting point source value:
-            self.model[m_ind, l_ind,:] = S[i]#/dA
+            self.model[m_ind, l_ind,:] = S[i]
+            #self.model[l_ind, m_ind,:] = S[i]
 
             ## Set all NaNs and values below the horizon to zero:
             #self.model[np.isnan(self.model)] = 0.0
