@@ -40,7 +40,7 @@ plt.rc('ytick.minor', size=4, pad=4)
 import scipy
 from scipy.fft import ifftn,fftn,fftfreq,fftshift,ifftshift
 
-def mwa_alt_az_za(obsid, ra=None, dec=None, degrees=False):
+def mwa_alt_az_za(obsid,ra=None,dec=None,degrees=False):
     """
     Calculate the altitude, azumith and zenith for an obsid
     Parameters
@@ -63,27 +63,24 @@ def mwa_alt_az_za(obsid, ra=None, dec=None, degrees=False):
     Za : float
         Zenith angle in radians or degrees.
     """
-
-    #
-    ## This function should be moved to the MWA_array class as a static function
-    #
-
     from astropy.time import Time
     from astropy.coordinates import SkyCoord, AltAz, EarthLocation
     from astropy import units as u
-   
-    obstime = Time(float(obsid),format='gps')
+    
+    if isinstance(obsid,np.ndarray):
+        obstime=Time(obsid.astype(np.float64),format='gps')
+    else:
+        obstime=Time(float(obsid),format='gps')
+    
    
     if degrees:
-        sky_posn = SkyCoord(ra, dec, unit=(u.deg,u.deg))
+        sky_posn = SkyCoord(ra,dec,unit=(u.deg,u.deg))
     else:
-        sky_posn = SkyCoord(ra, dec, unit=(u.hourangle,u.deg))
+        sky_posn = SkyCoord(ra,dec,unit=(u.hourangle,u.deg))
     
     earth_location = EarthLocation.of_site('Murchison Widefield Array')
     # Manual coordinates for MWA location.
-    #earth_location = EarthLocation.from_geodetic(lon="116:40:14.93", lat="-26:42:11.95", height=377.8)
-    
-    altaz = sky_posn.transform_to(AltAz(obstime=obstime, location=earth_location))
+    altaz = sky_posn.transform_to(AltAz(obstime=obstime,location=earth_location))
     
     Alt = altaz.alt.deg
     Az = altaz.az.deg
@@ -993,9 +990,10 @@ class Skymodel:
         sigy = bmin/(2.0*np.sqrt(2.0*np.log(2.0)))
 
         # Adjusting for offset position from zenith. Accounting for projection effects.
-        sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
-        sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
-
+        #sigx = sigx*np.sqrt((np.sin(theta_pa))**2 + (np.cos(theta_pa)*np.cos(Zen0))**2)
+        #sigy = sigy*np.sqrt((np.cos(theta_pa))**2 + (np.sin(theta_pa)*np.cos(Zen0))**2)
+        #sigx = sigx*np.sqrt((np.sin(theta_pa-Az0))**2 + (np.cos(theta_pa-Az0)*np.cos(Zen0))**2)
+        #sigy = sigy*np.sqrt((np.cos(theta_pa-Az0))**2 + (np.sin(theta_pa-Az0)*np.cos(Zen0))**2)
         # Checking to see if the new widths are smaller than the pixel sampling 
         # scale.
         if sigx < self.dl/2:
@@ -1006,7 +1004,6 @@ class Skymodel:
             pass
 
         # Checking to see if the new widths are smaller than the pixel sampling scale.
-        #if sigy < self.dl: #Old as of 29/07/2022
         if sigy < self.dl/2: #Old as of 29/07/2022
             # If smaller then set the minimum size to be the quadrature sum of the smallest scale,
             # and the new sigma y.
@@ -1019,8 +1016,9 @@ class Skymodel:
         sigy = sigy/self.dm
         Speak = Sint/(sigx*sigy*2*np.pi)
         
-        #theta = theta_pa
-        theta = theta_pa - Az0
+        theta = theta_pa
+        #Az0 = np.nanmedian(Az)
+        #theta = theta_pa + Az0
         
         a = (np.cos(theta)**2)/(2.0*sigx**2) + (np.sin(theta)**2)/(2.0*sigy**2)
         b = -np.sin(2.0*theta)/(4.0*sigx**2) + np.sin(2.0*theta)/(4.0*sigy**2)    
@@ -1123,7 +1121,9 @@ class Skymodel:
             # Alt = arccos([l^2 + m^2]^(1/2))
             Alt_temp_arr = np.arccos(np.sqrt(l_temp_arr**2 + m_temp_arr**2)) 
             #arctan2() returns [-pi,pi] we want [0,2pi].
-            Az_temp_arr = 2*np.pi - (np.arctan2(l_temp_arr,-m_temp_arr) + np.pi)
+            #Az_temp_arr = 2*np.pi - (np.arctan2(l_temp_arr,-m_temp_arr) + np.pi)
+            Az_temp_arr = 2*np.pi - (np.arctan2(m_temp_arr,-l_temp_arr) + np.pi)
+            #Az_temp_arr = (np.arctan2(l_temp_arr,-m_temp_arr) + np.pi)
 
             # converting the major and minor axes into (l,m) coords.
             if np.shape(self.l_mod):
@@ -1132,9 +1132,13 @@ class Skymodel:
                 temp_min = np.radians(Min[i])
         
                 Gauss_temp = self.Gauss2D(Az_temp_arr,np.pi/2-Alt_temp_arr,1.0,
-                                          2*np.pi-np.radians(Az_mod[i]),
+                                          np.radians(Az_mod[i]),
                                           np.pi/2-np.radians(Alt_mod[i]),
                                           np.radians(PA[i]),temp_maj,temp_min)
+                #Gauss_temp = self.Gauss2D(Az_temp_arr,np.pi/2-Alt_temp_arr,1.0,
+                #                          2*np.pi-np.radians(Az_mod[i]),
+                #                          np.pi/2-np.radians(Alt_mod[i]),
+                #                          np.radians(PA[i]),temp_maj,temp_min)
             
                 # Creating temporary array which has dimensions of (l,m,frequency).
                 Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
@@ -1151,9 +1155,14 @@ class Skymodel:
                 temp_maj = np.radians(Maj)
                 temp_min = np.radians(Min)
 
-                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 1.0, 2*np.pi - np.radians(Az_mod),\
-                                np.pi/2 - np.radians(Alt_mod),np.radians(PA),\
-                                temp_maj, temp_min)
+                #Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 
+                #                          1.0, 2*np.pi - np.radians(Az_mod),
+                #                          np.pi/2 - np.radians(Alt_mod),
+                #                          np.radians(PA), temp_maj, temp_min)
+                Gauss_temp = self.Gauss2D(Az_temp_arr, np.pi/2 - Alt_temp_arr, 
+                                          1.0, np.radians(Az_mod),
+                                          np.pi/2 - np.radians(Alt_mod),
+                                          np.radians(PA), temp_maj, temp_min)
 
                 # Creating temporary array which has dimensions of (l,m,frequency).
                 Gauss_temp_arr = np.ones(self.model[l_ind_arr,m_ind_arr,:].shape)*Gauss_temp[:,:,None]
