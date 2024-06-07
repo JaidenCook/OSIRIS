@@ -33,12 +33,14 @@ plt.rc('ytick.major', size=6, pad=4)
 plt.rc('ytick.minor', size=4, pad=4)
 
 
-def KDEpy_1D_scaled(data,weights=None,x=None,bw_method='ISJ',N_dim=256,verbose=False):
+def KDEpy_1D_scaled(data,weights=None,x=None,bw_method='ISJ',Ndim=256,
+                    verbose=False):
     """
     For values with an order of magnitude of 6 or greater KDEpy FFTKDE fails due 
-    to lack of finite support. The solution is to scale the data so the bandwidth is 1. 
-    The solution is found in https://github.com/tommyod/KDEpy/issues/81. This is the
-    same solution implemented in KDEpy_2D_scaled.
+    to lack of finite support. The solution is to scale the data so the 
+    bandwidth is 1. The solution is found in 
+    https://github.com/tommyod/KDEpy/issues/81. This is the same solution 
+    implemented in KDEpy_2D_scaled.
     
     Parameters
     ----------
@@ -50,10 +52,11 @@ def KDEpy_1D_scaled(data,weights=None,x=None,bw_method='ISJ',N_dim=256,verbose=F
     x : array : float
         2D array with diminsions (N,N) calculating the evenly spaced x grid.
     bw_method : string
-        Bandwidth method, default is ISJ, other options are 'silvermans' and 'scotts' method.
+        Bandwidth method, default is ISJ, other options are 'silvermans' and 
+        'scotts' method.
     N_dim : int
-        Number of evaluations. The default is 256. This is given when x=None. This specifies the
-        grid size. 
+        Number of evaluations. The default is 256. This is given when x=None. 
+        This specifies the grid size. 
     verbose : bool
         If True print outputs, useful for testing. 
 
@@ -62,33 +65,34 @@ def KDEpy_1D_scaled(data,weights=None,x=None,bw_method='ISJ',N_dim=256,verbose=F
     y : array : float
         1D array of the p(x) KDE estimated values.
     """
-    from KDEpy.bw_selection import silvermans_rule, improved_sheather_jones,scotts_rule
+    from KDEpy.bw_selection import silvermans_rule, improved_sheather_jones
+    from KDEpy.bw_selection import scotts_rule
     from KDEpy.FFTKDE import FFTKDE
 
     # Compute the BW, scale, then scale back
     if bw_method == 'silverman':
-        data_temp = data[data != 0.0]
+        dataTemp = data[data != 0.0]
         #bw = silvermans_rule(data[:,None])
-        bw = silvermans_rule(data_temp[:,None])
+        bw = silvermans_rule(dataTemp[:,None])
         #data[:, [0]]
 
     elif bw_method == 'scott':
-        data_temp = data[data != 0.0]
+        dataTemp = data[data != 0.0]
         #bw = scotts_rule(data[:,None])
-        bw = scotts_rule(data_temp[:,None])
+        bw = scotts_rule(dataTemp[:,None])
 
     else:
         # ISJ is the default method. 
-        data_temp = data[data != 0.0]
+        dataTemp = data[data != 0.0]
         #bw = improved_sheather_jones(data[:,None])
-        bw = improved_sheather_jones(data_temp[:,None])
+        bw = improved_sheather_jones(dataTemp[:,None])
 
     if bw == 0.0:
 
         raise ValueError('Bandwidth is zero...')
 
     # Data is rescaled by the bandwidth. 
-    data_scaled = data / np.array([bw])
+    datascld = data/np.array([bw])
 
     if verbose:
         print('Bw method = %s' % bw_method)
@@ -98,42 +102,44 @@ def KDEpy_1D_scaled(data,weights=None,x=None,bw_method='ISJ',N_dim=256,verbose=F
         # Case when grid is provided.
         #
         # Scaling the positions.
-        x_scaled = x / np.array([bw])
+        xscaled = x/np.array([bw])
 
-        y_scaled = FFTKDE(bw=1).fit(data_scaled,weights=weights).evaluate(x_scaled)
-        #y_scaled = FFTKDE(bw=1).fit(data_scaled*weights).evaluate(x_scaled)
-        y = y_scaled / (bw)
+        yscaled = FFTKDE(bw=1).fit(datascld,weights=weights).evaluate(xscaled)
+        #y_scaled = FFTKDE(bw=1).fit(datascld*weights).evaluate(xscaled)
+        y = yscaled/bw
 
-        x = x_scaled * bw
+        x = xscaled*bw
 
     else:
         # If a grid is not provided use auto_grid feature to calculate the 2D KDE.
-        x_scaled, y_scaled = FFTKDE(bw=1).fit(data_scaled,weights=weights).evaluate(N_dim)
+        xscaled,yscaled = FFTKDE(bw=1).fit(datascld,weights=weights).evaluate(Ndim)
         
-        x = x_scaled * np.array([bw])
-        y = y_scaled / (bw)
+        x = xscaled*np.array([bw])
+        y = yscaled/bw
 
     return y
 
-def KDEpy_2D_scaled(data,weights=None,xx=None,yy=None,bw_method='ISJ',N_dim=128,verbose=False):
+def KDEpy_2D_scaled(data,weights=None,xx=None,yy=None,bw_method='ISJ',
+                    N_dim=128,verbose=False):
     """
-    This method is taken from https://github.com/tommyod/KDEpy/issues/81. This allows for determining
-    the bandwidth using ISJ, Silvermann, or Scott. KDEpy currently doesn't support this for 2D kernels
-    or larger.
+    This method is taken from https://github.com/tommyod/KDEpy/issues/81. This 
+    allows for determining the bandwidth using ISJ, Silvermann, or Scott. 
+    KDEpy currently doesn't support this for 2D kernels or larger.
     
     Parameters
     ----------
     data : array : float
         2D array of shape (N_samples,2) containing the X and Y random samples.
     weights : array : float
-        2D array of shape (N_samples,2) containing the X and Y random samples weights.
-        Default is None.
+        2D array of shape (N_samples,2) containing the X and Y random samples 
+        weights. Default is None.
     xx : array : float
         2D array with diminsions (N,N) calculating the evenly spaced x grid.
     yy : array : float
         2D array with diminsions (N,N) calculating the evenly spaced y grid.
     bw_method : string
-        Bandwidth method, default is ISJ, other options are 'silvermans' and 'scotts' method.
+        Bandwidth method, default is ISJ, other options are 'silvermans' 
+        and 'scotts' method.
     verbose : bool
         If True print ouputs. This is useful for testing purposes.
 
@@ -142,7 +148,8 @@ def KDEpy_2D_scaled(data,weights=None,xx=None,yy=None,bw_method='ISJ',N_dim=128,
     zz : array : float
         2D array of the p(x,y) KDE estimated values.
     """
-    from KDEpy.bw_selection import silvermans_rule, improved_sheather_jones,scotts_rule
+    from KDEpy.bw_selection import improved_sheather_jones,scotts_rule
+    from KDEpy.bw_selection import silvermans_rule
     from KDEpy.FFTKDE import FFTKDE
 
     # Compute the BW, scale, then scale back
@@ -219,7 +226,7 @@ def KDEpy_2D_scaled(data,weights=None,xx=None,yy=None,bw_method='ISJ',N_dim=128,
 
     return zz
 
-def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
+def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11,10),
                    pxlab=None,pylab=None,method='scatter',**kwargs):
     """
     Plot 2D scatter plot, with X and Y histograms.
@@ -237,7 +244,8 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
     figsize : tuple
         Tuple containing figure size. Default is (11,10).
     method : string
-        2D plotting method, default is 'scatter', other choices are 'hist2d' and 'hexbin'.
+        2D plotting method, default is 'scatter', other choices are 'hist2d' and 
+        'hexbin'.
     **kwargs : 
         plt.hist kwarg arguments. 
         
@@ -250,10 +258,10 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
 
 
     if figaxs:
-        fig = figaxs[0]
+        _ = figaxs[0]
         axs = figaxs[1]
     else:
-        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+        _,axs = plt.subplots(1,figsize=figsize,dpi=75)
 
     if np.any(weights_arr):
         # If any weights.
@@ -262,7 +270,7 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
         #weights2D = X_weights*Y_weights
 
         # 2D weights are the average of the two sets of 1D weights. 
-        weights2D = 0.5*(X_weights + Y_weights)
+        weights2D = 0.5*(X_weights+Y_weights)
 
     else:
         # Default is no weights.
@@ -295,7 +303,7 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
         bins2D = int(np.sqrt(0.5*len(X_samp)))
         #cmap = plt.cm.BuPu
         cmap = 'Blues'
-        axs.hexbin(X_samp,Y_samp,gridsize=bins2D, cmap=cmap)
+        axs.hexbin(X_samp,Y_samp,gridsize=bins2D,cmap=cmap)
 
         # Default is no weights.
         X_weights = None
@@ -318,8 +326,8 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
     divider = make_axes_locatable(axs)
 
     # below height and pad are in inches
-    ax_histx = divider.append_axes("top", 2, pad=0.2, sharex=axs)
-    ax_histy = divider.append_axes("right", 2, pad=0.2, sharey=axs)
+    ax_histx = divider.append_axes("top",2,pad=0.2,sharex=axs)
+    ax_histy = divider.append_axes("right",2,pad=0.2,sharey=axs)
 
     # make some labels invisible
     ax_histx.xaxis.set_tick_params(labelbottom=False)
@@ -327,14 +335,16 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
 
     if kwargs:
         ax_histx.hist(X_samp,bins=bins1D,density=True,weights=X_weights,
-            label=pxlab,**kwargs)
-        ax_histy.hist(Y_samp,bins=bins1D,density=True,weights=Y_weights,orientation='horizontal',
-            label=pylab,**kwargs)
+                      label=pxlab,**kwargs)
+        ax_histy.hist(Y_samp,bins=bins1D,density=True,weights=Y_weights,
+                      orientation='horizontal',label=pylab,**kwargs)
     else:
         ax_histx.hist(X_samp,bins=bins1D,density=True,weights=X_weights,
-            histtype='stepfilled',alpha=0.5,align='mid',edgecolor='k',label=pxlab,)
-        ax_histy.hist(Y_samp,bins=bins1D,density=True,weights=Y_weights,orientation='horizontal',
-            histtype='stepfilled',alpha=0.5,align='mid',edgecolor='k',label=pylab,)
+                      histtype='stepfilled',alpha=0.5,align='mid',edgecolor='k',
+                      label=pxlab,)
+        ax_histy.hist(Y_samp,bins=bins1D,density=True,weights=Y_weights,
+                      orientation='horizontal',histtype='stepfilled',
+                      alpha=0.5,align='mid',edgecolor='k',label=pylab,)
 
     ax_histx.legend(fontsize=18)
     ax_histy.legend(fontsize=18)    
@@ -344,8 +354,9 @@ def Scatter_hist2D(X_samp,Y_samp,weights_arr=None,figaxs=None,figsize=(11, 10),
 
     plt.show()
 
-def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10),
-                              pxlab=None,pylab=None,logcond=False,filename=None,**kwargs):
+def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11,10),
+                              pxlab=None,pylab=None,logcond=False,filename=None,
+                              **kwargs):
     """
     Plot 2D joint KDE distribution, and the 1D marginal distributions.
 
@@ -381,25 +392,23 @@ def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10),
     """
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-
     if figaxs:
-        fig = figaxs[0]
+        _ = figaxs[0]
         axs = figaxs[1]
     else:
-        fig, axs = plt.subplots(1, figsize = figsize, dpi=75)
+        _,axs = plt.subplots(1,figsize=figsize,dpi=75)
 
     if logcond:
         # If log scale is true. This can have some weird 2D plotting results.
-        cfset = axs.contourf(xx, yy, np.log10(pxy), cmap='Blues')
-        cset = axs.contour(xx, yy, np.log10(pxy), colors='k')
-        axs.clabel(cset, inline=1, fontsize=10)
+        cfset = axs.contourf(xx,yy,np.log10(pxy),cmap='Blues')
+        cset = axs.contour(xx,yy,np.log10(pxy),colors='k')
+        axs.clabel(cset,inline=1,fontsize=10)
     else:
-        cfset = axs.contourf(xx, yy, pxy, cmap='Blues')
-        cset = axs.contour(xx, yy, pxy, colors='k')
-        axs.clabel(cset, inline=1, fontsize=10)
+        cfset = axs.contourf(xx,yy,pxy,cmap='Blues')
+        cset = axs.contour(xx,yy,pxy,colors='k')
+        axs.clabel(cset,inline=1,fontsize=10)
 
     # Selecting 2D plotting method:
-    
     axs.set_xlabel(r'$X$',fontsize=18)
     axs.set_ylabel(r'$Y$',fontsize=18)
 
@@ -410,19 +419,19 @@ def Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,figaxs=None,figsize=(11, 10),
     divider = make_axes_locatable(axs)
 
     # below height and pad are in inches
-    ax_histx = divider.append_axes("top", 2, pad=0.2, sharex=axs)
-    ax_histy = divider.append_axes("right", 2, pad=0.2, sharey=axs)
+    ax_histx = divider.append_axes("top",2,pad=0.2,sharex=axs)
+    ax_histy = divider.append_axes("right",2,pad=0.2,sharey=axs)
 
     # make some labels invisible
     ax_histx.xaxis.set_tick_params(labelbottom=False)
     ax_histy.yaxis.set_tick_params(labelleft=False)
 
     if kwargs:
-        ax_histx.plot(x, px,label=pxlab,**kwargs)
-        ax_histy.plot(py, y,label=pylab,**kwargs)
+        ax_histx.plot(x,px,label=pxlab,**kwargs)
+        ax_histy.plot(py,y,label=pylab,**kwargs)
     else:
-        ax_histx.plot(x, px,label=pxlab, lw=2)
-        ax_histy.plot(py, y,label=pylab, lw=2)
+        ax_histx.plot(x,px,label=pxlab,lw=2)
+        ax_histy.plot(py,y,label=pylab,lw=2)
 
     ax_histx.set_ylabel(r'$p_X(x)$',fontsize=18)
     ax_histy.set_xlabel(r'$p_Y(y)$',fontsize=18)
@@ -460,8 +469,9 @@ class MI_metric:
         Calculate the normalised mutual information.
     information_quality_ratio(diff_ent_x,diff_ent_y,diff_ent_xy)
         Calculate the information quality ratio.
-    calc_spherical_MI(dataX_shell,dataY_shell,dataX_weights=None,dataY_weights=None,
-                      plot_cond=False,bw='scott',std_fac=0.01,nside=1000)
+    calc_spherical_MI(dataX_shell,dataY_shell,dataX_weights=None,
+                      dataY_weights=None,plot_cond=False,bw='scott',
+                      std_fac=0.01,nside=1000)
     """
 
     @staticmethod
@@ -551,8 +561,8 @@ class MI_metric:
     @staticmethod
     def normalised_mutual_information(diff_ent_x,diff_ent_y,diff_ent_xy):
         """
-        Analogous to Pearson's correlation coefficient. Returns the normalised mutual 
-        information.
+        Analogous to Pearson's correlation coefficient. Returns the normalised 
+        mutual information.
 
         Parameters
         ----------
@@ -572,8 +582,8 @@ class MI_metric:
     @staticmethod
     def information_quality_ratio(diff_ent_x,diff_ent_y,diff_ent_xy):
         """
-        Quantifies the amount of information of a variable based on another variable against
-        the total uncertainty H(X,Y).
+        Quantifies the amount of information of a variable based on another 
+        variable against the total uncertainty H(X,Y).
 
         Parameters
         ----------
@@ -590,8 +600,9 @@ class MI_metric:
         MI = MI_metric.mutual_information(diff_ent_x,diff_ent_y,diff_ent_xy)
         return MI/diff_ent_xy
     
-    def calc_KDE_MI(dataX_shell,dataY_shell,dataX_weights=None,dataY_weights=None,
-                      plot_cond=False,bw='scott',std_fac=0.01,nside=1000):
+    def calc_KDE_MI(dataX_shell,dataY_shell,dataX_weights=None,
+                    dataY_weights=None,plot_cond=False,bw='scott',std_fac=0.01,
+                    nside=1000):
         """
         Calculate the spherical mutual information from two input 3D data arrays.
 
@@ -608,17 +619,20 @@ class MI_metric:
         plot_cond : bool, default=False
             If true plot the marginal distribution.
         bw : str, default='scott'
-            KDE bandwidth estimation method, options are 'silverman', 'ISJ', and 'scott'.
+            KDE bandwidth estimation method, options are 'silverman', 'ISJ', and 
+            'scott'.
         std_fac : float, default=0.01
             Padding for the X and Y grid values.
         nside : int, default=1000
-            Grid size, reduce this to decrease computation at the expense of accuracy.
+            Grid size, reduce this to decrease computation at the expense of 
+            accuracy.
         
 
         Returns
         -------
         MI_temp : float
-            Mutual information of the two spherical shells dataX_shell and dataY_shell.
+            Mutual information of the two spherical shells dataX_shell and 
+            dataY_shell.
         """
         if dataX_shell.size != dataY_shell.size:
             # Shells should have the same number of data points.
@@ -696,8 +710,9 @@ class MI_metric:
 
             figaxs = (fig,axs)
 
-            Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,pxlab='data1',pylab='data2',
-                figaxs=figaxs,lw=2.5,logcond=False,filename=file_path)
+            Plot_joint_marginal_dists(xx,yy,x,y,pxy,px,py,pxlab='data1',
+                                      pylab='data2',figaxs=figaxs,lw=2.5,
+                                      logcond=False,filename=file_path)
 
         # Calculate the differential entropy for the X, Y and XY distributions.
         diff_ent_X = MI_metric.diff_ent_1D(px,dx)
